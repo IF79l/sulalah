@@ -168,7 +168,7 @@ export default function HomePage() {
                   <Icon name="add" className="text-[1rem]" />
                 </span>
                 <span className="grid gap-0.5 text-caption">
-                  <span className="font-semibold text-ink">سعود أضاف «العنود» بنت ماجد</span>
+                  <span className="font-semibold text-ink">سعود أضاف "العنود" بنت ماجد</span>
                   <span className="text-pending">بانتظار اعتمادك</span>
                 </span>
               </div>
@@ -219,7 +219,7 @@ export default function HomePage() {
           <ul className="grid w-full max-w-4xl gap-px overflow-hidden rounded-2xl border border-gold-light/20 bg-gold-light/15 sm:grid-cols-3">
             {[
               ['all_inclusive', 'أجيال بلا حد', 'من الجد المؤسس إلى أصغر حفيد'],
-              ['search', 'بحث يفهم العربية', 'يلقى «أحمد» لو كتبت «احمد»'],
+              ['search', 'بحث يفهم العربية', 'يلقى "أحمد" لو كتبت "احمد"'],
               ['smartphone', 'مصممة للجوال', 'تكبير وتنقل بين الأغصان بلمسة'],
             ].map(([icon, title, body], i) => (
               <li

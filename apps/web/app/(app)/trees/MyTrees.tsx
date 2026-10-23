@@ -288,7 +288,8 @@ export function MyTrees() {
 
               <figure className="relative overflow-hidden rounded-2xl bg-forest p-5 text-ivory shadow-sm">
                 <blockquote className="mb-3 text-body-lg leading-relaxed text-ivory-deep">
-                  «تَعَلَّمُوا مِنْ أَنْسَابِكُمْ مَا تَصِلُونَ بِهِ أَرْحَامَكُمْ»
+                  "تَعَلَّمُوا مِنْ أَنْسَابِكُمْ مَا تَصِلُونَ بِهِ أَرْحَامَكُمْ؛ فَإِنَّ صِلَةَ
+                  الرَّحِمِ مَحَبَّةٌ فِي الأَهْلِ، مَثْرَاةٌ فِي الْمَالِ، مَنْسَأَةٌ فِي الأَثَرِ"
                 </blockquote>
                 <figcaption className="text-caption text-olive-soft">
                   حديث شريف، رواه الترمذي

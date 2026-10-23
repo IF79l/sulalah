@@ -266,7 +266,7 @@ export function fromCsv(text: string): { people: TreeFilePerson[]; rootId?: stri
   if (!rows.length) return { people: [], issues: [{ line: 1, message: 'الملف فاضي' }] };
 
   const header = rows[0]!.map((h) => headerAliases[h.trim().toLowerCase()] ?? headerAliases[h.trim()]);
-  if (!header.includes('name')) return { people: [], issues: [{ line: 1, message: 'ما لقينا عمود «الاسم»' }] };
+  if (!header.includes('name')) return { people: [], issues: [{ line: 1, message: 'ما لقينا عمود "الاسم"' }] };
   const at = (row: string[], col: Column) => {
     const i = header.indexOf(col);
     return i >= 0 ? (row[i] ?? '').trim() : '';

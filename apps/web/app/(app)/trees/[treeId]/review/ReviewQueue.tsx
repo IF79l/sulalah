@@ -110,7 +110,7 @@ export function ReviewQueue() {
                       </Chip>
                     ))}
                   </div>
-                  {x.note ? <p className="text-caption text-muted">ملاحظتك: «{x.note}»</p> : null}
+                  {x.note ? <p className="text-caption text-muted">ملاحظتك: "{x.note}"</p> : null}
                   <div className="flex flex-wrap gap-2 pt-1">
                     {tab === 'pending' ? (
                       <Link

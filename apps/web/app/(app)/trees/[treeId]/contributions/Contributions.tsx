@@ -170,7 +170,7 @@ export function Contributions() {
                 />
                 {x.note ? (
                   <blockquote className="border-s-4 border-gold-light bg-surface-low px-4 py-2.5 text-body text-ink-soft">
-                    «{x.note}»
+                    "{x.note}"
                   </blockquote>
                 ) : null}
                 <div className="flex flex-wrap gap-3 text-caption font-semibold">

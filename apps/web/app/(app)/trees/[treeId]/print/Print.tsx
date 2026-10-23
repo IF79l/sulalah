@@ -84,7 +84,7 @@ export function Print() {
             </label>
             <Check
               label="أسماء البنات"
-              hint="إذا أطفأته تُطبع ورقة باسم «ابنة»."
+              hint={'إذا أطفأته تُطبع ورقة باسم "ابنة".'}
               on={daughters}
               onChange={setDaughters}
             />
@@ -95,7 +95,7 @@ export function Print() {
               onChange={setDeceased}
             />
             <p className="rounded-xl bg-surface-low p-3 text-caption leading-relaxed text-ink-soft">
-              في نافذة الطباعة اختر «حفظ كـ PDF» لتنزيل الملف، واختر الحجم نفسه وبدون هوامش.
+              في نافذة الطباعة اختر "حفظ كـ PDF" لتنزيل الملف، واختر الحجم نفسه وبدون هوامش.
             </p>
           </div>
         </Panel>

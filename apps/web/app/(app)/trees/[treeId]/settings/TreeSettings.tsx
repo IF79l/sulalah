@@ -124,13 +124,15 @@ export function TreeSettings() {
           </div>
           <Toggle
             label="إظهار أسماء البنات للزوار"
-            hint="إذا أطفأته، تظهر للزوار ورقة باسم «ابنة» بدل الاسم. أهل الشجرة يشوفون الأسماء دائمًا."
+            hint={
+              'إذا أطفأته، تظهر للزوار ورقة باسم "ابنة" بدل الاسم. أهل الشجرة يشوفون الأسماء دائمًا.'
+            }
             on={s.settings.showDaughtersToVisitors}
             onChange={(v) => set({ showDaughtersToVisitors: v })}
           />
           <Toggle
             label="إظهار المتوفين"
-            hint="يظهرون بلون ذابل مع «رحمه الله»."
+            hint={'يظهرون بلون ذابل مع "رحمه الله".'}
             on={s.settings.showDeceased}
             onChange={(v) => set({ showDeceased: v })}
           />
@@ -264,7 +266,7 @@ export function TreeSettings() {
             {deleting ? (
               <div className="grid animate-rise gap-2 rounded-xl border border-danger/30 bg-danger-soft p-4">
                 <Field
-                  label={`اكتب «${s.tree.title}» للتأكيد`}
+                  label={`اكتب "${s.tree.title}" للتأكيد`}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                 />
