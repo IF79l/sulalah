@@ -4,14 +4,21 @@ import type { LineagePerson } from '@sulalah/tree-engine';
 import { Button, Chip, Icon, IconButton, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import type { Viewer } from '@sulalah/domain';
+import { useEffect, useMemo, useState } from 'react';
+import { RoleSwitcher } from '@/components/RoleSwitcher';
+import { StatePage } from '@/components/States';
 import { TreeExplorer } from '@/components/TreeExplorer';
 import {
   TREE_ID,
+  actAs,
+  actingName,
+  allows,
   byId,
+  canAddUnder,
+  canReview,
   childrenOf,
-  inBranch,
-  myName,
+  demoReviewer,
   newId,
   num,
   update,
@@ -26,17 +33,44 @@ export type TreeMode = 'owner' | 'contribute' | 'visitor' | 'reviewer';
 
 const t = (p = '') => `/trees/${TREE_ID}${p}`;
 
-/** The reviewer the demo signs in as, with his assigned branch. */
-const DEMO_REVIEWER = { name: 'سالم بن متروك', scope: 'matrouk' };
+const viewerOf: Record<TreeMode, Viewer> = {
+  owner: 'owner',
+  contribute: 'contributor',
+  visitor: 'visitor',
+  reviewer: 'reviewer',
+};
+const modeOf: Record<Viewer, TreeMode> = {
+  owner: 'owner',
+  contributor: 'contribute',
+  visitor: 'visitor',
+  reviewer: 'reviewer',
+};
 
 /**
  * S07 and the screens that live on the tree: adding and editing people (S09), contribution
  * mode (S14), reviewing a submission on the tree (S17) and the share sheet (S21).
  */
-export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; reviewId?: string; focusId?: string }) {
+export function TreeScreen({
+  as,
+  reviewId,
+  focusId,
+}: {
+  as?: TreeMode;
+  reviewId?: string;
+  focusId?: string;
+}) {
   const s = useDemo();
+  // A link with `?as=` opens the tree as that role, and the role sticks for the other pages.
+  useEffect(() => {
+    if (as) actAs(viewerOf[as]);
+  }, [as]);
+  const mode: TreeMode = as && s.as !== viewerOf[as] ? as : modeOf[s.as];
   const router = useRouter();
-  const [form, setForm] = useState<{ father: Person; gender: 'male' | 'female'; editing?: Person } | null>(null);
+  const [form, setForm] = useState<{
+    father: Person;
+    gender: 'male' | 'female';
+    editing?: Person;
+  } | null>(null);
   const [sharing, setSharing] = useState(false);
   const [flash, setFlash] = useState<{ text: string; n: number }>();
   const [current, setCurrent] = useState<LineagePerson | null>(null);
@@ -45,7 +79,10 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
   const contributing = mode === 'contribute';
   const visitor = mode === 'visitor';
   const branch = contributing ? s.myBranch : undefined;
-  const actor = mode === 'reviewer' ? DEMO_REVIEWER.name : myName(s);
+  const actor = actingName(s);
+  const owner = allows(s, { type: 'person.edit' });
+  /** Whether an addition under `fatherId` goes in straight away or waits on review. */
+  const direct = (fatherId: string) => owner || (mode === 'reviewer' && canReview(s, fatherId));
 
   // What a visitor sees follows the privacy settings.
   const people = useMemo(() => {
@@ -54,10 +91,15 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
     return s.people
       .filter((p) => p.status === 'approved')
       .filter((p) => s.settings.showDeceased || !p.deceased || parents.has(p.id))
-      .map((p) => (p.gender === 'female' && !s.settings.showDaughtersToVisitors ? { ...p, name: 'ابنة' } : p));
+      .map((p) =>
+        p.gender === 'female' && !s.settings.showDaughtersToVisitors ? { ...p, name: 'ابنة' } : p,
+      );
   }, [s.people, s.settings, visitor]);
 
-  const submission = reviewId ? s.submissions.find((x) => x.id === reviewId) : undefined;
+  const submission =
+    reviewId && allows(s, { type: 'review.view' })
+      ? s.submissions.find((x) => x.id === reviewId)
+      : undefined;
   const pendingSubs = s.submissions.filter((x) => x.status === 'pending');
   const nextSub = pendingSubs.find((x) => x.id !== reviewId)?.id;
   const [start] = useState(() => ({ id: submission?.fatherId ?? focusId ?? branch ?? null, n: 1 }));
@@ -69,13 +111,24 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
       update((st) => ({
         ...st,
         people: st.people.map((p) => (p.id === editing.id ? { ...p, ...d } : p)),
-        log: [{ id: newId('l'), who: actor, action: 'edit', text: `عدّل بيانات ${d.name}`, personId: editing.id, at: 'الآن' }, ...st.log],
+        log: [
+          {
+            id: newId('l'),
+            who: actor,
+            action: 'edit',
+            text: `عدّل بيانات ${d.name}`,
+            personId: editing.id,
+            at: 'الآن',
+          },
+          ...st.log,
+        ],
       }));
       say('حفظنا التعديل');
       setForm(null);
       return;
     }
     const id = newId('p');
+    const pending = !direct(father.id);
     update((st) => ({
       ...st,
       people: [
@@ -84,16 +137,26 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
           id,
           ...d,
           fatherId: father.id,
-          status: contributing ? 'proposed' : 'approved',
+          status: pending ? 'proposed' : 'approved',
           addedBy: actor,
           addedAt: 'الآن',
-          ...(contributing ? {} : { approvedBy: actor }),
+          ...(pending ? {} : { approvedBy: actor }),
         },
       ],
-      drafts: contributing ? [...st.drafts, id] : st.drafts,
-      log: contributing
+      drafts: pending ? [...st.drafts, id] : st.drafts,
+      log: pending
         ? st.log
-        : [{ id: newId('l'), who: actor, action: 'add', text: `أضاف ${d.name} تحت ${father.name}`, personId: father.id, at: 'الآن' }, ...st.log],
+        : [
+            {
+              id: newId('l'),
+              who: actor,
+              action: 'add',
+              text: `أضاف ${d.name} تحت ${father.name}`,
+              personId: father.id,
+              at: 'الآن',
+            },
+            ...st.log,
+          ],
     }));
   };
 
@@ -103,7 +166,17 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
       ...st,
       people: st.people.filter((x) => x.id !== p.id),
       drafts: st.drafts.filter((x) => x !== p.id),
-      log: [{ id: newId('l'), who: actor, action: 'delete', text: `حذف ${p.name}`, personId: p.fatherId ?? undefined, at: 'الآن' }, ...st.log],
+      log: [
+        {
+          id: newId('l'),
+          who: actor,
+          action: 'delete',
+          text: `حذف ${p.name}`,
+          personId: p.fatherId ?? undefined,
+          at: 'الآن',
+        },
+        ...st.log,
+      ],
     }));
     setForm(null);
     setUndo({ text: `حذفنا ${p.name}`, run: () => update((st) => ({ ...st, people: before })) });
@@ -117,21 +190,38 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
       ...st,
       people: st.people.map((p) => (st.drafts.includes(p.id) ? { ...p, submissionId: sub } : p)),
       submissions: [
-        { id: sub, contributor: myName(st), fatherId, personIds: st.drafts, at: 'الآن', status: 'pending' },
+        {
+          id: sub,
+          contributor: actingName(st),
+          fatherId,
+          personIds: st.drafts,
+          at: 'الآن',
+          status: 'pending',
+        },
         ...st.submissions,
       ],
       notices: [
         {
           id: newId('n'),
           icon: 'person_add',
-          text: `أرسل ${myName(st)} ${st.drafts.length} إضافات لغصن ${m.get(fatherId)?.name ?? ''}`,
+          text: `أرسل ${actingName(st)} ${st.drafts.length} إضافات لغصن ${m.get(fatherId)?.name ?? ''}`,
           at: 'الآن',
           unread: true,
           href: t('/review'),
         },
         ...st.notices,
       ],
-      log: [{ id: newId('l'), who: myName(st), action: 'add', text: `أرسل ${st.drafts.length} إضافات للاعتماد`, personId: fatherId, at: 'الآن' }, ...st.log],
+      log: [
+        {
+          id: newId('l'),
+          who: actingName(st),
+          action: 'add',
+          text: `أرسل ${st.drafts.length} إضافات للاعتماد`,
+          personId: fatherId,
+          at: 'الآن',
+        },
+        ...st.log,
+      ],
       drafts: [],
     }));
     say('أرسلناها للاعتماد. تظهر خضراء أول ما تُعتمد');
@@ -157,13 +247,13 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
           <Icon name="inventory_2" />
           <span className="max-sm:hidden">مساهماتي</span>
           <span className="rounded-full bg-surface-high px-1.5 text-caption">
-            {num(s.submissions.filter((x) => x.contributor === myName(s)).length)}
+            {num(s.submissions.filter((x) => x.contributor === actingName(s)).length)}
           </span>
         </Link>
       </>
     );
   } else {
-    const waiting = pendingSubs.length;
+    const waiting = pendingSubs.filter((x) => canReview(s, x.fatherId)).length;
     headerEnd = (
       <>
         <Link
@@ -178,15 +268,23 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
             </span>
           ) : null}
         </Link>
-        <Link
-          href={t('/settings')}
-          aria-label="إعدادات الشجرة"
-          className="flex size-10 items-center justify-center rounded-full text-forest hover:bg-surface max-sm:hidden"
-        >
-          <Icon name="more_horiz" />
-        </Link>
+        {owner ? (
+          <Link
+            href={t('/settings')}
+            aria-label="إعدادات الشجرة"
+            className="flex size-10 items-center justify-center rounded-full text-forest hover:bg-surface max-sm:hidden"
+          >
+            <Icon name="more_horiz" />
+          </Link>
+        ) : null}
         <span className="mx-1 hidden h-6 w-px bg-line/50 sm:block" />
-        <Button size="sm" className="rounded-xl" onClick={() => setForm({ father: (current as Person) ?? m.get(s.tree.rootId)!, gender: 'male' })}>
+        <Button
+          size="sm"
+          className="rounded-xl"
+          onClick={() =>
+            setForm({ father: (current as Person) ?? m.get(s.tree.rootId)!, gender: 'male' })
+          }
+        >
           <Icon name="person_add" />
           <span className="hidden sm:inline">إضافة فرد</span>
         </Button>
@@ -201,7 +299,7 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
       gender={form.gender}
       editing={form.editing}
       siblings={childrenOf(s.people, form.father.id)}
-      contributor={contributing}
+      contributor={!form.editing && !direct(form.father.id)}
       hasChildren={form.editing ? childrenOf(s.people, form.editing.id).length > 0 : false}
       onSave={(d) => save(form.father, form.editing, d)}
       onDelete={form.editing ? () => remove(form.editing!) : undefined}
@@ -215,23 +313,40 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
       submission={submission}
       people={s.people}
       reviewer={actor}
-      outOfScope={mode === 'reviewer' && !inBranch(s.people, submission.fatherId, DEMO_REVIEWER.scope)}
+      outOfScope={!canReview(s, submission.fatherId)}
       nextId={nextSub}
       onDone={say}
       onClose={() => router.replace(t())}
     />
   ) : undefined;
 
-  const note = contributing && !branch ? (
-    <span>
-      ما اخترت غصنك بعد.{' '}
-      <Link href={t('/join')} className="font-semibold text-forest underline">
-        اختر غصنك
-      </Link>
-    </span>
-  ) : mode === 'reviewer' ? (
-    `أنت مدقق لغصن ${m.get(DEMO_REVIEWER.scope)?.name}`
-  ) : undefined;
+  const note =
+    contributing && !branch ? (
+      <span>
+        ما اخترت غصنك بعد.{' '}
+        <Link href={t('/join')} className="font-semibold text-forest underline">
+          اختر غصنك
+        </Link>
+      </span>
+    ) : mode === 'reviewer' ? (
+      (() => {
+        const r = demoReviewer(s);
+        return !r || r.scope === 'all'
+          ? 'أنت مدقق للشجرة كاملة'
+          : `أنت مدقق لغصن ${r.scope.map((id) => m.get(id)?.name).join(' وغصن ')}. إضافاتك خارجه تنتظر المالك.`;
+      })()
+    ) : undefined;
+
+  if (visitor && !allows(s, { type: 'tree.view' })) {
+    return (
+      <StatePage
+        icon="lock"
+        title="الشجرة مقفلة على أهلها"
+        body="المالك ما فتحها لروابط المشاهدة. يقدر يفتحها من إعدادات الخصوصية: «ومن معه رابط المشاهدة»."
+        action={<RoleSwitcher />}
+      />
+    );
+  }
 
   return (
     <>
@@ -242,10 +357,17 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
         ancestors={s.tree.ancestors}
         title={s.tree.title}
         back={visitor ? undefined : { href: contributing ? '/trees' : '/trees', label: 'أشجاري' }}
-        headerEnd={headerEnd}
+        headerEnd={
+          <>
+            <RoleSwitcher className="max-md:hidden" />
+            {headerEnd}
+          </>
+        }
         notice={note}
-        onAdd={visitor || mode === 'reviewer' ? undefined : (father, gender) => setForm({ father: father as Person, gender })}
-        canAdd={contributing ? (p) => !!branch && inBranch(s.people, p.id, branch) : undefined}
+        onAdd={
+          visitor ? undefined : (father, gender) => setForm({ father: father as Person, gender })
+        }
+        canAdd={owner ? undefined : (p) => canAddUnder(s, p.id)}
         addBlockedNote={
           contributing
             ? branch
@@ -255,15 +377,25 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
         }
         personActions={(p) => (
           <div className="flex flex-wrap gap-2">
-            <Link href={t(`/people/${p.id}`)} className={cn(buttonClass('quiet', 'sm'), 'rounded-xl')}>
+            <Link
+              href={t(`/people/${p.id}`)}
+              className={cn(buttonClass('quiet', 'sm'), 'rounded-xl')}
+            >
               <Icon name="badge" />
               الملف الشخصي
             </Link>
-            {!visitor && mode !== 'reviewer' && (!contributing || (p.status === 'proposed' && s.drafts.includes(p.id))) && p.id !== s.tree.rootId ? (
+            {(owner || (p.status === 'proposed' && s.drafts.includes(p.id))) &&
+            p.id !== s.tree.rootId ? (
               <button
                 type="button"
                 className={cn(buttonClass('quiet', 'sm'), 'rounded-xl')}
-                onClick={() => setForm({ father: m.get(p.fatherId ?? '') ?? m.get(s.tree.rootId)!, gender: p.gender, editing: p as Person })}
+                onClick={() =>
+                  setForm({
+                    father: m.get(p.fatherId ?? '') ?? m.get(s.tree.rootId)!,
+                    gender: p.gender,
+                    editing: p as Person,
+                  })
+                }
               >
                 <Icon name="edit" />
                 تعديل
@@ -280,16 +412,22 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
             setForm(null);
           }
         }}
-        onShare={visitor ? undefined : () => setSharing(true)}
-        pendingHref={t('/review')}
+        onShare={allows(s, { type: 'invite.manage' }) ? () => setSharing(true) : undefined}
+        pendingHref={allows(s, { type: 'review.view' }) ? t('/review') : undefined}
         flash={flash}
       />
 
-      {contributing && drafts.length ? (
+      <RoleSwitcher
+        up
+        className="fixed end-3 bottom-[calc(96px+env(safe-area-inset-bottom,0px))] z-30 md:hidden"
+      />
+
+      {!visitor && drafts.length ? (
         <div className="fixed inset-x-0 bottom-[calc(76px+env(safe-area-inset-bottom,0px))] z-30 mx-auto flex w-fit max-w-[calc(100vw-2rem)] animate-rise items-center gap-3 rounded-2xl border border-pending/40 bg-card py-2 ps-4 pe-2 shadow-float">
           <span className="flex items-center gap-2 text-body font-semibold text-pending">
             <Icon name="edit_note" />
-            {num(drafts.length)} {drafts.length > 2 ? 'إضافات' : drafts.length === 2 ? 'إضافتان' : 'إضافة'} لم تُرسل
+            {num(drafts.length)}{' '}
+            {drafts.length > 2 ? 'إضافات' : drafts.length === 2 ? 'إضافتان' : 'إضافة'} لم تُرسل
           </span>
           <Button size="sm" className="rounded-xl" onClick={sendDrafts}>
             أرسلها للاعتماد

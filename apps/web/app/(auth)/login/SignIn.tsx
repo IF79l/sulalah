@@ -133,7 +133,14 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
                   )}
                 </Button>
                 <p className="border-t border-line/30 pt-4 text-center text-caption leading-relaxed text-muted">
-                  بالمتابعة توافق على شروط الاستخدام وسياسة الخصوصية
+                  بالمتابعة توافق على{' '}
+                  <Link href="/terms" className="font-semibold text-olive hover:underline">
+                    شروط الاستخدام
+                  </Link>{' '}
+                  و
+                  <Link href="/privacy" className="font-semibold text-olive hover:underline">
+                    سياسة الخصوصية
+                  </Link>
                 </p>
               </form>
             ) : null}
@@ -147,7 +154,10 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
                   <h1 className="text-h2 font-bold text-forest">أدخل الرمز</h1>
                   <p className="text-body text-muted">
                     أرسلنا رمزًا من 6 أرقام إلى{' '}
-                    <span dir="ltr" className="inline-block font-semibold text-ink [unicode-bidi:isolate]">
+                    <span
+                      dir="ltr"
+                      className="inline-block font-semibold text-ink [unicode-bidi:isolate]"
+                    >
                       {`\u2066${shownPhone}\u2069`}
                     </span>
                   </p>

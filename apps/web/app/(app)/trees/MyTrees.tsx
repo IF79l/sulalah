@@ -2,7 +2,10 @@
 
 import { Chip, Icon, Logo, Medallion, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
-import { TREE_ID, generations, useDemo } from '@/lib/demo-store';
+import { RoleSwitcher } from '@/components/RoleSwitcher';
+import { StatePage } from '@/components/States';
+import { meets, type Need } from '@/components/AppShell';
+import { TREE_ID, canReview, generations, update, useDemo } from '@/lib/demo-store';
 
 type Role = 'owner' | 'reviewer' | 'contributor';
 
@@ -54,12 +57,34 @@ const roleLabel: Record<Role, string> = {
 
 const num = (n: number) => n.toLocaleString('en-US');
 
-const nav = [
+const allNav: {
+  icon: string;
+  label: string;
+  href: string;
+  active?: boolean;
+  badge?: number;
+  need?: Need;
+}[] = [
   { icon: 'account_tree', label: 'أشجاري', href: '/trees', active: true },
-  { icon: 'fact_check', label: 'الإضافات الواردة', badge: 3, href: '/trees/al-sahli/review' },
-  { icon: 'verified_user', label: 'المدققون', href: '/trees/al-sahli/reviewers' },
-  { icon: 'link', label: 'روابط الدعوة', href: '/trees/al-sahli/invites' },
-  { icon: 'settings', label: 'إعدادات الشجرة', href: '/trees/al-sahli/settings' },
+  {
+    icon: 'fact_check',
+    label: 'الإضافات الواردة',
+    href: '/trees/al-sahli/review',
+    need: 'review.view',
+  },
+  {
+    icon: 'verified_user',
+    label: 'المدققون',
+    href: '/trees/al-sahli/reviewers',
+    need: 'reviewer.invite',
+  },
+  { icon: 'link', label: 'روابط الدعوة', href: '/trees/al-sahli/invites', need: 'invite.manage' },
+  {
+    icon: 'settings',
+    label: 'إعدادات الشجرة',
+    href: '/trees/al-sahli/settings',
+    need: 'tree.manage',
+  },
 ];
 
 /** The trees the person belongs to; their own tree reads live from the demo store. */
@@ -70,14 +95,31 @@ export function MyTrees() {
     t.id === TREE_ID
       ? {
           ...t,
+          role: s.as === 'visitor' ? t.role : s.as,
           title: s.tree.title,
           note: `من الجد ${root?.name ?? ''} إلى أحفاد أحفاده.`,
           people: s.people.filter((p) => p.status === 'approved').length,
           generations: generations(s.people, s.tree.rootId),
-          pending: s.submissions.filter((x) => x.status === 'pending').length,
+          pending: s.submissions.filter((x) => x.status === 'pending' && canReview(s, x.fatherId))
+            .length,
         }
       : t,
   );
+  if (s.as === 'visitor')
+    return (
+      <StatePage
+        icon="login"
+        title="سجّل دخولك عشان تشوف أشجارك"
+        body="دخلت برابط مشاهدة، فتقدر تتصفح الشجرة اللي وصلتك بس."
+        action={<RoleSwitcher />}
+      />
+    );
+  const pending = s.submissions.filter(
+    (x) => x.status === 'pending' && canReview(s, x.fatherId),
+  ).length;
+  const nav = allNav
+    .filter((n) => meets(s, n.need))
+    .map((n) => (n.need === 'review.view' ? { ...n, badge: pending } : n));
   const total = trees.reduce((s, t) => s + t.people, 0);
   const waiting = trees.reduce((s, t) => s + t.pending, 0);
   return (
@@ -88,12 +130,20 @@ export function MyTrees() {
             <Logo />
           </Link>
           <div className="flex items-center gap-1">
-            <Link href="/notifications" aria-label="الإشعارات" className="relative flex size-10 items-center justify-center rounded-full text-forest hover:bg-surface">
+            <RoleSwitcher className="me-1" />
+            <Link
+              href="/notifications"
+              aria-label="الإشعارات"
+              className="relative flex size-10 items-center justify-center rounded-full text-forest hover:bg-surface"
+            >
               <Icon name="notifications" />
               <span className="absolute top-2 right-2 size-2.5 rounded-full bg-danger ring-2 ring-ivory" />
             </Link>
             <span className="mx-2 h-6 w-px bg-line/40" />
-            <Link href="/account" className="flex items-center gap-2 rounded-full p-0.5 pe-3 hover:bg-surface">
+            <Link
+              href="/account"
+              className="flex items-center gap-2 rounded-full p-0.5 pe-3 hover:bg-surface"
+            >
               <Medallion name="فيصل" />
               <span className="hidden text-caption font-semibold text-forest sm:block">فيصل</span>
             </Link>
@@ -121,7 +171,12 @@ export function MyTrees() {
                   : 'text-ink-soft hover:bg-surface-high',
               );
               return n.href ? (
-                <Link key={n.label} href={n.href} className={cls} aria-current={n.active ? 'page' : undefined}>
+                <Link
+                  key={n.label}
+                  href={n.href}
+                  className={cls}
+                  aria-current={n.active ? 'page' : undefined}
+                >
                   {inner}
                 </Link>
               ) : (
@@ -175,41 +230,69 @@ export function MyTrees() {
                 </Link>
               </div>
 
-              <section className="rounded-2xl border border-line/30 bg-card p-4 shadow-xs">
-                <div className="mb-3 flex items-center justify-between border-b border-line/20 pb-3">
-                  <h2 className="flex items-center gap-1.5 text-title font-bold text-forest">
-                    <Icon name="mark_email_unread" className="text-olive" />
-                    دعوات وصلتك
-                  </h2>
-                  <Chip>1 جديدة</Chip>
-                </div>
-                <div className="grid gap-2 rounded-xl border border-gold-light/25 bg-surface-low p-3">
-                  <span className="text-body font-semibold text-forest">شجرة آل العبدالعزيز</span>
-                  <p className="text-caption text-muted">
-                    يدعوك سلطان العبدالعزيز لتضيف فرعك في الشجرة.
-                  </p>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Link
-                      href="/login?invite=al-abdulaziz"
-                      className={cn(buttonClass('primary', 'sm'), 'flex-1 rounded-lg')}
-                    >
-                      اقبل الدعوة
-                    </Link>
-                    <button
-                      type="button"
-                      className={cn(buttonClass('ghost', 'sm'), 'rounded-lg text-danger')}
-                    >
-                      تجاهل
-                    </button>
+              {s.ignoredInvites?.includes('al-abdulaziz') ? (
+                <p className="flex items-center justify-between gap-2 rounded-2xl border border-dashed border-line/60 px-4 py-3 text-caption text-muted">
+                  تجاهلت دعوة شجرة آل العبدالعزيز.
+                  <button
+                    type="button"
+                    className="font-semibold text-olive hover:underline"
+                    onClick={() =>
+                      update((st) => ({
+                        ...st,
+                        ignoredInvites: (st.ignoredInvites ?? []).filter(
+                          (x) => x !== 'al-abdulaziz',
+                        ),
+                      }))
+                    }
+                  >
+                    تراجع
+                  </button>
+                </p>
+              ) : (
+                <section className="rounded-2xl border border-line/30 bg-card p-4 shadow-xs">
+                  <div className="mb-3 flex items-center justify-between border-b border-line/20 pb-3">
+                    <h2 className="flex items-center gap-1.5 text-title font-bold text-forest">
+                      <Icon name="mark_email_unread" className="text-olive" />
+                      دعوات وصلتك
+                    </h2>
+                    <Chip>1 جديدة</Chip>
                   </div>
-                </div>
-              </section>
+                  <div className="grid gap-2 rounded-xl border border-gold-light/25 bg-surface-low p-3">
+                    <span className="text-body font-semibold text-forest">شجرة آل العبدالعزيز</span>
+                    <p className="text-caption text-muted">
+                      يدعوك سلطان العبدالعزيز لتضيف فرعك في الشجرة.
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Link
+                        href="/login?invite=al-abdulaziz"
+                        className={cn(buttonClass('primary', 'sm'), 'flex-1 rounded-lg')}
+                      >
+                        اقبل الدعوة
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          update((st) => ({
+                            ...st,
+                            ignoredInvites: [...(st.ignoredInvites ?? []), 'al-abdulaziz'],
+                          }))
+                        }
+                        className={cn(buttonClass('ghost', 'sm'), 'rounded-lg text-danger')}
+                      >
+                        تجاهل
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
 
               <figure className="relative overflow-hidden rounded-2xl bg-forest p-5 text-ivory shadow-sm">
                 <blockquote className="mb-3 text-body-lg leading-relaxed text-ivory-deep">
                   «تَعَلَّمُوا مِنْ أَنْسَابِكُمْ مَا تَصِلُونَ بِهِ أَرْحَامَكُمْ»
                 </blockquote>
-                <figcaption className="text-caption text-olive-soft">حديث شريف، رواه الترمذي</figcaption>
+                <figcaption className="text-caption text-olive-soft">
+                  حديث شريف، رواه الترمذي
+                </figcaption>
               </figure>
             </div>
           </div>
@@ -250,7 +333,9 @@ function TreeCardView({ tree: t }: { tree: TreeCard }) {
           <span
             className={cn(
               'flex size-16 shrink-0 items-center justify-center rounded-2xl border-2',
-              owner ? 'border-gold-light/60 bg-ivory text-leaf' : 'border-line/40 bg-surface-low text-olive',
+              owner
+                ? 'border-gold-light/60 bg-ivory text-leaf'
+                : 'border-line/40 bg-surface-low text-olive',
             )}
           >
             <Icon name={owner ? 'nature_people' : 'park'} className="text-[2rem]" />

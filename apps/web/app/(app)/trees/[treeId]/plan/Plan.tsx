@@ -5,13 +5,7 @@ import { Button, Chip, Icon, cn } from '@sulalah/ui';
 import { useState } from 'react';
 import { AppShell, Panel } from '@/components/AppShell';
 import { PlanArt } from '@/components/home/PlanArt';
-import {
-  lineage,
-  num,
-  planName,
-  update,
-  useDemo,
-} from '@/lib/demo-store';
+import { num, planName, update, useDemo } from '@/lib/demo-store';
 
 const order: PlanId[] = ['family', 'extended', 'tribe'];
 
@@ -26,7 +20,13 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
         </span>
       </div>
       <div className="h-3 overflow-hidden rounded-full bg-surface-high">
-        <div className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-danger' : pct >= 90 ? 'bg-pending' : 'bg-olive')} style={{ width: `${pct}%` }} />
+        <div
+          className={cn(
+            'h-full rounded-full transition-all',
+            pct >= 100 ? 'bg-danger' : pct >= 90 ? 'bg-pending' : 'bg-olive',
+          )}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
@@ -37,18 +37,28 @@ export function Plan() {
   const s = useDemo();
   // Preview the limit banners against the smallest plan.
   const [preview, setPreview] = useState<'real' | 'near' | 'full'>('real');
-  const used = preview === 'near' ? 46 : preview === 'full' ? 50 : lineage(s.people, s.tree.rootId).length;
+  const used =
+    preview === 'near'
+      ? 46
+      : preview === 'full'
+        ? 50
+        : s.people.filter((p) => p.status === 'approved').length;
   const plan = preview === 'real' ? s.plan : 'family';
   const l = defaultPlanLimits[plan];
   const pct = used / l.maxPersons;
 
   return (
-    <AppShell title="الباقة" subtitle="المالك وحده يشترك، والأقارب يدخلون مجانًا.">
+    <AppShell
+      need="billing.manage"
+      title="الباقة"
+      subtitle="المالك وحده يشترك، والأقارب يدخلون مجانًا."
+    >
       <div className="grid gap-6">
         {pct >= 1 ? (
           <p className="flex items-start gap-2 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-body text-danger">
             <Icon name="block" className="mt-0.5" />
-            وصلت شجرتك إلى {num(l.maxPersons)} فردًا. الإضافات الجديدة متوقفة حتى الترقية، والشجرة نفسها محفوظة.
+            وصلت شجرتك إلى {num(l.maxPersons)} فردًا. الإضافات الجديدة متوقفة حتى الترقية، والشجرة
+            نفسها محفوظة.
           </p>
         ) : pct >= 0.9 ? (
           <p className="flex items-start gap-2 rounded-2xl border border-pending/40 bg-pending-soft p-4 text-body text-pending">
@@ -77,7 +87,15 @@ export function Plan() {
             const higher = order.indexOf(id) > order.indexOf(plan);
             const asked = s.upgradeRequested === id;
             return (
-              <article key={id} className={cn('flex flex-col gap-4 rounded-2xl border p-5', current ? 'border-forest bg-olive-soft/25 ring-2 ring-forest/10' : 'border-line/40 bg-card')}>
+              <article
+                key={id}
+                className={cn(
+                  'flex flex-col gap-4 rounded-2xl border p-5',
+                  current
+                    ? 'border-forest bg-olive-soft/25 ring-2 ring-forest/10'
+                    : 'border-line/40 bg-card',
+                )}
+              >
                 <div className="flex items-center justify-between">
                   <h3 className="text-title font-bold text-forest">{planName[id]}</h3>
                   {current ? <Chip tone="forest">باقتك</Chip> : null}
@@ -86,7 +104,8 @@ export function Plan() {
                   <PlanArt plan={id} />
                 </div>
                 <p className="text-body text-ink-soft">
-                  حتى <strong className="text-forest">{num(lim.maxPersons)}</strong> فردًا، و{num(lim.maxReviewers)} {lim.maxReviewers === 1 ? 'مدقق مساعد' : 'مدققين مساعدين'}
+                  حتى <strong className="text-forest">{num(lim.maxPersons)}</strong> فردًا، و
+                  {num(lim.maxReviewers)} {lim.maxReviewers === 1 ? 'مدقق مساعد' : 'مدققين مساعدين'}
                 </p>
                 <p className="text-caption text-muted">السعر يُعلن عند الإطلاق</p>
                 {higher ? (
@@ -96,7 +115,10 @@ export function Plan() {
                       وصلنا طلبك، نتواصل معك خلال يوم.
                     </p>
                   ) : (
-                    <Button className="mt-auto rounded-xl" onClick={() => update((st) => ({ ...st, upgradeRequested: id }))}>
+                    <Button
+                      className="mt-auto rounded-xl"
+                      onClick={() => update((st) => ({ ...st, upgradeRequested: id }))}
+                    >
                       اطلب الترقية
                     </Button>
                   )
@@ -115,7 +137,15 @@ export function Plan() {
               ['full', 'وصل الحد'],
             ] as const
           ).map(([v, label]) => (
-            <button key={v} type="button" onClick={() => setPreview(v)} className={cn('rounded-full border px-3 py-1', preview === v ? 'border-forest bg-forest text-ivory' : 'border-line/60')}>
+            <button
+              key={v}
+              type="button"
+              onClick={() => setPreview(v)}
+              className={cn(
+                'rounded-full border px-3 py-1',
+                preview === v ? 'border-forest bg-forest text-ivory' : 'border-line/60',
+              )}
+            >
               {label}
             </button>
           ))}

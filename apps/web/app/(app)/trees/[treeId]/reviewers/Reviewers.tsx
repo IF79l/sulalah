@@ -3,11 +3,13 @@
 import { Button, Chip, Icon, IconButton, Medallion, Sheet, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useState } from 'react';
-import { AppShell, Toast } from '@/components/AppShell';
+import { permissionTable, viewerLabel, type Viewer } from '@sulalah/domain';
+import { AppShell, Panel, Toast } from '@/components/AppShell';
 import {
   TREE_ID,
   byId,
   childrenOf,
+  joinedMembers,
   myName,
   newId,
   num,
@@ -16,9 +18,6 @@ import {
   useDemo,
   type Reviewer,
 } from '@/lib/demo-store';
-
-// Relatives who already joined through an invite; only they can become reviewers.
-const members = ['سالم بن متروك', 'ماجد بن سالم', 'نواف بن سلطان', 'راكان بن فيصل', 'عمر بن تركي', 'بندر بن ناصر', 'خالد بن عبدالله'];
 
 /** S18: who reviews what, within the plan's seats. */
 export function Reviewers() {
@@ -32,6 +31,7 @@ export function Reviewers() {
 
   return (
     <AppShell
+      need="reviewer.invite"
       title="المدققون"
       subtitle="المدقق يعتمد الإضافات في الأغصان اللي تحددها له فقط. وأنت المدقق الرئيسي على الشجرة كاملة."
       actions={
@@ -55,7 +55,10 @@ export function Reviewers() {
           </span>
         </div>
         <div className="h-2.5 overflow-hidden rounded-full bg-surface-high">
-          <div className="h-full rounded-full bg-olive transition-all" style={{ width: `${(used / seats) * 100}%` }} />
+          <div
+            className="h-full rounded-full bg-olive transition-all"
+            style={{ width: `${(used / seats) * 100}%` }}
+          />
         </div>
       </div>
 
@@ -69,7 +72,10 @@ export function Reviewers() {
           <Chip tone="forest">الشجرة كاملة</Chip>
         </li>
         {s.reviewers.map((r) => (
-          <li key={r.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-line/40 bg-card p-4">
+          <li
+            key={r.id}
+            className="flex flex-wrap items-center gap-4 rounded-2xl border border-line/40 bg-card p-4"
+          >
             <Medallion name={r.name} />
             <div className="grid min-w-0 flex-1 gap-1">
               <span className="text-body font-semibold text-forest">{r.name}</span>
@@ -106,6 +112,8 @@ export function Reviewers() {
         ))}
       </ul>
 
+      <RoleTable />
+
       {editing ? (
         <ReviewerSheet
           reviewer={editing === 'new' ? undefined : editing}
@@ -114,7 +122,9 @@ export function Reviewers() {
           onSave={(r) => {
             update((st) => ({
               ...st,
-              reviewers: st.reviewers.some((x) => x.id === r.id) ? st.reviewers.map((x) => (x.id === r.id ? r : x)) : [...st.reviewers, r],
+              reviewers: st.reviewers.some((x) => x.id === r.id)
+                ? st.reviewers.map((x) => (x.id === r.id ? r : x))
+                : [...st.reviewers, r],
             }));
             setEditing(null);
             setToast(editing === 'new' ? `صار ${r.name} مدققًا` : 'حفظنا النطاق');
@@ -122,7 +132,13 @@ export function Reviewers() {
           branchName={(id) => m.get(id)?.name ?? ''}
           branches={childrenOf(s.people, s.tree.rootId)
             .filter((p) => p.gender === 'male')
-            .map((p) => ({ id: p.id, name: p.name, sons: childrenOf(s.people, p.id).filter((c) => c.gender === 'male').map((c) => ({ id: c.id, name: c.name })) }))}
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              sons: childrenOf(s.people, p.id)
+                .filter((c) => c.gender === 'male')
+                .map((c) => ({ id: c.id, name: c.name })),
+            }))}
         />
       ) : null}
       {toast ? <Toast text={toast} onDone={() => setToast(null)} /> : null}
@@ -147,18 +163,22 @@ function ReviewerSheet({
 }) {
   const [name, setName] = useState(reviewer?.name ?? '');
   const [all, setAll] = useState(reviewer?.scope === 'all');
-  const [picked, setPicked] = useState<Set<string>>(new Set(reviewer && reviewer.scope !== 'all' ? reviewer.scope : []));
+  const [picked, setPicked] = useState<Set<string>>(
+    new Set(reviewer && reviewer.scope !== 'all' ? reviewer.scope : []),
+  );
   const toggle = (id: string) => {
     const n = new Set(picked);
     if (n.has(id)) n.delete(id);
     else n.add(id);
     setPicked(n);
   };
-  const free = members.filter((x) => !taken.includes(x) || x === reviewer?.name);
+  const free = joinedMembers.filter((x) => !taken.includes(x) || x === reviewer?.name);
   return (
     <Sheet label={reviewer ? 'تعديل النطاق' : 'أضف مدققًا'}>
       <div className="flex items-center justify-between border-b border-line/25 bg-surface-low/60 px-4 py-2.5">
-        <span className="text-body font-semibold text-forest">{reviewer ? `نطاق ${reviewer.name}` : 'أضف مدققًا'}</span>
+        <span className="text-body font-semibold text-forest">
+          {reviewer ? `نطاق ${reviewer.name}` : 'أضف مدققًا'}
+        </span>
         <IconButton label="إغلاق" className="size-8" onClick={onClose}>
           <Icon name="close" />
         </IconButton>
@@ -167,7 +187,11 @@ function ReviewerSheet({
         {!reviewer ? (
           <label className="grid gap-1.5">
             <span className="text-body font-medium text-ink">من أهل الشجرة</span>
-            <select value={name} onChange={(e) => setName(e.target.value)} className="h-12 rounded-xl border border-line/70 bg-card px-3 text-body">
+            <select
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="h-12 rounded-xl border border-line/70 bg-card px-3 text-body"
+            >
               <option value="">اختر شخصًا انضم للشجرة</option>
               {free.map((x) => (
                 <option key={x}>{x}</option>
@@ -182,7 +206,12 @@ function ReviewerSheet({
             <span className="text-body font-semibold text-forest">الشجرة كاملة</span>
             <span className="text-caption text-muted">يراجع أي إضافة في أي غصن</span>
           </span>
-          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} className="size-5 accent-[var(--color-forest)]" />
+          <input
+            type="checkbox"
+            checked={all}
+            onChange={(e) => setAll(e.target.checked)}
+            className="size-5 accent-[var(--color-forest)]"
+          />
         </label>
 
         {!all ? (
@@ -197,10 +226,15 @@ function ReviewerSheet({
                     onClick={() => toggle(b.id)}
                     className={cn(
                       'flex items-center gap-2 justify-self-start rounded-full border-2 px-3 py-1.5 text-body font-semibold transition',
-                      picked.has(b.id) ? 'border-forest bg-forest text-gold-light' : 'border-gold-light bg-card text-forest',
+                      picked.has(b.id)
+                        ? 'border-forest bg-forest text-gold-light'
+                        : 'border-gold-light bg-card text-forest',
                     )}
                   >
-                    <Icon name={picked.has(b.id) ? 'check_circle' : 'radio_button_unchecked'} className="text-[1.1rem]" />
+                    <Icon
+                      name={picked.has(b.id) ? 'check_circle' : 'radio_button_unchecked'}
+                      className="text-[1.1rem]"
+                    />
                     غصن {b.name}
                   </button>
                   <div className="flex flex-wrap gap-1.5 border-s-2 border-[#7a5a3a]/40 ps-3">
@@ -215,7 +249,9 @@ function ReviewerSheet({
                           onClick={() => toggle(c.id)}
                           className={cn(
                             'rounded-[0_0.9rem_0_0.9rem] px-3 py-1 text-caption font-semibold transition',
-                            on ? 'bg-[#6fa65e] text-white' : 'bg-card text-ink-soft hover:bg-olive-soft/50',
+                            on
+                              ? 'bg-[#6fa65e] text-white'
+                              : 'bg-card text-ink-soft hover:bg-olive-soft/50',
                           )}
                         >
                           {c.name}
@@ -250,5 +286,54 @@ function ReviewerSheet({
         </Button>
       </div>
     </Sheet>
+  );
+}
+
+/** The roles side by side, so the owner knows what each one hands over. */
+function RoleTable() {
+  const cols: Viewer[] = ['owner', 'reviewer', 'contributor', 'visitor'];
+  return (
+    <Panel title="من يقدر يسوي وش" icon="shield_person" className="mt-6">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[34rem] text-body">
+          <thead>
+            <tr className="border-b border-line/30 text-caption text-muted">
+              <th className="px-5 py-3 text-start font-medium">الصلاحية</th>
+              {cols.map((c) => (
+                <th key={c} className="px-3 py-3 text-center font-semibold text-forest">
+                  {viewerLabel[c]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {permissionTable.map((row) => (
+              <tr key={row.label} className="border-b border-line/20 last:border-0">
+                <td className="px-5 py-3 text-ink">{row.label}</td>
+                {cols.map((c) => (
+                  <td key={c} className="px-3 py-3 text-center">
+                    {row.who[c] === 'yes' ? (
+                      <Icon name="check_circle" fill className="text-leaf" />
+                    ) : row.who[c] === 'branch' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-olive-soft/60 px-2 py-0.5 text-caption font-semibold text-on-olive-soft">
+                        <Icon name="call_split" className="text-[0.95rem]" />
+                        غصنه
+                      </span>
+                    ) : (
+                      <span aria-label="لا" className="text-line">
+                        —
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="border-t border-line/30 px-5 py-3 text-caption leading-relaxed text-muted">
+        الاعتماد يبقى مطلوبًا دائمًا: ما يثبت اسم بدون اعتماد منك أو من مدقق غصنه.
+      </p>
+    </Panel>
   );
 }

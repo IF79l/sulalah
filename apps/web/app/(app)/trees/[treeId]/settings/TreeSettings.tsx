@@ -8,7 +8,9 @@ import { AppShell, Panel, Toast } from '@/components/AppShell';
 import { TreeData } from '@/components/tree/TreeData';
 import {
   TREE_ID,
+  joinedMembers,
   resetDemo,
+  transferOwnership,
   update,
   useDemo,
   type Settings,
@@ -43,9 +45,17 @@ function Toggle({
         aria-label={label}
         disabled={locked}
         onClick={() => onChange?.(!on)}
-        className={cn('relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60', on ? 'bg-forest' : 'bg-line')}
+        className={cn(
+          'relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-60',
+          on ? 'bg-forest' : 'bg-line',
+        )}
       >
-        <span className={cn('absolute top-1 size-5 rounded-full bg-card shadow transition-all', on ? 'start-6' : 'start-1')} />
+        <span
+          className={cn(
+            'absolute top-1 size-5 rounded-full bg-card shadow transition-all',
+            on ? 'start-6' : 'start-1',
+          )}
+        />
       </button>
     </div>
   );
@@ -59,6 +69,8 @@ export function TreeSettings() {
   const [family, setFamily] = useState(s.tree.family);
   const [confirm, setConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [heir, setHeir] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const set = (patch: Partial<Settings>) => {
     update((st) => ({ ...st, settings: { ...st.settings, ...patch } }));
@@ -66,7 +78,7 @@ export function TreeSettings() {
   };
 
   return (
-    <AppShell title="إعدادات الشجرة" subtitle={s.tree.title}>
+    <AppShell need="tree.manage" title="إعدادات الشجرة" subtitle={s.tree.title}>
       <div className="grid gap-6">
         <Panel title="عام" icon="tune">
           <div className="grid gap-4 p-5 md:grid-cols-2">
@@ -75,7 +87,9 @@ export function TreeSettings() {
             <div className="grid gap-1.5 md:col-span-2">
               <span className="text-body font-medium text-ink">الجد المؤسس والأجداد فوقه</span>
               <p className="rounded-xl border border-line/50 bg-surface-low px-4 py-3 font-title text-title text-forest">
-                {[s.people.find((p) => p.id === s.tree.rootId)?.name, ...s.tree.ancestors].filter(Boolean).join(' بن ')}
+                {[s.people.find((p) => p.id === s.tree.rootId)?.name, ...s.tree.ancestors]
+                  .filter(Boolean)
+                  .join(' بن ')}
               </p>
             </div>
             <Button
@@ -83,7 +97,10 @@ export function TreeSettings() {
               className="justify-self-start"
               disabled={!title.trim() || !family.trim()}
               onClick={() => {
-                update((st) => ({ ...st, tree: { ...st.tree, title: title.trim(), family: family.trim() } }));
+                update((st) => ({
+                  ...st,
+                  tree: { ...st.tree, title: title.trim(), family: family.trim() },
+                }));
                 setToast('حفظنا التغييرات');
               }}
             >
@@ -111,11 +128,24 @@ export function TreeSettings() {
             on={s.settings.showDaughtersToVisitors}
             onChange={(v) => set({ showDaughtersToVisitors: v })}
           />
-          <Toggle label="إظهار المتوفين" hint="يظهرون بلون ذابل مع «رحمه الله»." on={s.settings.showDeceased} onChange={(v) => set({ showDeceased: v })} />
-          <Toggle label="إظهار سنوات الميلاد" hint="في الملف الشخصي فقط، وليس على الشجرة." on={s.settings.showBirthYears} onChange={(v) => set({ showBirthYears: v })} />
+          <Toggle
+            label="إظهار المتوفين"
+            hint="يظهرون بلون ذابل مع «رحمه الله»."
+            on={s.settings.showDeceased}
+            onChange={(v) => set({ showDeceased: v })}
+          />
+          <Toggle
+            label="إظهار سنوات الميلاد"
+            hint="في الملف الشخصي فقط، وليس على الشجرة."
+            on={s.settings.showBirthYears}
+            onChange={(v) => set({ showBirthYears: v })}
+          />
           <p className="flex items-center justify-between gap-2 px-5 py-3 text-caption">
             <span className="text-muted">جرّب كيف يشوفها الزائر</span>
-            <Link href={`/trees/${TREE_ID}?as=visitor`} className="font-semibold text-olive hover:underline">
+            <Link
+              href={`/trees/${TREE_ID}?as=visitor`}
+              className="font-semibold text-olive hover:underline"
+            >
               عرض كزائر
             </Link>
           </p>
@@ -133,7 +163,10 @@ export function TreeSettings() {
         <TreeData onToast={setToast} />
 
         <Panel title="السجل" icon="history">
-          <Link href={`/trees/${TREE_ID}/activity`} className="flex items-center justify-between border-b border-line/30 px-5 py-4 hover:bg-surface-low">
+          <Link
+            href={`/trees/${TREE_ID}/activity`}
+            className="flex items-center justify-between border-b border-line/30 px-5 py-4 hover:bg-surface-low"
+          >
             <span className="grid">
               <span className="text-body font-semibold text-ink">سجل النشاط</span>
               <span className="text-caption text-muted">كل إضافة وتعديل واعتماد، ومن سواه</span>
@@ -150,7 +183,9 @@ export function TreeSettings() {
           >
             <span className="grid">
               <span className="text-body font-semibold text-ink">إعادة العائلة التجريبية</span>
-              <span className="text-caption text-muted">للتجربة فقط: يمسح ما أضفته في هذا المتصفح</span>
+              <span className="text-caption text-muted">
+                للتجربة فقط: يمسح ما أضفته في هذا المتصفح
+              </span>
             </span>
             <Icon name="restart_alt" className="text-muted" />
           </button>
@@ -160,17 +195,65 @@ export function TreeSettings() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-danger/15 px-5 py-4">
             <span className="grid">
               <span className="text-body font-semibold text-ink">نقل الملكية</span>
-              <span className="text-caption text-muted">تصير مدققًا، ويصير المالك الجديد هو من يدفع ويدير.</span>
+              <span className="text-caption text-muted">
+                تصير مدققًا، ويصير المالك الجديد هو من يدفع ويدير.
+              </span>
             </span>
-            <Button size="sm" variant="secondary">
-              انقل الملكية
-            </Button>
+            {!transferring ? (
+              <Button size="sm" variant="secondary" onClick={() => setTransferring(true)}>
+                انقل الملكية
+              </Button>
+            ) : null}
           </div>
+          {transferring ? (
+            <div className="grid animate-rise gap-3 border-b border-danger/15 bg-surface-low/60 px-5 py-4">
+              <label className="grid gap-1.5">
+                <span className="text-body font-medium text-ink">المالك الجديد</span>
+                <select
+                  value={heir}
+                  onChange={(e) => setHeir(e.target.value)}
+                  className="h-11 rounded-xl border border-line/70 bg-card px-3 text-body"
+                >
+                  <option value="">اختر من أهل الشجرة</option>
+                  {joinedMembers.map((x) => (
+                    <option key={x}>{x}</option>
+                  ))}
+                </select>
+                <span className="text-caption text-muted">
+                  يظهر هنا فقط من انضم للشجرة برقم جواله.
+                </span>
+              </label>
+              {heir ? (
+                <p className="rounded-xl border border-pending/40 bg-pending-soft p-3 text-caption leading-relaxed text-pending">
+                  يصير {heir} المالك: يدفع الباقة ويعتمد ويدير المدققين. وأنت تبقى مدققًا للشجرة
+                  كاملة، وما تقدر ترجع الملكية إلا إذا نقلها لك.
+                </p>
+              ) : null}
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={!heir}
+                  onClick={() => {
+                    transferOwnership(heir);
+                    router.push(`/trees/${TREE_ID}`);
+                  }}
+                >
+                  انقلها لـ {heir || '…'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setTransferring(false)}>
+                  إلغاء
+                </Button>
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-3 px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="grid">
                 <span className="text-body font-semibold text-danger">حذف الشجرة</span>
-                <span className="text-caption text-muted">تُحذف الشجرة وكل أسمائها نهائيًا، ولا يمكن التراجع.</span>
+                <span className="text-caption text-muted">
+                  تُحذف الشجرة وكل أسمائها نهائيًا، ولا يمكن التراجع.
+                </span>
               </span>
               {!deleting ? (
                 <Button size="sm" variant="danger" onClick={() => setDeleting(true)}>
@@ -186,7 +269,12 @@ export function TreeSettings() {
                   onChange={(e) => setConfirm(e.target.value)}
                 />
                 <div className="flex gap-2">
-                  <Button size="sm" variant="danger" disabled={confirm.trim() !== s.tree.title} onClick={() => router.push('/trees')}>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    disabled={confirm.trim() !== s.tree.title}
+                    onClick={() => router.push('/trees')}
+                  >
                     احذفها نهائيًا
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setDeleting(false)}>

@@ -40,4 +40,34 @@ describe('permissions', () => {
   it('gives platform admins no implicit access to private trees', () => {
     expect(can({ userId: 'admin', isPlatformAdmin: true }, { type: 'tree.view' })).toBe(false);
   });
+
+  it('keeps contributors inside their own branch, and only after they pick it', () => {
+    const contributor = (branchPersonId?: string) => ({
+      userId: 'u3',
+      membership: { role: 'contributor' as const, scopePersonIds: [], branchPersonId },
+    });
+    const under = {
+      type: 'contribution.submit' as const,
+      anchorAncestorIds: ['mohammed', 'matrouk', 'salem'],
+    };
+    expect(can(contributor(), under)).toBe(false);
+    expect(can(contributor('salem'), under)).toBe(true);
+    expect(can(contributor('daifallah'), under)).toBe(false);
+    expect(can(contributor('salem'), { type: 'review.view' })).toBe(false);
+    expect(can(contributor('salem'), { type: 'person.edit' })).toBe(false);
+  });
+
+  it('lets a view link open the tree and nothing else', () => {
+    const visitor = { userId: 'anon', viaViewLink: true };
+    expect(can(visitor, { type: 'tree.view' })).toBe(true);
+    expect(can(visitor, { type: 'contribution.submit' })).toBe(false);
+    expect(can({ userId: 'anon' }, { type: 'tree.view' })).toBe(false);
+  });
+
+  it('lets reviewers see the queue and the log but not settings', () => {
+    expect(can(reviewer, { type: 'review.view' })).toBe(true);
+    expect(can(reviewer, { type: 'activity.view' })).toBe(true);
+    expect(can(reviewer, { type: 'tree.manage' })).toBe(false);
+    expect(can(reviewer, { type: 'invite.manage' })).toBe(false);
+  });
 });

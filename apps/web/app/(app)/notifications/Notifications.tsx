@@ -3,13 +3,7 @@
 import { Icon, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { AppShell, EmptyState } from '@/components/AppShell';
-import {
-  planLimits,
-  lineage,
-  num,
-  update,
-  useDemo,
-} from '@/lib/demo-store';
+import { planLimits, lineage, num, update, useDemo } from '@/lib/demo-store';
 
 /** S19: what happened on my trees, newest first. */
 export function Notifications() {
@@ -19,15 +13,23 @@ export function Notifications() {
   const limit = planLimits(s).maxPersons;
   const near = used / limit >= 0.9;
   const read = (id?: string) =>
-    update((st) => ({ ...st, notices: st.notices.map((n) => (!id || n.id === id ? { ...n, unread: false } : n)) }));
+    update((st) => ({
+      ...st,
+      notices: st.notices.map((n) => (!id || n.id === id ? { ...n, unread: false } : n)),
+    }));
 
   return (
     <AppShell
+      need="member"
       title="الإشعارات"
       subtitle={unread ? `${num(unread)} غير مقروءة` : 'كلها مقروءة'}
       actions={
         unread ? (
-          <button type="button" onClick={() => read()} className="text-caption font-semibold text-olive hover:underline">
+          <button
+            type="button"
+            onClick={() => read()}
+            className="text-caption font-semibold text-olive hover:underline"
+          >
             تحديد الكل كمقروء
           </button>
         ) : null
@@ -46,22 +48,46 @@ export function Notifications() {
               <Link
                 href={n.href ?? '#'}
                 onClick={() => read(n.id)}
-                className={cn('flex items-start gap-3 p-4 transition hover:bg-surface-low', n.unread && 'bg-olive-soft/20')}
+                className={cn(
+                  'flex items-start gap-3 p-4 transition hover:bg-surface-low',
+                  n.unread && 'bg-olive-soft/20',
+                )}
               >
-                <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-full', n.unread ? 'bg-forest text-gold-light' : 'bg-surface text-muted')}>
+                <span
+                  className={cn(
+                    'flex size-10 shrink-0 items-center justify-center rounded-full',
+                    n.unread ? 'bg-forest text-gold-light' : 'bg-surface text-muted',
+                  )}
+                >
                   <Icon name={n.icon} />
                 </span>
                 <span className="grid flex-1 gap-0.5">
-                  <span className={cn('text-body', n.unread ? 'font-semibold text-ink' : 'text-ink-soft')}>{n.text}</span>
+                  <span
+                    className={cn(
+                      'text-body',
+                      n.unread ? 'font-semibold text-ink' : 'text-ink-soft',
+                    )}
+                  >
+                    {n.text}
+                  </span>
                   <span className="text-caption text-muted">{n.at}</span>
                 </span>
-                {n.unread ? <span className="mt-2 size-2.5 shrink-0 rounded-full bg-pending" aria-label="غير مقروء" /> : null}
+                {n.unread ? (
+                  <span
+                    className="mt-2 size-2.5 shrink-0 rounded-full bg-pending"
+                    aria-label="غير مقروء"
+                  />
+                ) : null}
               </Link>
             </li>
           ))}
         </ul>
       ) : (
-        <EmptyState icon="notifications_off" title="ما فيه إشعارات" body="لما ترسل العائلة إضافات أو تُعتمد إضافاتك، يوصلك خبر هنا." />
+        <EmptyState
+          icon="notifications_off"
+          title="ما فيه إشعارات"
+          body="لما ترسل العائلة إضافات أو تُعتمد إضافاتك، يوصلك خبر هنا."
+        />
       )}
     </AppShell>
   );

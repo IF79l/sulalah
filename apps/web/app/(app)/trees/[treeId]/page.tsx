@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: 'الشجرة | سُلالة', robots
 
 const modes: TreeMode[] = ['owner', 'contribute', 'visitor', 'reviewer'];
 
-// Until trees are stored, every tree opens the sample family; `?as=` previews the other roles.
+// Until trees are stored, every tree opens the sample family; `?as=` switches the demo's role.
 export default async function TreePage({
   params,
   searchParams,
@@ -19,10 +19,15 @@ export default async function TreePage({
   if (treeId === 'private') return <NoAccess />;
   if (treeId !== 'al-sahli' && treeId !== 'bani-khalid') notFound();
   const { as, review, focus } = await searchParams;
-  const mode = modes.includes(as as TreeMode) ? (as as TreeMode) : 'owner';
+  const mode = modes.includes(as as TreeMode) ? (as as TreeMode) : undefined;
   return (
     <main className="h-dvh overflow-hidden">
-      <TreeScreen key={`${mode}-${review ?? ''}-${focus ?? ''}`} mode={mode} reviewId={review} focusId={focus} />
+      <TreeScreen
+        key={`${mode ?? ''}-${review ?? ''}-${focus ?? ''}`}
+        as={mode}
+        reviewId={review}
+        focusId={focus}
+      />
     </main>
   );
 }
