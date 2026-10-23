@@ -1,4 +1,5 @@
 import {
+  bezierPoint,
   branchOutline,
   buildLineage,
   layoutTree2D,
@@ -141,6 +142,7 @@ export function LivingTree({
           fill="url(#lt-glow)"
         />
         <ellipse cx={0} cy={18} rx={layout.canopyRadius * 1.25} ry={70} fill="url(#lt-ground)" />
+        <Canopy marks={layout.marks} branches={layout.branches} />
         <Roots trunk={layout.branches[0]!} />
 
         {layout.branches
@@ -162,8 +164,8 @@ export function LivingTree({
         <ellipse
           cx={layout.trunkTop[0]}
           cy={layout.trunkTop[1] + 6}
-          rx={layout.branches[0]!.widthEnd * 0.62}
-          ry={layout.branches[0]!.widthEnd * 0.42}
+          rx={layout.branches[0]!.widthEnd * 0.55}
+          ry={layout.branches[0]!.widthEnd * 0.22}
           fill="url(#lt-bark)"
           aria-hidden="true"
         />
@@ -414,6 +416,36 @@ function Twig({ branch, progress }: { branch: Branch2D; progress: number }) {
   );
 }
 
+/** Soft masses of foliage behind the branches give the tree a full, upright silhouette. */
+function Canopy({ marks, branches }: { marks: PersonMark[]; branches: Branch2D[] }) {
+  return (
+    <g aria-hidden="true" filter="url(#lt-soft)">
+      {branches
+        .filter((b) => b.kind === 'limb')
+        .map((b) => {
+          const [x, y] = bezierPoint(b.curve, 0.62);
+          return (
+            <circle key={`mid-${b.personId}`} cx={x} cy={y} r={120} fill="url(#lt-canopy-b)" />
+          );
+        })}
+      {marks
+        .filter((m) => m.kind !== 'root')
+        .map((m) => {
+          const k = hashIndex(m.personId, 5);
+          return (
+            <circle
+              key={m.personId}
+              cx={m.position[0] + Math.sin(m.angle) * 34}
+              cy={m.position[1] - Math.cos(m.angle) * 34}
+              r={m.kind === 'leaf' ? 82 + k * 8 : 110 + k * 10}
+              fill={k % 2 ? 'url(#lt-canopy-a)' : 'url(#lt-canopy-b)'}
+            />
+          );
+        })}
+    </g>
+  );
+}
+
 function Roots({ trunk }: { trunk: Branch2D }) {
   const roots: Branch2D[] = [-1, 1, -0.45, 0.5].map((s, i) => ({
     ...trunk,
@@ -442,6 +474,17 @@ function Defs() {
       <radialGradient id="lt-glow">
         <stop offset="0%" stopColor={T.glow} stopOpacity={0.55} />
         <stop offset="100%" stopColor={T.glow} stopOpacity={0} />
+      </radialGradient>
+      <filter id="lt-soft" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="26" />
+      </filter>
+      <radialGradient id="lt-canopy-a">
+        <stop offset="0%" stopColor="#3F7A4B" stopOpacity={0.95} />
+        <stop offset="100%" stopColor="#2A5A3A" stopOpacity={0} />
+      </radialGradient>
+      <radialGradient id="lt-canopy-b">
+        <stop offset="0%" stopColor="#557F42" stopOpacity={0.8} />
+        <stop offset="100%" stopColor="#2F5E3B" stopOpacity={0} />
       </radialGradient>
       <radialGradient id="lt-ground">
         <stop offset="0%" stopColor="#2C5A3E" stopOpacity={0.9} />

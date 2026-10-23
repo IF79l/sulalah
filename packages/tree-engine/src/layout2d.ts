@@ -10,14 +10,17 @@ export interface Layout2DOptions {
   leafSpacing: number;
   /** Half-width of the canopy fan, in radians from straight up. */
   fanAngle: number;
+  /** Canopy width relative to its height; below 1 keeps the tree upright. */
+  canopyAspect: number;
 }
 
 export const defaultLayout2DOptions: Layout2DOptions = {
-  trunkHeight: 260,
-  trunkWidth: 92,
-  minCanopyRadius: 320,
-  leafSpacing: 86,
-  fanAngle: (105 * Math.PI) / 180,
+  trunkHeight: 330,
+  trunkWidth: 96,
+  minCanopyRadius: 420,
+  leafSpacing: 62,
+  fanAngle: (52 * Math.PI) / 180,
+  canopyAspect: 0.66,
 };
 
 /** How many leaves (childless people) hang under a node; sets its share of the canopy. */
@@ -62,10 +65,11 @@ export function layoutTree2D(
   radius = Math.min(radius, 6000);
 
   const trunkTop: Vec2 = [0, -o.trunkHeight];
-  const canopyCenter: Vec2 = [0, -o.trunkHeight - radius * 0.12];
+  // An upright oval canopy: branches climb rather than spread sideways.
+  const canopyCenter: Vec2 = [0, -o.trunkHeight + 20];
   const pointAt = (angle: number, r: number): Vec2 => [
-    canopyCenter[0] + r * Math.sin(angle),
-    canopyCenter[1] - r * Math.cos(angle) * 0.92,
+    canopyCenter[0] + r * Math.sin(angle) * o.canopyAspect * 1.25,
+    canopyCenter[1] - r * Math.cos(angle) * 1.2,
   ];
   const widthFor = (node: LineageNode) =>
     Math.min(o.trunkWidth * 0.7, 6 + 5.5 * Math.sqrt(memo.get(node.person.id) ?? 1));
@@ -88,6 +92,7 @@ export function layoutTree2D(
 
   const place = (node: LineageNode, from: Vec2, fromAngle: number, start: number, end: number) => {
     let cursor = start;
+    let leafIndex = 0;
     for (const child of node.children) {
       const share = ((memo.get(child.person.id) ?? 1) / total) * 2 * o.fanAngle;
       const rand = seededRandom(child.person.id);
@@ -98,9 +103,11 @@ export function layoutTree2D(
       const to = pointAt(mid, r);
       const len = Math.hypot(to[0] - from[0], to[1] - from[1]);
       // Leave the parent along its own heading, arrive pointing outward: reads as grown wood.
+      // Lean the first control point upward so every branch climbs before it reaches out.
+      const lean = (fromAngle + mid) * 0.35;
       const c1: Vec2 = [
-        from[0] + Math.sin(fromAngle) * len * 0.42,
-        from[1] - Math.cos(fromAngle) * len * 0.42,
+        from[0] + Math.sin(lean) * len * 0.45,
+        from[1] - Math.cos(lean) * len * 0.45,
       ];
       const c2: Vec2 = [to[0] - Math.sin(mid) * len * 0.3, to[1] + Math.cos(mid) * len * 0.3];
       branches.push({
