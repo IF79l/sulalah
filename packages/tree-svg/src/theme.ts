@@ -1,0 +1,23 @@
+/** Default scene palette ("parchment orchard"): a family-tree poster brought to life. */
+export const treeTheme = {
+  paper: '#F6EFDD',
+  paperDeep: '#E8DCBD',
+  pattern: '#D8C59B',
+  barkDark: '#4A2D1A',
+  bark: '#6B4329',
+  barkLight: '#94653F',
+  male: ['#A6D47A', '#5E9F45'],
+  female: ['#F7BBD4', '#D96CA2'],
+  filler: ['#7FB95B', '#5D9944', '#9DCB73'],
+  sprout: ['#FFF9E6', '#F2E4B6'],
+  withered: ['#E2CB94', '#B39153'],
+  grass: ['#9CC85E', '#5F9A3B'],
+  medal: '#FBF5E2',
+  medalDeceased: '#EFD48A',
+  gold: '#C2963A',
+  goldLight: '#EBCB7E',
+  ink: '#3A2716',
+  inkOnMale: '#1F3214',
+  inkOnFemale: '#4C1431',
+  engraved: '#F7E8C6',
+} as const;

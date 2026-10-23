@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Alexandria, IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { Alexandria, Aref_Ruqaa, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import type { ReactNode } from 'react';
 import './globals.css';
 
@@ -9,6 +9,12 @@ const plex = IBM_Plex_Sans_Arabic({
   variable: '--font-plex-arabic',
 });
 const alexandria = Alexandria({ subsets: ['arabic'], variable: '--font-alexandria' });
+// Calligraphic heading over the tree's crown, as on a printed nasab poster.
+const ruqaa = Aref_Ruqaa({
+  subsets: ['arabic'],
+  weight: ['400', '700'],
+  variable: '--tree-title-font',
+});
 
 export const metadata: Metadata = {
   title: 'سُلالة | SULALAH',
@@ -19,7 +25,11 @@ export const viewport: Viewport = { themeColor: '#F6F2E8', width: 'device-width'
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className={`${plex.variable} ${alexandria.variable}`}>
+    <html
+      lang="ar"
+      dir="rtl"
+      className={`${plex.variable} ${alexandria.variable} ${ruqaa.variable}`}
+    >
       <body className="min-h-dvh font-sans antialiased">{children}</body>
     </html>
   );
