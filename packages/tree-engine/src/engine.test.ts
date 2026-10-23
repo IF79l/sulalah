@@ -9,6 +9,7 @@ import {
   viewForBox,
   wouldCreateCycle,
   type LineagePerson,
+  type TreeLayout2D,
 } from './index';
 
 const sprout = (id: string, fatherId: string): LineagePerson => ({
@@ -51,6 +52,28 @@ describe('lineage', () => {
   });
 });
 
+/** Smallest distance between any two leaves, sampled at the base half and tip half of each blade. */
+function closestLeaves(layout: TreeLayout2D): number {
+  const tips = layout.marks
+    .filter((m) => m.kind === 'leaf')
+    .flatMap((m) =>
+      [24, 58].map((a) => [
+        m.position[0] + Math.sin(m.angle) * a,
+        m.position[1] - Math.cos(m.angle) * a,
+        layout.marks.indexOf(m),
+      ]),
+    );
+  let closest = Infinity;
+  for (let i = 0; i < tips.length; i++)
+    for (let j = i + 1; j < tips.length; j++)
+      if (tips[i]![2] !== tips[j]![2])
+        closest = Math.min(
+          closest,
+          Math.hypot(tips[i]![0]! - tips[j]![0]!, tips[i]![1]! - tips[j]![1]!),
+        );
+  return closest;
+}
+
 describe('2D layout', () => {
   const layout = layoutTree2D(buildLineage(demoFamily, 'mohammed'));
 
@@ -83,17 +106,16 @@ describe('2D layout', () => {
   });
 
   it('keeps named leaves from piling on top of each other', () => {
-    const tips = layout.marks
-      .filter((m) => m.kind === 'leaf')
-      .map((m) => [m.position[0] + Math.sin(m.angle) * 40, m.position[1] - Math.cos(m.angle) * 40]);
-    let closest = Infinity;
-    for (let i = 0; i < tips.length; i++)
-      for (let j = i + 1; j < tips.length; j++)
-        closest = Math.min(
-          closest,
-          Math.hypot(tips[i]![0]! - tips[j]![0]!, tips[i]![1]! - tips[j]![1]!),
-        );
-    expect(closest).toBeGreaterThan(36);
+    expect(closestLeaves(layout)).toBeGreaterThan(40);
+  });
+
+  it('keeps a big family of leaves apart when many are added to one father', () => {
+    const many = [
+      ...Array.from({ length: 14 }, (_, i) => sprout(`kid-${i}`, 'yousef-s0')),
+      ...Array.from({ length: 10 }, (_, i) => sprout(`girl-kid-${i}`, 'yousef-d0')),
+    ];
+    const next = layoutTree2D(buildLineage([...demoFamily, ...many], 'mohammed'));
+    expect(closestLeaves(next)).toBeGreaterThan(40);
   });
 
   it('draws a closed outline that can be partly grown', () => {

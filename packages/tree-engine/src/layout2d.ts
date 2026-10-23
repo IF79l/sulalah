@@ -29,6 +29,13 @@ export const defaultLayout2DOptions: Layout2DOptions = {
 /** How far a father's leaves sit from his branch end, and the angle between neighbours. */
 const LEAF_BASE = 44;
 const LEAF_STEP = 0.6;
+/** Widest fan, in radians, so leaves never fold back over their father's own branch. */
+const LEAF_SPREAD = 2.5;
+/** Gap between rows of leaves, base to base. */
+const LEAF_ROW = 92;
+/** From a leaf's base to its middle, and the width a leaf needs beside its neighbour. */
+const LEAF_REACH = 40;
+const LEAF_SLOT = 64;
 
 /** How many leaves (childless people) hang under a node; sets how thick its wood is. */
 function leafCount(node: LineageNode, memo: Map<string, number>): number {
@@ -102,13 +109,24 @@ export function layoutTree2D(
   /** A father's childless children fan out round the end of his branch, continuing its heading. */
   const leafFan = (node: LineageNode, at: Vec2, heading: number) => {
     const leaves = node.children.filter((c) => c.children.length === 0);
-    const k = leaves.length;
-    const twoRows = k > 6;
-    const step = Math.min(LEAF_STEP, (twoRows ? 4.4 : 3.4) / Math.max(1, k));
+    // Fill rows outward: each row holds as many leaves as fit side by side on its arc,
+    // so a large family grows a fuller fan instead of stacking leaves on each other.
+    const slots: { angle: number; reach: number }[] = [];
+    let row = 0;
+    while (slots.length < leaves.length) {
+      const reach = LEAF_BASE + row * LEAF_ROW;
+      const fit = Math.max(1, Math.floor((LEAF_SPREAD * (reach + LEAF_REACH)) / LEAF_SLOT));
+      const n = Math.min(fit, leaves.length - slots.length);
+      const step = Math.min(LEAF_STEP, LEAF_SPREAD / Math.max(1, n - 1));
+      const offset = row % 2 ? step / 2 : 0;
+      for (let i = 0; i < n; i++)
+        slots.push({ angle: heading + (i - (n - 1) / 2) * step + offset, reach });
+      row++;
+    }
     leaves.forEach((leaf, i) => {
       const rand = seededRandom(leaf.person.id);
-      const angle = heading + (i - (k - 1) / 2) * step + (rand() - 0.5) * 0.08;
-      const reach = LEAF_BASE + (twoRows && i % 2 ? 62 : 0) + rand() * 6;
+      const angle = slots[i]!.angle + (rand() - 0.5) * 0.06;
+      const reach = slots[i]!.reach + rand() * 5;
       const to: Vec2 = [at[0] + Math.sin(angle) * reach, at[1] - Math.cos(angle) * reach];
       const mid: Vec2 = [
         at[0] + Math.sin(angle) * reach * 0.5,
@@ -216,74 +234,111 @@ export function layoutTree2D(
  * the fathers' medallions) for a few rounds, re-aiming each twig at its leaf. Uses a grid so
  * it stays fast for large trees.
  */
-function relaxLeaves(marks: PersonMark[], branches: Branch2D[], rounds = 24) {
-  const reach = 40;
-  const leafGap = 54;
+function relaxLeaves(marks: PersonMark[], branches: Branch2D[]) {
+  // A leaf is long and narrow, so it is modelled as two discs along its midrib.
+  const discs = [24, 58];
+  const discGap = 46;
   const forkGap = 62;
+  const cell = 64;
   const leaves = marks.filter((m) => m.kind === 'leaf');
   const forks = marks.filter((m) => m.kind !== 'leaf');
+  const n = leaves.length;
+  const pn = n * discs.length;
+  // Small families settle completely; very large ones get a fixed budget so a re-layout stays quick.
+  const rounds = Math.round(Math.max(16, Math.min(160, 120000 / Math.max(1, n))));
   const twig = new Map(branches.filter((b) => b.kind === 'twig').map((b) => [b.personId, b]));
-  const centre = (m: PersonMark): Vec2 => [
-    m.position[0] + Math.sin(m.angle) * reach,
-    m.position[1] - Math.cos(m.angle) * reach,
-  ];
-  const cell = 80;
-  const key = (x: number, y: number) => `${Math.floor(x / cell)},${Math.floor(y / cell)}`;
+  const from = leaves.map((m) => twig.get(m.personId)!.curve[0]);
+  const bx = Float64Array.from(leaves, (m) => m.position[0]);
+  const by = Float64Array.from(leaves, (m) => m.position[1]);
+  const ang = Float64Array.from(leaves, (m) => m.angle);
+  const qx = new Float64Array(pn);
+  const qy = new Float64Array(pn);
+  const px = new Float64Array(n);
+  const py = new Float64Array(n);
+  // Integer cell keys; the canopy never reaches 50k cells across.
+  const key = (gx: number, gy: number) => gx * 100003 + gy;
+
   for (let round = 0; round < rounds; round++) {
-    const pts = leaves.map(centre);
-    const grid = new Map<string, number[]>();
-    pts.forEach(([x, y], i) => {
-      const k = key(x, y);
-      grid.set(k, [...(grid.get(k) ?? []), i]);
-    });
-    const push: [number, number][] = pts.map(() => [0, 0]);
+    const grid = new Map<number, number[]>();
+    for (let p = 0; p < pn; p++) {
+      const i = (p / discs.length) | 0;
+      const along = discs[p % discs.length]!;
+      qx[p] = bx[i]! + Math.sin(ang[i]!) * along;
+      qy[p] = by[i]! - Math.cos(ang[i]!) * along;
+      const k = key(Math.floor(qx[p]! / cell), Math.floor(qy[p]! / cell));
+      const bucket = grid.get(k);
+      if (bucket) bucket.push(p);
+      else grid.set(k, [p]);
+    }
+    px.fill(0);
+    py.fill(0);
     let moved = false;
-    pts.forEach(([x, y], i) => {
+    for (let p = 0; p < pn; p++) {
+      const i = (p / discs.length) | 0;
+      const x = qx[p]!;
+      const y = qy[p]!;
       const gx = Math.floor(x / cell);
       const gy = Math.floor(y / cell);
       for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++)
-          for (const j of grid.get(`${gx + dx},${gy + dy}`) ?? []) {
-            if (j <= i) continue;
-            const [ox, oy] = pts[j]!;
-            const d = Math.hypot(ox - x, oy - y) || 0.01;
-            if (d >= leafGap) continue;
-            const f = (leafGap - d) / 2 / d;
-            push[i]![0] -= (ox - x) * f;
-            push[i]![1] -= (oy - y) * f;
-            push[j]![0] += (ox - x) * f;
-            push[j]![1] += (oy - y) * f;
+        for (let dy = -1; dy <= 1; dy++) {
+          const bucket = grid.get(key(gx + dx, gy + dy));
+          if (!bucket) continue;
+          for (const q of bucket) {
+            if (q <= p) continue;
+            const j = (q / discs.length) | 0;
+            if (j === i) continue;
+            const ox = qx[q]! - x;
+            const oy = qy[q]! - y;
+            const d = Math.sqrt(ox * ox + oy * oy) || 0.01;
+            if (d >= discGap) continue;
+            const f = (discGap - d) / 2 / d;
+            px[i]! -= ox * f;
+            py[i]! -= oy * f;
+            px[j]! += ox * f;
+            py[j]! += oy * f;
             moved = true;
           }
-    });
+        }
+    }
     for (const fork of forks) {
       const [fx, fy] = fork.position;
       const gx = Math.floor(fx / cell);
       const gy = Math.floor(fy / cell);
       for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++)
-          for (const i of grid.get(`${gx + dx},${gy + dy}`) ?? []) {
-            const [x, y] = pts[i]!;
-            const d = Math.hypot(x - fx, y - fy) || 0.01;
+        for (let dy = -1; dy <= 1; dy++) {
+          const bucket = grid.get(key(gx + dx, gy + dy));
+          if (!bucket) continue;
+          for (const p of bucket) {
+            const i = (p / discs.length) | 0;
+            const ox = qx[p]! - fx;
+            const oy = qy[p]! - fy;
+            const d = Math.sqrt(ox * ox + oy * oy) || 0.01;
             if (d >= forkGap) continue;
-            push[i]![0] += ((x - fx) * (forkGap - d)) / d;
-            push[i]![1] += ((y - fy) * (forkGap - d)) / d;
+            px[i]! += (ox * (forkGap - d)) / d;
+            py[i]! += (oy * (forkGap - d)) / d;
             moved = true;
           }
+        }
     }
     if (!moved) break;
-    leaves.forEach((m, i) => {
-      const [px, py] = push[i]!;
-      if (px === 0 && py === 0) return;
-      const b = twig.get(m.personId)!;
-      const from = b.curve[0];
-      const base: Vec2 = [m.position[0] + px * 0.6, m.position[1] + py * 0.6];
-      m.angle = Math.atan2(base[0] - from[0], -(base[1] - from[1]));
-      m.position = base;
-      const mid: Vec2 = [(from[0] + base[0]) / 2, (from[1] + base[1]) / 2];
-      b.curve = [from, mid, mid, base];
-    });
+    for (let i = 0; i < n; i++) {
+      if (px[i] === 0 && py[i] === 0) continue;
+      bx[i]! += px[i]! * 0.7;
+      by[i]! += py[i]! * 0.7;
+      const f = from[i]!;
+      ang[i] = Math.atan2(bx[i]! - f[0], -(by[i]! - f[1]));
+    }
   }
+
+  // Re-aim each twig at its leaf's settled place.
+  leaves.forEach((m, i) => {
+    const f = from[i]!;
+    const base: Vec2 = [bx[i]!, by[i]!];
+    m.position = base;
+    m.angle = ang[i]!;
+    const mid: Vec2 = [(f[0] + base[0]) / 2, (f[1] + base[1]) / 2];
+    twig.get(m.personId)!.curve = [f, mid, mid, base];
+  });
 }
 
 function markFor(
