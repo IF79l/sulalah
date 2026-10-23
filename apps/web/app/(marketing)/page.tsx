@@ -1,97 +1,97 @@
 import { defaultPlanLimits, type PlanId } from '@sulalah/domain';
-import { Icon, Logo, buttonClass, cn } from '@sulalah/ui';
+import { Icon, Logo, Medallion, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { DemoPoster } from '@/components/DemoTree';
+import { DaughtersGlimpse, InviteGlimpse, ReviewGlimpse } from '@/components/home/Glimpses';
+import { GrowthStory } from '@/components/home/GrowthStory';
+import { InView } from '@/components/home/InView';
+import { PlanArt } from '@/components/home/PlanArt';
 
 const num = (n: number) => n.toLocaleString('en-US');
-const wrap = 'mx-auto max-w-7xl px-[max(16px,env(safe-area-inset-right,0px))] md:px-8';
+const wrap = 'mx-auto w-full max-w-[76rem] px-[max(16px,env(safe-area-inset-right,0px))] md:px-8';
+const d = (n: number) => ({ ['--d' as string]: n });
 
-/** The three steps are a real sequence, each marked by what it leaves on the tree. */
-const steps = [
+/** The demo family's own line, from a grandson's leaf down to the family name on the trunk. */
+const nasab = ['فيصل', 'بن خالد', 'بن عبدالله', 'بن محمد', 'بن سليمان', 'بن حمد', 'الراشد'];
+
+const roles = [
+  { name: 'المالك', scope: 'يشرف على الشجرة كلها، ويختار المدققين ويحدد أغصانهم.', person: 'فهد الراشد' },
+  { name: 'المدقق', scope: 'يعتمد الإضافات في الأغصان اللي حددها له المالك فقط.', person: 'سالم متروك' },
+  { name: 'المساهم', scope: 'يضيف أبناءه وبناته وأحفاده في غصنه، وإضافته تنتظر الاعتماد.', person: 'سعود سالم' },
+];
+
+const plans: { id: PlanId; name: string; who: string }[] = [
+  { id: 'family', name: 'العائلة', who: 'أب وأبناؤه وأحفاده' },
+  { id: 'extended', name: 'العائلة الممتدة', who: 'جد وأبناؤه وأحفاده وأبناء العمومة' },
+  { id: 'tribe', name: 'القبيلة', who: 'نسب ممتد لعدة أجداد وفروع كثيرة' },
+];
+
+/** What each plan includes beyond its limits; true means included. */
+const features: [label: string, family: boolean, extended: boolean, tribe: boolean][] = [
+  ['روابط دعوة للأقارب', true, true, true],
+  ['بحث عربي في الشجرة', true, true, true],
+  ['الأقارب يدخلون مجانًا', true, true, true],
+  ['مدققون لأغصان محددة', false, true, true],
+  ['سجل بكل إضافة ومن اعتمدها', false, true, true],
+];
+
+const faq = [
   {
-    title: 'ازرع الجذع',
-    body: 'اكتب اسم الجد المؤسس ومن فوقه من الأجداد، فيقوم جذع شجرتكم وعليه نسبكم.',
-    foot: 'الجد جذع الشجرة',
-    icon: 'account_tree',
-    mark: 'bg-forest text-gold-light ring-gold-light/30',
+    q: 'هل الشجرة إثبات رسمي للنسب؟',
+    a: 'لا. اعتماد مالك الشجرة توثيق عائلي، وليس إثباتًا رسميًا للنسب. سُلالة تحفظ ما تتفق عليه العائلة وتعرضه بشكل جميل.',
   },
   {
-    title: 'ادعُ العائلة',
-    body: 'أرسل رابطًا في قروب العائلة. كل واحد يختار غصنه، ويضيف أبناءه وبناته وأحفاده.',
-    foot: 'رابط دعوة لكل العائلة',
-    icon: 'group_add',
-    mark: 'bg-olive-soft text-on-olive-soft ring-olive/20',
+    q: 'من يقدر يشوف شجرتنا؟',
+    a: 'فقط من تدعوه أنت برابط. الشجرة لا تظهر في محركات البحث، وتقدر توقف أي رابط دعوة متى ما بغيت.',
   },
   {
-    title: 'اعتمد ما يصل',
-    body: 'تراجع الإضافات على الشجرة نفسها، أنت أو مدقق تختاره لغصن معيّن، فتخضرّ الأوراق وتثبت.',
-    foot: 'لا شيء يثبت بدون اعتماد',
-    icon: 'verified',
-    mark: 'bg-leaf text-ivory ring-leaf/30',
+    q: 'هل يدفع الأقارب؟',
+    a: 'لا. المالك وحده يشترك، والأقارب يدخلون برقم جوالهم ويضيفون في أغصانهم مجانًا.',
+  },
+  {
+    q: 'وش يصير لو أحد أضاف اسمًا غلط؟',
+    a: 'ما يثبت شيء في الشجرة بدون اعتماد. الإضافة تبقى بحدود منقطة حتى يعتمدها المالك أو المدقق، أو يعدّلها، أو يرفضها.',
+  },
+  {
+    q: 'كيف أدخل؟ هل أحتاج كلمة مرور؟',
+    a: 'برقم جوالك فقط. يوصلك رمز برسالة نصية وتدخل به، بدون كلمة مرور.',
+  },
+  {
+    q: 'كم جيل أقدر أضيف؟',
+    a: 'الأجيال بلا حد. الباقة تحدد عدد الأفراد في الشجرة فقط.',
   },
 ];
 
-const privacy = [
-  {
-    title: 'شجرتكم خاصة',
-    body: 'ما يشوفها إلا من تدعوه أنت برابط. ولا تظهر في محركات البحث.',
-    icon: 'shield',
-  },
-  {
-    title: 'كل واحد بصلاحيته',
-    body: 'المساهم يضيف في غصنه فقط، والمدقق يعتمد في الأغصان اللي حددتها له، وأنت تشرف على الكل.',
-    icon: 'admin_panel_settings',
-  },
-  {
-    title: 'أسماء البنات بيدك',
-    body: 'تقدر تخفي أسماء البنات عن الزوار، وتبقى ظاهرة لأهل الشجرة.',
-    icon: 'visibility_off',
-  },
-];
-
-const plans: { id: PlanId; name: string; who: string; icon: string; extras: string[] }[] = [
-  {
-    id: 'family',
-    name: 'العائلة',
-    who: 'أب وأم وأبناؤهم وأحفادهم.',
-    icon: 'family_restroom',
-    extras: ['روابط دعوة للأقارب', 'بحث عربي في الشجرة'],
-  },
-  {
-    id: 'extended',
-    name: 'العائلة الممتدة',
-    who: 'جد وأبناؤه وأحفاده وأبناء العمومة.',
-    icon: 'diversity_3',
-    extras: ['مدققون لأغصان محددة', 'سجل بكل إضافة ومن اعتمدها'],
-  },
-  {
-    id: 'tribe',
-    name: 'القبيلة',
-    who: 'نسب ممتد لعدة أجداد وفروع كثيرة.',
-    icon: 'groups',
-    extras: ['مدققون لأغصان محددة', 'سجل بكل إضافة ومن اعتمدها'],
-  },
-];
+function SectionHead({ title, body, center }: { title: string; body: string; center?: boolean }) {
+  return (
+    <div data-reveal className={cn('grid max-w-2xl gap-4', center && 'mx-auto justify-items-center text-center')}>
+      <span aria-hidden="true" className="h-[3px] w-10 rounded-full bg-gold" />
+      <h2 className="text-[1.75rem]/[1.35] font-bold text-balance text-forest md:text-[2.5rem]/[1.3]">{title}</h2>
+      <p className="text-body-lg leading-[1.9] text-ink-soft md:text-[1.0625rem]">{body}</p>
+    </div>
+  );
+}
 
 export default function HomePage() {
   return (
-    <main className="bg-ivory text-ink">
-      <header className="sticky top-0 z-50 bg-ivory/90 shadow-sm backdrop-blur-md">
+    <main className="overflow-x-clip bg-ivory text-ink">
+      <header className="sticky top-0 z-50 border-b border-gold-light/25 bg-ivory/85 backdrop-blur-md">
         <div className={cn(wrap, 'flex h-16 items-center justify-between md:h-20')}>
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-10">
             <Link href="/" aria-label="سُلالة">
               <Logo />
             </Link>
-            <nav className="hidden items-center gap-7 text-body md:flex">
-              <a href="#how" className="text-ink-soft hover:text-forest">
-                كيف تعمل
-              </a>
-              <a href="#privacy" className="text-ink-soft hover:text-forest">
-                الخصوصية
-              </a>
-              <a href="#plans" className="text-ink-soft hover:text-forest">
-                الباقات
-              </a>
+            <nav className="hidden items-center gap-8 text-body md:flex">
+              {[
+                ['#how', 'كيف تعمل'],
+                ['#roles', 'الأدوار والخصوصية'],
+                ['#plans', 'الباقات'],
+                ['#faq', 'أسئلة'],
+              ].map(([href, label]) => (
+                <a key={href} href={href} className="text-ink-soft transition-colors hover:text-forest">
+                  {label}
+                </a>
+              ))}
             </nav>
           </div>
           <div className="flex items-center gap-2">
@@ -99,254 +99,440 @@ export default function HomePage() {
               دخول
             </Link>
             <Link href="/trees/new" className={cn(buttonClass('primary', 'sm'), 'max-sm:hidden')}>
-              <Icon name="park" />
               ابدأ شجرة عائلتك
             </Link>
           </div>
         </div>
       </header>
 
-      <section className="relative overflow-hidden border-b border-line/30 bg-[radial-gradient(var(--color-line)_0.6px,transparent_0.6px)] bg-size-[22px_22px] pt-10 pb-20 md:pt-14 md:pb-28">
-        <div className={cn(wrap, 'grid items-center gap-12 lg:grid-cols-12')}>
-          <div className="grid justify-items-start gap-6 lg:col-span-5">
-            <span className="inline-flex items-center gap-2 rounded-full border border-gold-light/40 bg-surface-high px-3.5 py-1.5 text-caption font-semibold text-olive shadow-sm">
+      {/* Hero */}
+      <section className="star-ground relative isolate">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10 bg-[radial-gradient(60%_55%_at_30%_45%,rgb(211_234_190/0.55),transparent_70%),linear-gradient(to_bottom,transparent_70%,var(--color-ivory))]"
+        />
+        <div className={cn(wrap, 'grid items-center gap-14 pt-12 pb-20 md:pt-16 lg:grid-cols-12 lg:gap-10 lg:pt-20 lg:pb-28')}>
+          <div className="grid justify-items-start gap-7 lg:col-span-5">
+            <span
+              className="hero-in inline-flex items-center gap-2 rounded-full border border-gold-light/60 bg-card/70 px-3.5 py-1.5 text-caption font-semibold text-olive"
+              style={d(0)}
+            >
               <Icon name="spa" fill className="text-[1rem]" />
               شجرة نسب تبنيها العائلة معًا
             </span>
-            <h1 className="text-hero-m font-bold text-balance text-forest md:text-hero">
-              كل عائلة لها جذور،
-              <br />
-              وكل غصن يحمل حكاية
+            <h1
+              className="hero-in text-[2.25rem]/[1.3] font-bold text-balance text-forest sm:text-[2.75rem]/[1.28] xl:text-[3.5rem]/[1.22]"
+              style={d(1)}
+            >
+              كل عائلة لها جذور، وكل غصن يحمل حكاية
             </h1>
-            <p className="max-w-xl text-body-lg leading-relaxed text-ink-soft">
-              ابنِ شجرة عائلتكم كما تُرسم لوحات النسب: الجد جذعها، وكل أب غصن، وكل ابن وبنت ورقة
-              باسمه.
+            <p className="hero-in max-w-[30rem] text-[1.0625rem] leading-[1.95] text-ink-soft" style={d(2)}>
+              ابنوا شجرة عائلتكم كما تُرسم لوحات النسب: الجد جذعها، وكل أب غصن، وكل ابن وبنت ورقة
+              باسمه. الأقارب يضيفون، وأنت تعتمد.
             </p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/trees/new" className={buttonClass('primary')}>
-                <Icon name="account_tree" />
+            <div className="hero-in flex flex-wrap gap-3" style={d(3)}>
+              <Link href="/trees/new" className={cn(buttonClass('primary'), 'h-13 px-8 shadow-[0_12px_30px_-12px_rgb(22_56_47/0.6)]')}>
                 ابدأ شجرة عائلتك
+                <Icon name="arrow_back" />
               </Link>
-              <Link href="/demo" className={buttonClass('quiet')}>
-                <Icon name="visibility" className="text-olive" />
-                جرّب الشجرة
+              <Link href="/demo" className={cn(buttonClass('quiet'), 'h-13 px-7')}>
+                <Icon name="play_circle" className="text-olive" />
+                جرّب شجرة حقيقية
               </Link>
             </div>
-            <ul className="mt-4 flex flex-wrap gap-x-8 gap-y-3 border-t border-line/40 pt-6 text-body text-ink-soft">
-              <li className="flex items-center gap-2">
-                <Icon name="phone_iphone" className="text-olive" />
-                دخول برقم الجوال
-              </li>
-              <li className="flex items-center gap-2">
-                <Icon name="lock" className="text-olive" />
-                خاصة بعائلتك
-              </li>
-              <li className="flex items-center gap-2">
-                <Icon name="groups" className="text-olive" />
-                الأقارب يدخلون مجانًا
-              </li>
-            </ul>
+            <dl className="hero-in mt-2 grid w-full grid-cols-3 gap-4 border-t border-gold-light/50 pt-6" style={d(4)}>
+              {[
+                ['دخول', 'برقم الجوال'],
+                ['خاصة', 'لمن تدعوه فقط'],
+                ['مجانًا', 'للأقارب'],
+              ].map(([k, v]) => (
+                <div key={k} className="grid gap-0.5">
+                  <dt className="text-title font-bold text-forest">{k}</dt>
+                  <dd className="text-caption text-muted">{v}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
 
-          <figure className="lg:col-span-7">
-            <div className="rounded-2xl bg-linear-to-tr from-[#9b7d50] via-gold-light to-[#9b7d50] p-[3px] shadow-[0_30px_80px_-30px_rgb(22_56_47/0.45)]">
-              <div className="overflow-hidden rounded-[0.9rem] border border-gold-light/40 bg-ivory">
-                <div className="flex items-center justify-between border-b border-line/30 bg-ivory-deep px-4 py-3">
-                  <span className="text-body font-semibold text-forest">شجرة أسرة الراشد</span>
-                  <span className="rounded-full border border-olive/20 bg-olive-soft px-2.5 py-0.5 text-caption text-on-olive-soft">
-                    عائلة تجريبية
-                  </span>
-                </div>
-                <div className="relative aspect-[4/5] sm:aspect-[5/4]">
-                  <DemoPoster />
+          <figure className="relative lg:col-span-7">
+            <div className="hero-in relative" style={d(2)}>
+              <div className="rounded-[2rem] bg-linear-to-br from-[#a58654] via-gold-light to-[#8c6e42] p-[3px] shadow-[0_50px_100px_-40px_rgb(22_56_47/0.55)]">
+                <div className="overflow-hidden rounded-[calc(2rem-3px)] bg-ivory">
+                  <div className="flex items-center justify-between border-b border-gold-light/40 bg-ivory-deep/80 px-5 py-3">
+                    <span className="flex items-center gap-2 text-body font-semibold text-forest">
+                      <Icon name="park" fill className="text-olive" />
+                      شجرة أسرة الراشد
+                    </span>
+                    <span className="text-caption text-muted">اضغط أي غصن</span>
+                  </div>
+                  <div className="relative aspect-[4/5] sm:aspect-[6/5]">
+                    <DemoPoster />
+                  </div>
                 </div>
               </div>
             </div>
-            <figcaption className="mt-3 text-center text-caption text-muted">
-              هذه شجرة حقيقية من سُلالة. اضغط على أي غصن.
-            </figcaption>
+
+            <div
+              aria-hidden="true"
+              className="hero-note absolute top-[22%] -start-3 hidden w-64 rounded-2xl border border-gold-light/50 bg-card/95 p-3 shadow-float backdrop-blur sm:block lg:-start-10"
+              style={d(6)}
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-[0_60%_0_60%] border-2 border-dashed border-pending bg-pending-soft text-pending">
+                  <Icon name="add" className="text-[1rem]" />
+                </span>
+                <span className="grid gap-0.5 text-caption">
+                  <span className="font-semibold text-ink">سعود أضاف «العنود» بنت ماجد</span>
+                  <span className="text-pending">بانتظار اعتمادك</span>
+                </span>
+              </div>
+            </div>
+            <div
+              aria-hidden="true"
+              className="hero-note absolute -bottom-6 end-4 hidden items-center gap-2.5 rounded-full border border-gold-light/50 bg-forest py-2 ps-2 pe-4 text-caption text-ivory shadow-toast sm:flex lg:-end-6"
+              style={d(8)}
+            >
+              <Medallion name="فيصل خالد" size="sm" className="border-gold-light" />
+              <span>
+                <span className="text-gold-light">فيصل</span> بن خالد بن عبدالله بن محمد
+              </span>
+            </div>
           </figure>
         </div>
       </section>
 
-      <section id="how" className="scroll-mt-20 border-b border-line/30 bg-card py-20 md:py-24">
-        <div className={wrap}>
-          <div className="mx-auto mb-14 grid max-w-2xl justify-items-center gap-3 text-center">
-            <h2 className="text-h1-m font-bold text-forest md:text-h1">كيف تنمو شجرتكم؟</h2>
-            <p className="text-body-lg text-ink-soft">ثلاث خطوات، والعائلة كلها تشارك.</p>
-          </div>
-          <ol className="relative grid gap-6 md:grid-cols-3 md:gap-8">
-            <span
-              aria-hidden="true"
-              className="absolute top-16 right-[15%] left-[15%] hidden h-1 rounded-full bg-linear-to-l from-gold-light via-olive to-leaf opacity-60 md:block"
-            />
-            {steps.map((s, i) => (
-              <li
-                key={s.title}
-                className="relative grid content-between gap-6 rounded-2xl border border-line/40 bg-ivory p-7 shadow-sm"
+      {/* The nasab, read from the leaf to the trunk */}
+      <InView as="section" className="relative overflow-hidden bg-forest py-20 text-ivory md:py-28">
+        <div aria-hidden="true" className="star-ground absolute inset-0 opacity-40 mix-blend-soft-light" />
+        <div className={cn(wrap, 'relative grid justify-items-center gap-10 text-center')}>
+          <p data-reveal className="text-body-lg text-on-forest-soft">
+            في سُلالة، كل ورقة تُقرأ بنسبها كاملًا حتى الجذع
+          </p>
+          <p
+            className="flex max-w-6xl flex-wrap justify-center gap-x-4 gap-y-2 font-title text-[2.25rem]/[1.5] sm:text-[3rem]/[1.45] lg:text-[3.6rem]/[1.4]"
+            aria-label={nasab.join(' ')}
+          >
+            {nasab.map((w, i) => (
+              <span
+                key={w}
+                aria-hidden="true"
+                className={cn(
+                  'nasab-word',
+                  i === 0 && 'text-[#9fd08a]',
+                  i === nasab.length - 1 ? 'text-gold-light' : i > 0 && 'text-ivory/90',
+                )}
+                style={d(i)}
               >
-                <div className="grid gap-3">
-                  <span
-                    className={cn(
-                      'mb-2 flex size-16 items-center justify-center rounded-2xl shadow-md ring-4',
-                      s.mark,
-                    )}
-                  >
-                    <Icon name={s.icon} className="text-[2rem]" />
-                  </span>
-                  <h3 className="flex items-center gap-2 text-title font-bold text-forest">
-                    <span className="flex size-6 items-center justify-center rounded-full bg-olive-soft text-caption">
-                      {num(i + 1)}
-                    </span>
-                    {s.title}
-                  </h3>
-                  <p className="text-body leading-relaxed text-ink-soft">{s.body}</p>
-                </div>
-                <p className="border-t border-line/30 pt-4 text-caption font-medium text-olive">{s.foot}</p>
+                {w}
+              </span>
+            ))}
+          </p>
+          <ul className="grid w-full max-w-4xl gap-px overflow-hidden rounded-2xl border border-gold-light/20 bg-gold-light/15 sm:grid-cols-3">
+            {[
+              ['all_inclusive', 'أجيال بلا حد', 'من الجد المؤسس إلى أصغر حفيد'],
+              ['search', 'بحث يفهم العربية', 'يلقى «أحمد» لو كتبت «احمد»'],
+              ['smartphone', 'مصممة للجوال', 'تكبير وتنقل بين الأغصان بلمسة'],
+            ].map(([icon, title, body], i) => (
+              <li key={title} data-reveal style={d(8 + i)} className="grid justify-items-center gap-1.5 bg-forest px-6 py-6">
+                <Icon name={icon!} className="mb-1 text-[1.5rem] text-gold-light" />
+                <span className="text-title font-semibold">{title}</span>
+                <span className="text-caption text-on-forest-soft">{body}</span>
               </li>
             ))}
-          </ol>
+          </ul>
+        </div>
+      </InView>
+
+      {/* How it grows */}
+      <section id="how" className="scroll-mt-20 bg-card pt-20 md:pt-28">
+        <InView className={wrap}>
+          <SectionHead
+            title="كيف تنمو شجرتكم؟"
+            body="ثلاث خطوات، والعائلة كلها تشارك. انزل مع الخطوات وشوف الشجرة تكبر."
+          />
+        </InView>
+        <div className={cn(wrap, 'mt-6 pb-10 lg:mt-10')}>
+          <GrowthStory />
         </div>
       </section>
 
-      <section id="privacy" className="relative scroll-mt-20 overflow-hidden border-b border-line/30 py-20 md:py-24">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -bottom-24 size-96 rounded-full bg-olive-soft/30 blur-3xl" />
-        <div aria-hidden="true" className="pointer-events-none absolute -top-24 -left-24 size-96 rounded-full bg-gold-light/25 blur-3xl" />
-        <div className={cn(wrap, 'relative')}>
-          <div className="mb-12 grid max-w-2xl gap-3">
-            <h2 className="text-h1-m font-bold text-forest md:text-h1">خصوصية العائلة أولًا</h2>
-            <p className="text-body-lg text-ink-soft">الشجرة للعائلة، وأنت تقرر من يشوف ومن يضيف.</p>
+      {/* Roles and privacy */}
+      <section id="roles" className="scroll-mt-20 border-t border-gold-light/30 bg-ivory py-20 md:py-28">
+        <InView className={cn(wrap, 'grid gap-12')}>
+          <SectionHead
+            title="العائلة كلها تبني، وأنت تقرر"
+            body="الشجرة خاصة بعائلتكم. ما يدخلها إلا من تدعوه، وكل واحد يضيف في حدود غصنه."
+          />
+          <div className="grid gap-5 lg:grid-cols-6">
+            <article data-reveal style={d(1)} className="grid gap-6 rounded-[1.75rem] border border-line/50 bg-card p-6 md:p-8 lg:col-span-4">
+              <div className="grid gap-2">
+                <h3 className="text-h2 font-bold text-forest">الدعوة برابط، والقريب يختار غصنه</h3>
+                <p className="max-w-lg text-body leading-relaxed text-ink-soft">
+                  أرسل رابطًا واحدًا في قروب العائلة. كل قريب يدخل برقم جواله ويحدد من أي غصن هو، فتوصل
+                  إضافته في مكانها الصحيح.
+                </p>
+              </div>
+              <InviteGlimpse />
+            </article>
+
+            <article
+              data-reveal
+              style={d(2)}
+              className="relative grid content-between gap-8 overflow-hidden rounded-[1.75rem] bg-forest p-6 text-ivory md:p-8 lg:col-span-2 lg:row-span-2"
+            >
+              <div aria-hidden="true" className="star-ground absolute inset-0 opacity-30 mix-blend-soft-light" />
+              <div className="relative grid gap-6">
+                <h3 className="text-h2 font-bold">كل واحد بصلاحيته</h3>
+                <ol className="relative grid gap-6">
+                  <span aria-hidden="true" className="absolute start-4 top-4 bottom-4 w-px bg-gold-light/30" />
+                  {roles.map((r) => (
+                    <li key={r.name} className="relative flex gap-3">
+                      <Medallion name={r.person} size="sm" className="relative" />
+                      <span className="grid gap-1">
+                        <span className="text-title font-semibold text-gold-light">{r.name}</span>
+                        <span className="text-body leading-relaxed text-ivory/80">{r.scope}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <div className="relative grid gap-2 rounded-2xl border border-gold-light/25 bg-forest-deep/50 p-4">
+                <p className="flex items-center gap-2 text-body font-semibold">
+                  <Icon name="lock" fill className="text-gold-light" />
+                  شجرتكم خاصة
+                </p>
+                <p className="text-caption leading-relaxed text-ivory/75">
+                  لا تظهر في محركات البحث، وتقدر توقف أي رابط دعوة متى ما بغيت.
+                </p>
+              </div>
+            </article>
+
+            <article data-reveal style={d(3)} className="grid content-start gap-5 rounded-[1.75rem] border border-line/50 bg-card p-6 md:p-8 lg:col-span-2">
+              <div className="grid gap-2">
+                <h3 className="text-h2 font-bold text-forest">المراجعة على الشجرة نفسها</h3>
+                <p className="text-body leading-relaxed text-ink-soft">
+                  كل إضافة تظهر بحدود منقطة في مكانها، وتخضرّ لما تعتمدها.
+                </p>
+              </div>
+              <ReviewGlimpse />
+            </article>
+
+            <article data-reveal style={d(4)} className="grid content-start gap-5 rounded-[1.75rem] border border-line/50 bg-card p-6 md:p-8 lg:col-span-2">
+              <div className="grid gap-2">
+                <h3 className="text-h2 font-bold text-forest">أسماء البنات بيدك</h3>
+                <p className="text-body leading-relaxed text-ink-soft">
+                  تظهر لأهل الشجرة، وتقدر تخفيها عن الزوار.
+                </p>
+              </div>
+              <DaughtersGlimpse />
+            </article>
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {privacy.map((p) => (
-              <article key={p.title} className="grid content-start gap-3 rounded-2xl border border-line/40 bg-card p-7 shadow-sm">
-                <span className="mb-3 flex size-14 items-center justify-center rounded-2xl border border-line/30 bg-surface-high text-forest">
-                  <Icon name={p.icon} className="text-[1.75rem]" />
-                </span>
-                <h3 className="text-title font-bold text-forest">{p.title}</h3>
-                <p className="text-body leading-relaxed text-ink-soft">{p.body}</p>
-              </article>
-            ))}
-          </div>
-        </div>
+        </InView>
       </section>
 
-      <section id="plans" className="scroll-mt-20 bg-card py-20 md:py-24">
-        <div className={wrap}>
-          <div className="mx-auto mb-14 grid max-w-2xl justify-items-center gap-4 text-center">
-            <h2 className="text-h1-m font-bold text-forest md:text-h1">اختر الباقة المناسبة لعائلتكم</h2>
-            <p className="inline-flex items-center gap-2 rounded-full border-2 border-gold-light/60 bg-ivory px-5 py-2.5 text-body font-semibold text-forest shadow-sm">
-              <Icon name="verified" fill className="text-olive" />
-              المالك وحده يشترك، والأقارب يدخلون مجانًا
-            </p>
-          </div>
-          <div className="grid items-stretch gap-6 lg:grid-cols-3 lg:gap-8">
-            {plans.map((p) => {
+      {/* Plans */}
+      <section id="plans" className="scroll-mt-20 border-t border-gold-light/30 bg-card py-20 md:py-28">
+        <InView className={cn(wrap, 'grid gap-14')}>
+          <SectionHead
+            center
+            title="باقة على قد عائلتكم"
+            body="المالك وحده يشترك، والأقارب يدخلون ويضيفون مجانًا. الأسعار تُعلن عند الإطلاق."
+          />
+          <div className="grid items-stretch gap-5 lg:grid-cols-3">
+            {plans.map((p, i) => {
               const featured = p.id === 'extended';
               const l = defaultPlanLimits[p.id];
               return (
-                <article
+                <InView
+                  as="article"
                   key={p.id}
                   className={cn(
-                    'relative flex flex-col justify-between gap-8 rounded-2xl bg-ivory p-7 shadow-sm',
+                    'relative flex flex-col gap-7 rounded-[1.75rem] p-7 md:p-8',
                     featured
-                      ? 'border-2 border-gold-light shadow-xl ring-2 ring-gold-light/20 lg:-translate-y-2'
-                      : 'border border-line/50',
+                      ? 'plan-dark bg-forest text-ivory shadow-[0_40px_80px_-30px_rgb(22_56_47/0.6)] lg:-my-4 lg:py-11'
+                      : 'border border-line/60 bg-ivory',
                   )}
                 >
-                  {featured ? (
-                    <span className="absolute -top-3.5 right-7 flex items-center gap-1.5 rounded-full border border-gold-light/40 bg-forest px-4 py-1 text-caption font-bold text-gold-light shadow-sm">
-                      <Icon name="star" fill className="text-[0.95rem]" />
-                      الأنسب لأغلب العوائل
-                    </span>
-                  ) : null}
-                  <div className="grid gap-5">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-h2 font-bold text-forest">{p.name}</h3>
-                      <Icon name={p.icon} className="text-olive" />
+                  <div data-reveal style={d(i)} className="flex items-start justify-between gap-4">
+                    <div className="grid gap-1">
+                      <h3 className={cn('text-h2 font-bold', featured ? 'text-ivory' : 'text-forest')}>{p.name}</h3>
+                      <p className={cn('text-body', featured ? 'text-ivory/70' : 'text-muted')}>{p.who}</p>
                     </div>
-                    <p className="-mt-3 text-body text-muted">{p.who}</p>
-                    <p className="border-b border-line/30 pb-5 text-title font-bold text-forest">
-                      السعر يُعلن عند الإطلاق
-                    </p>
-                    <ul className="grid gap-3.5 text-body text-ink-soft">
-                      <li className="flex items-center gap-3">
-                        <Icon name="check_circle" className="text-success" />
-                        <span>
-                          حتى <strong>{num(l.maxPersons)} فرد</strong> في الشجرة
-                        </span>
-                      </li>
-                      <li className="flex items-center gap-3">
-                        <Icon name="check_circle" className="text-success" />
-                        <span>
-                          <strong>
-                            {num(l.maxReviewers)} {l.maxReviewers === 1 ? 'مدقق مساعد' : 'مدققين مساعدين'}
-                          </strong>{' '}
-                          مع المالك
-                        </span>
-                      </li>
-                      {p.extras.map((x) => (
-                        <li key={x} className="flex items-center gap-3">
-                          <Icon name="check_circle" className="text-success" />
-                          {x}
-                        </li>
-                      ))}
-                    </ul>
+                    {featured ? (
+                      <span className="shrink-0 rounded-full bg-gold-light px-3 py-1 text-caption font-bold text-forest">
+                        الأنسب لأغلب العوائل
+                      </span>
+                    ) : null}
                   </div>
+                  <PlanArt plan={p.id} />
+                  <div className={cn('grid gap-1 border-y py-5', featured ? 'border-gold-light/25' : 'border-line/50')}>
+                    <p className="flex items-baseline gap-2">
+                      <span className={cn('text-[2.75rem]/none font-bold tabular-nums', featured ? 'text-gold-light' : 'text-forest')}>
+                        {num(l.maxPersons)}
+                      </span>
+                      <span className={cn('text-body', featured ? 'text-ivory/80' : 'text-ink-soft')}>فردًا في الشجرة</span>
+                    </p>
+                    <p className={cn('text-body', featured ? 'text-ivory/80' : 'text-ink-soft')}>
+                      مع {l.maxReviewers === 1 ? 'مدقق مساعد واحد' : `${num(l.maxReviewers)} مدققين مساعدين`}
+                    </p>
+                  </div>
+                  <p className={cn('text-body font-semibold', featured ? 'text-gold-light' : 'text-forest')}>
+                    السعر يُعلن عند الإطلاق
+                  </p>
                   <Link
                     href="/trees/new"
-                    className={cn(buttonClass(featured ? 'primary' : 'secondary'), 'w-full')}
+                    className={cn(
+                      featured
+                        ? 'inline-flex h-12 items-center justify-center rounded-full bg-gold-light px-7 font-semibold text-forest transition hover:bg-ivory'
+                        : buttonClass('secondary'),
+                      'mt-auto w-full',
+                    )}
                   >
-                    ابدأ بهذه الباقة
+                    ابدأ بباقة {p.name}
                   </Link>
-                </article>
+                </InView>
               );
             })}
           </div>
-        </div>
+
+          <div data-reveal className="overflow-x-auto rounded-[1.75rem] border border-line/50">
+            <table className="w-full min-w-[34rem] text-body">
+              <caption className="sr-only">مقارنة الباقات</caption>
+              <thead>
+                <tr className="bg-surface-low text-start">
+                  <th scope="col" className="px-6 py-4 text-start font-semibold text-ink">
+                    في كل باقة
+                  </th>
+                  {plans.map((p) => (
+                    <th key={p.id} scope="col" className="px-4 py-4 text-center font-semibold text-forest">
+                      {p.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line/40">
+                <tr>
+                  <th scope="row" className="px-6 py-3.5 text-start font-normal text-ink-soft">
+                    عدد الأفراد
+                  </th>
+                  {plans.map((p) => (
+                    <td key={p.id} className="px-4 py-3.5 text-center font-semibold tabular-nums text-ink">
+                      {num(defaultPlanLimits[p.id].maxPersons)}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row" className="px-6 py-3.5 text-start font-normal text-ink-soft">
+                    مدققون مساعدون
+                  </th>
+                  {plans.map((p) => (
+                    <td key={p.id} className="px-4 py-3.5 text-center font-semibold tabular-nums text-ink">
+                      {num(defaultPlanLimits[p.id].maxReviewers)}
+                    </td>
+                  ))}
+                </tr>
+                {features.map(([label, ...has]) => (
+                  <tr key={label}>
+                    <th scope="row" className="px-6 py-3.5 text-start font-normal text-ink-soft">
+                      {label}
+                    </th>
+                    {has.map((yes, k) => (
+                      <td key={k} className="px-4 py-3.5 text-center">
+                        {yes ? (
+                          <Icon name="check" label="متاح" className="text-success" />
+                        ) : (
+                          <span aria-label="غير متاح" className="text-line">
+                            —
+                          </span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </InView>
       </section>
 
-      <footer className="border-t border-gold-light/20 bg-forest pt-14 pb-10 text-ivory">
-        <div className={wrap}>
-          <div className="grid gap-10 border-b border-line/20 pb-10 md:grid-cols-12">
-            <div className="grid content-start justify-items-start gap-4 md:col-span-6">
-              <Logo onDark className="text-[1.1rem]" />
-              <p className="max-w-sm text-body leading-relaxed text-surface-highest">
-                شجرة نسب حيّة تبنيها العائلة معًا، وتبقى للأجيال القادمة.
-              </p>
+      {/* FAQ */}
+      <section id="faq" className="scroll-mt-20 border-t border-gold-light/30 bg-ivory py-20 md:py-28">
+        <InView className={cn(wrap, 'grid gap-10 lg:grid-cols-12 lg:gap-16')}>
+          <div className="lg:col-span-4">
+            <div className="lg:sticky lg:top-28">
+              <SectionHead title="أسئلة تتكرر" body="وإذا ما لقيت جوابك، جرّب الشجرة التجريبية وشوف بنفسك." />
             </div>
-            <nav className="grid content-start gap-3 text-body text-surface-highest md:col-span-3">
-              <h4 className="text-title font-bold text-gold-light">سُلالة</h4>
-              <a href="#how" className="hover:text-ivory">
-                كيف تعمل
-              </a>
-              <a href="#privacy" className="hover:text-ivory">
-                الخصوصية
-              </a>
-              <a href="#plans" className="hover:text-ivory">
-                الباقات
-              </a>
-            </nav>
-            <nav className="grid content-start gap-3 text-body text-surface-highest md:col-span-3">
-              <h4 className="text-title font-bold text-gold-light">ابدأ</h4>
-              <Link href="/demo" className="hover:text-ivory">
-                جرّب الشجرة
-              </Link>
-              <Link href="/trees/new" className="hover:text-ivory">
-                ابدأ شجرة عائلتك
-              </Link>
-              <Link href="/login" className="hover:text-ivory">
-                دخول
-              </Link>
-            </nav>
           </div>
-          <div className="grid justify-items-center gap-6 pt-8">
-            <p className="inline-flex items-center gap-2 rounded-xl border border-gold-light/25 bg-forest-deep/40 px-5 py-2 text-caption text-gold-light">
-              <Icon name="info" />
-              اعتماد مالك الشجرة توثيق عائلي، وليس إثباتًا رسميًا للنسب.
-            </p>
-            <p className="text-caption text-surface-highest/80">© 2026 سُلالة</p>
+          <div className="grid gap-3 lg:col-span-8">
+            {faq.map((f, i) => (
+              <details
+                key={f.q}
+                data-reveal
+                style={d(i)}
+                className="faq group rounded-2xl border border-line/50 bg-card open:border-gold-light open:shadow-float"
+              >
+                <summary className="flex cursor-pointer items-center justify-between gap-4 px-6 py-5 text-title font-semibold text-forest">
+                  {f.q}
+                  <span className="faq-mark flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-olive transition-transform duration-300">
+                    <Icon name="add" />
+                  </span>
+                </summary>
+                <p className="px-6 pb-6 text-body-lg leading-[1.9] text-ink-soft">{f.a}</p>
+              </details>
+            ))}
           </div>
+        </InView>
+      </section>
+
+      {/* Closing call and footer */}
+      <footer className="relative isolate overflow-hidden bg-forest-deep text-ivory">
+        <div aria-hidden="true" className="star-ground absolute inset-0 -z-10 opacity-30 mix-blend-soft-light" />
+        <InView className={cn(wrap, 'grid justify-items-center gap-8 border-b border-gold-light/15 py-20 text-center md:py-28')}>
+          <p data-reveal className="font-title text-[2.5rem]/[1.4] text-gold-light md:text-[4rem]/[1.3]">
+            ازرعوا شجرتكم اليوم
+          </p>
+          <p data-reveal style={d(1)} className="max-w-xl text-body-lg leading-[1.9] text-ivory/80">
+            تبدأ بالجد واسمين، وتكمّلها العائلة معك. وتبقى لأحفادكم يقرؤون فيها نسبهم.
+          </p>
+          <div data-reveal style={d(2)} className="flex flex-wrap justify-center gap-3">
+            <Link
+              href="/trees/new"
+              className="inline-flex h-13 items-center gap-2 rounded-full bg-gold-light px-8 font-semibold text-forest transition hover:bg-ivory"
+            >
+              ابدأ شجرة عائلتك
+              <Icon name="arrow_back" />
+            </Link>
+            <Link
+              href="/demo"
+              className="inline-flex h-13 items-center gap-2 rounded-full border border-gold-light/40 px-7 font-semibold text-ivory transition hover:bg-ivory/10"
+            >
+              جرّب شجرة حقيقية
+            </Link>
+          </div>
+        </InView>
+        <div className={cn(wrap, 'grid gap-8 py-10 md:grid-cols-12 md:items-center')}>
+          <div className="grid justify-items-start gap-3 md:col-span-4">
+            <Logo onDark />
+            <p className="text-caption text-ivory/60">© 2026 سُلالة</p>
+          </div>
+          <nav className="flex flex-wrap gap-x-7 gap-y-3 text-body text-ivory/75 md:col-span-4 md:justify-center">
+            <a href="#how" className="hover:text-ivory">
+              كيف تعمل
+            </a>
+            <a href="#plans" className="hover:text-ivory">
+              الباقات
+            </a>
+            <Link href="/demo" className="hover:text-ivory">
+              جرّب الشجرة
+            </Link>
+            <Link href="/login" className="hover:text-ivory">
+              دخول
+            </Link>
+          </nav>
+          <p className="flex items-start gap-2 text-caption leading-relaxed text-gold-light/90 md:col-span-4 md:justify-end">
+            <Icon name="info" className="mt-0.5 shrink-0" />
+            اعتماد مالك الشجرة توثيق عائلي، وليس إثباتًا رسميًا للنسب.
+          </p>
         </div>
       </footer>
     </main>
