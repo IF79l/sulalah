@@ -32,13 +32,13 @@ export function InviteGlimpse() {
       <div className="grid content-start gap-2">
         <p className="text-caption text-muted">قروب العائلة</p>
         <div className="max-w-[17rem] justify-self-start rounded-2xl rounded-ss-sm bg-[#e7f3e1] p-3 text-body text-ink shadow-sm">
-          <p className="leading-relaxed">يا جماعة هذي شجرة آل الراشد، كل واحد يضيف عياله 🌿</p>
+          <p className="leading-relaxed">يا جماعة هذي شجرة آل السهلي، كل واحد يضيف عياله 🌿</p>
           <div className="mt-2 flex items-center gap-2 rounded-xl bg-card/80 p-2">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-forest text-gold-light">
               <Icon name="park" fill className="text-[1.1rem]" />
             </span>
             <span className="grid min-w-0">
-              <span className="truncate text-caption font-semibold text-forest">شجرة أسرة الراشد</span>
+              <span className="truncate text-caption font-semibold text-forest">شجرة أسرة السهلي</span>
               <span dir="ltr" className="truncate text-end text-[0.7rem] text-muted">
                 sulalah.app/i/7Kq2
               </span>

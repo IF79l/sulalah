@@ -27,7 +27,7 @@ export interface LivingTreeProps {
   unions?: LineageUnion[];
   /** Forefathers above the root, nearest first, written down the trunk; the last is the family name. */
   ancestors?: string[];
-  /** Heading over the crown, e.g. "شجرة أسرة الراشد". */
+  /** Heading over the crown, e.g. "شجرة أسرة السهلي". */
   title?: string;
   selectedId?: string | null;
   onSelect?: (personId: string | null, path: LineagePerson[]) => void;

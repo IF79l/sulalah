@@ -12,10 +12,10 @@ const wrap = 'mx-auto w-full max-w-[76rem] px-[max(16px,env(safe-area-inset-righ
 const d = (n: number) => ({ ['--d' as string]: n });
 
 /** The demo family's own line, from a grandson's leaf down to the family name on the trunk. */
-const nasab = ['فيصل', 'بن خالد', 'بن عبدالله', 'بن محمد', 'بن سليمان', 'بن حمد', 'الراشد'];
+const nasab = ['فيصل', 'بن خالد', 'بن عبدالله', 'بن محمد', 'بن سليمان', 'بن حمد', 'السهلي'];
 
 const roles = [
-  { name: 'المالك', scope: 'يشرف على الشجرة كلها، ويختار المدققين ويحدد أغصانهم.', person: 'فهد الراشد' },
+  { name: 'المالك', scope: 'يشرف على الشجرة كلها، ويختار المدققين ويحدد أغصانهم.', person: 'فهد السهلي' },
   { name: 'المدقق', scope: 'يعتمد الإضافات في الأغصان اللي حددها له المالك فقط.', person: 'سالم متروك' },
   { name: 'المساهم', scope: 'يضيف أبناءه وبناته وأحفاده في غصنه، وإضافته تنتظر الاعتماد.', person: 'سعود سالم' },
 ];
@@ -161,7 +161,7 @@ export default function HomePage() {
                   <div className="flex items-center justify-between border-b border-gold-light/40 bg-ivory-deep/80 px-5 py-3">
                     <span className="flex items-center gap-2 text-body font-semibold text-forest">
                       <Icon name="park" fill className="text-olive" />
-                      شجرة أسرة الراشد
+                      شجرة أسرة السهلي
                     </span>
                     <span className="text-caption text-muted">اضغط أي غصن</span>
                   </div>

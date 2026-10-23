@@ -25,7 +25,7 @@ export function DemoPoster() {
         unions={demoUnions}
         rootId="mohammed"
         ancestors={demoAncestors}
-        title="شجرة أسرة الراشد"
+        title="شجرة أسرة السهلي"
         selectedId={selected}
         onSelect={(id) => setSelected(id)}
       />
@@ -43,7 +43,7 @@ export function DemoExplorer(chrome: Pick<TreeExplorerProps, 'back' | 'headerEnd
       unions={demoUnions}
       rootId="mohammed"
       ancestors={demoAncestors}
-      title="شجرة أسرة الراشد"
+      title="شجرة أسرة السهلي"
       {...chrome}
       onAdd={(father, gender) => {
         const names = gender === 'male' ? SONS : DAUGHTERS;

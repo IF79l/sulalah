@@ -90,7 +90,7 @@ export function GrowthStory() {
               unions={demoUnions}
               rootId={ROOT}
               ancestors={demoAncestors}
-              title="شجرة أسرة الراشد"
+              title="شجرة أسرة السهلي"
               fitSignal={fit}
             />
           </div>

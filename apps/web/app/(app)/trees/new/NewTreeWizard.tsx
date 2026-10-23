@@ -52,7 +52,7 @@ export function NewTreeWizard() {
             الخطوة التالية: ادعُ عائلتك يختارون أغصانهم ويضيفون أبناءهم.
           </p>
           <div className="grid w-full gap-2">
-            <Link href="/trees/al-rashid" className={buttonClass('primary')}>
+            <Link href="/trees/al-sahli" className={buttonClass('primary')}>
               افتح الشجرة
               <Icon name="arrow_back" />
             </Link>
@@ -132,7 +132,7 @@ export function NewTreeWizard() {
               <Card>
                 <Field
                   label="اسم العائلة"
-                  placeholder="الراشد"
+                  placeholder="السهلي"
                   value={family}
                   onChange={(e) => setFamily(e.target.value)}
                   icon="family_restroom"

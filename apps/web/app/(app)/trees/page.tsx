@@ -22,8 +22,8 @@ interface TreeCard {
 // Sample trees until they are stored (batch 2).
 const trees: TreeCard[] = [
   {
-    id: 'al-rashid',
-    title: 'شجرة آل الراشد',
+    id: 'al-sahli',
+    title: 'شجرة آل السهلي',
     note: 'من الجد محمد بن عبدالله إلى أحفاد أحفاده.',
     role: 'owner',
     people: 312,
