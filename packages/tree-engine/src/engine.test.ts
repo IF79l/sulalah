@@ -118,6 +118,30 @@ describe('2D layout', () => {
     expect(closestLeaves(next)).toBeGreaterThan(40);
   });
 
+  it('makes room for new generations under a leaf without medallions colliding', () => {
+    // A leaf gets sons, they get sons, and one of those gets sons: the case that used to pile up.
+    const added = [
+      ...['a', 'b', 'c', 'd', 'e', 'f'].map((k) => sprout(`g1-${k}`, 'omar-s1')),
+      ...['a', 'b', 'c'].map((k) => sprout(`g2-${k}`, 'g1-a')),
+      ...['a', 'b', 'c', 'd'].map((k) => sprout(`g2b-${k}`, 'g1-b')),
+      ...['a', 'b'].map((k) => sprout(`g3-${k}`, 'g2-a')),
+    ];
+    const next = layoutTree2D(buildLineage([...demoFamily, ...added], 'mohammed'));
+    const forks = next.marks.filter((m) => m.kind === 'fork');
+    for (let i = 0; i < forks.length; i++)
+      for (let j = i + 1; j < forks.length; j++) {
+        const [a, b] = [forks[i]!.position, forks[j]!.position];
+        expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThan(84);
+      }
+    for (const leaf of next.marks.filter((m) => m.kind === 'leaf'))
+      for (const f of forks) {
+        const x = leaf.position[0] + Math.sin(leaf.angle) * 24;
+        const y = leaf.position[1] - Math.cos(leaf.angle) * 24;
+        expect(Math.hypot(x - f.position[0], y - f.position[1])).toBeGreaterThan(50);
+      }
+    expect(closestLeaves(next)).toBeGreaterThan(40);
+  });
+
   it('draws a closed outline that can be partly grown', () => {
     const b = layout.branches[1]!;
     expect(branchOutline(b)).toMatch(/^M.*Z$/);

@@ -199,7 +199,7 @@ export function layoutTree2D(
   };
   leafFan(root, trunkTop, 0);
   place(root, trunkTop, Math.PI, 0, -o.fanAngle, 2 * o.fanAngle);
-  relaxLeaves(marks, branches);
+  settleCrown(marks, branches);
 
   const markById = new Map(marks.map((m) => [m.personId, m]));
   const subtreeBox = new Map<string, Box>();
@@ -230,114 +230,170 @@ export function layoutTree2D(
 }
 
 /**
- * Neighbouring fathers' leaf fans can land on top of each other. Nudge leaves apart (and off
- * the fathers' medallions) for a few rounds, re-aiming each twig at its leaf. Uses a grid so
- * it stays fast for large trees.
+ * The rings give every family a slice of the crown, but a family that grows fast (a leaf that
+ * gains sons, then grandsons) can outgrow its slice. This settles the crown by pushing apart
+ * anything that overlaps: medallions and leaves (each leaf modelled as two discs along its
+ * midrib). Part of every push on a leaf moves its whole family, so crowded families drift
+ * apart as a group and their fans keep their shape. Branches are then re-drawn to the settled
+ * places. Uses a grid so it stays quick for large trees.
  */
-function relaxLeaves(marks: PersonMark[], branches: Branch2D[]) {
-  // A leaf is long and narrow, so it is modelled as two discs along its midrib.
-  const discs = [24, 58];
-  const discGap = 46;
-  const forkGap = 62;
-  const cell = 64;
+function settleCrown(marks: PersonMark[], branches: Branch2D[]) {
+  const MEDAL_R = 46;
+  const LEAF_R = 23;
+  const along = [24, 58];
+  const cell = 2 * MEDAL_R;
+  const parentOf = new Map(branches.map((b) => [b.personId, b.parentId]));
+  const forks = marks.filter((m) => m.kind === 'fork');
   const leaves = marks.filter((m) => m.kind === 'leaf');
-  const forks = marks.filter((m) => m.kind !== 'leaf');
-  const n = leaves.length;
-  const pn = n * discs.length;
-  // Small families settle completely; very large ones get a fixed budget so a re-layout stays quick.
-  const rounds = Math.round(Math.max(16, Math.min(160, 120000 / Math.max(1, n))));
-  const twig = new Map(branches.filter((b) => b.kind === 'twig').map((b) => [b.personId, b]));
-  const from = leaves.map((m) => twig.get(m.personId)!.curve[0]);
-  const bx = Float64Array.from(leaves, (m) => m.position[0]);
-  const by = Float64Array.from(leaves, (m) => m.position[1]);
-  const ang = Float64Array.from(leaves, (m) => m.angle);
-  const qx = new Float64Array(pn);
-  const qy = new Float64Array(pn);
-  const px = new Float64Array(n);
-  const py = new Float64Array(n);
-  // Integer cell keys; the canopy never reaches 50k cells across.
+  const forkIndex = new Map(forks.map((m, i) => [m.personId, i]));
+  const nf = forks.length;
+  const nl = leaves.length;
+  // Each leaf's father, as a fork index, or -1 when he is the (fixed) root.
+  const fatherOf = Int32Array.from(leaves, (m) => forkIndex.get(parentOf.get(m.personId)!) ?? -1);
+  const forkFather = Int32Array.from(forks, (m) => forkIndex.get(parentOf.get(m.personId)!) ?? -1);
+  const fx = Float64Array.from(forks, (m) => m.position[0]);
+  const fy = Float64Array.from(forks, (m) => m.position[1]);
+  const lx = Float64Array.from(leaves, (m) => m.position[0]);
+  const ly = Float64Array.from(leaves, (m) => m.position[1]);
+  const la = Float64Array.from(leaves, (m) => m.angle);
+  const fx0 = fx.slice();
+  const fy0 = fy.slice();
+  const kids: number[][] = forks.map(() => []);
+  fatherOf.forEach((f, i) => f >= 0 && kids[f]!.push(i));
+
+  // Discs: forks first (one each), then two per leaf. owner < nf is a fork, else a leaf.
+  const nd = nf + 2 * nl;
+  const dx = new Float64Array(nd);
+  const dy = new Float64Array(nd);
+  const dr = new Float64Array(nd);
+  const pfx = new Float64Array(nf);
+  const pfy = new Float64Array(nf);
+  const plx = new Float64Array(nl);
+  const ply = new Float64Array(nl);
   const key = (gx: number, gy: number) => gx * 100003 + gy;
+  // Who a disc belongs to, as a family: a fork's own family is itself; a leaf's is its father.
+  const family = (d: number) => (d < nf ? d : fatherOf[(d - nf) >> 1]!);
+  const rounds = Math.round(Math.max(16, Math.min(200, 160000 / Math.max(1, nd))));
+
+  const pushDisc = (d: number, x: number, y: number) => {
+    if (d < nf) {
+      pfx[d]! += x;
+      pfy[d]! += y;
+      return;
+    }
+    const leaf = (d - nf) >> 1;
+    const f = fatherOf[leaf]!;
+    // Most of the push spreads the fan; the rest moves the family as a whole.
+    plx[leaf]! += x * (f >= 0 ? 0.65 : 1);
+    ply[leaf]! += y * (f >= 0 ? 0.65 : 1);
+    if (f >= 0) {
+      pfx[f]! += x * 0.35;
+      pfy[f]! += y * 0.35;
+    }
+  };
 
   for (let round = 0; round < rounds; round++) {
-    const grid = new Map<number, number[]>();
-    for (let p = 0; p < pn; p++) {
-      const i = (p / discs.length) | 0;
-      const along = discs[p % discs.length]!;
-      qx[p] = bx[i]! + Math.sin(ang[i]!) * along;
-      qy[p] = by[i]! - Math.cos(ang[i]!) * along;
-      const k = key(Math.floor(qx[p]! / cell), Math.floor(qy[p]! / cell));
-      const bucket = grid.get(k);
-      if (bucket) bucket.push(p);
-      else grid.set(k, [p]);
+    for (let i = 0; i < nf; i++) {
+      dx[i] = fx[i]!;
+      dy[i] = fy[i]!;
+      dr[i] = MEDAL_R;
     }
-    px.fill(0);
-    py.fill(0);
+    for (let i = 0; i < nl; i++)
+      for (let k = 0; k < 2; k++) {
+        const d = nf + 2 * i + k;
+        dx[d] = lx[i]! + Math.sin(la[i]!) * along[k]!;
+        dy[d] = ly[i]! - Math.cos(la[i]!) * along[k]!;
+        dr[d] = LEAF_R;
+      }
+    const grid = new Map<number, number[]>();
+    for (let d = 0; d < nd; d++) {
+      const k = key(Math.floor(dx[d]! / cell), Math.floor(dy[d]! / cell));
+      const bucket = grid.get(k);
+      if (bucket) bucket.push(d);
+      else grid.set(k, [d]);
+    }
+    pfx.fill(0);
+    pfy.fill(0);
+    plx.fill(0);
+    ply.fill(0);
     let moved = false;
-    for (let p = 0; p < pn; p++) {
-      const i = (p / discs.length) | 0;
-      const x = qx[p]!;
-      const y = qy[p]!;
+    for (let a = 0; a < nd; a++) {
+      const x = dx[a]!;
+      const y = dy[a]!;
       const gx = Math.floor(x / cell);
       const gy = Math.floor(y / cell);
-      for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++) {
-          const bucket = grid.get(key(gx + dx, gy + dy));
+      const famA = family(a);
+      for (let ox = -1; ox <= 1; ox++)
+        for (let oy = -1; oy <= 1; oy++) {
+          const bucket = grid.get(key(gx + ox, gy + oy));
           if (!bucket) continue;
-          for (const q of bucket) {
-            if (q <= p) continue;
-            const j = (q / discs.length) | 0;
-            if (j === i) continue;
-            const ox = qx[q]! - x;
-            const oy = qy[q]! - y;
-            const d = Math.sqrt(ox * ox + oy * oy) || 0.01;
-            if (d >= discGap) continue;
-            const f = (discGap - d) / 2 / d;
-            px[i]! -= ox * f;
-            py[i]! -= oy * f;
-            px[j]! += ox * f;
-            py[j]! += oy * f;
-            moved = true;
-          }
-        }
-    }
-    for (const fork of forks) {
-      const [fx, fy] = fork.position;
-      const gx = Math.floor(fx / cell);
-      const gy = Math.floor(fy / cell);
-      for (let dx = -1; dx <= 1; dx++)
-        for (let dy = -1; dy <= 1; dy++) {
-          const bucket = grid.get(key(gx + dx, gy + dy));
-          if (!bucket) continue;
-          for (const p of bucket) {
-            const i = (p / discs.length) | 0;
-            const ox = qx[p]! - fx;
-            const oy = qy[p]! - fy;
-            const d = Math.sqrt(ox * ox + oy * oy) || 0.01;
-            if (d >= forkGap) continue;
-            px[i]! += (ox * (forkGap - d)) / d;
-            py[i]! += (oy * (forkGap - d)) / d;
+          for (const b of bucket) {
+            if (b <= a) continue;
+            // A leaf's two discs are one blade; a father and his own fan are placed together.
+            if (a >= nf && b >= nf && (a - nf) >> 1 === (b - nf) >> 1) continue;
+            if (a < nf !== b < nf && famA === family(b)) continue;
+            const ex = dx[b]! - x;
+            const ey = dy[b]! - y;
+            const dist = Math.sqrt(ex * ex + ey * ey) || 0.01;
+            const gap = dr[a]! + dr[b]!;
+            if (dist >= gap) continue;
+            const f = (gap - dist) / 2 / dist;
+            pushDisc(a, -ex * f, -ey * f);
+            pushDisc(b, ex * f, ey * f);
             moved = true;
           }
         }
     }
     if (!moved) break;
-    for (let i = 0; i < n; i++) {
-      if (px[i] === 0 && py[i] === 0) continue;
-      bx[i]! += px[i]! * 0.7;
-      by[i]! += py[i]! * 0.7;
-      const f = from[i]!;
-      ang[i] = Math.atan2(bx[i]! - f[0], -(by[i]! - f[1]));
+    for (let i = 0; i < nf; i++) {
+      if (pfx[i] === 0 && pfy[i] === 0) continue;
+      const mx = pfx[i]! * 0.7;
+      const my = pfy[i]! * 0.7;
+      fx[i]! += mx;
+      fy[i]! += my;
+      for (const leaf of kids[i]!) {
+        lx[leaf]! += mx;
+        ly[leaf]! += my;
+      }
+    }
+    for (let i = 0; i < nl; i++) {
+      if (plx[i] === 0 && ply[i] === 0) continue;
+      lx[i]! += plx[i]! * 0.7;
+      ly[i]! += ply[i]! * 0.7;
+      const f = fatherOf[i]!;
+      if (f < 0) continue;
+      // Keep every leaf clear of its own father's medallion.
+      const ex = lx[i]! - fx[f]!;
+      const ey = ly[i]! - fy[f]!;
+      const dist = Math.hypot(ex, ey) || 0.01;
+      if (dist < LEAF_BASE) {
+        lx[i] = fx[f]! + (ex / dist) * LEAF_BASE;
+        ly[i] = fy[f]! + (ey / dist) * LEAF_BASE;
+      }
+      la[i] = Math.atan2(ex, -ey);
     }
   }
 
-  // Re-aim each twig at its leaf's settled place.
+  // Re-draw the wood to the settled places.
+  const byId = new Map(branches.map((b) => [b.personId, b]));
+  forks.forEach((m, i) => {
+    m.position = [fx[i]!, fy[i]!];
+    const b = byId.get(m.personId)!;
+    const p = forkFather[i]!;
+    const [p0, c1, c2] = b.curve;
+    const from: Vec2 = p >= 0 ? [fx[p]!, fy[p]!] : p0;
+    const ds: Vec2 = p >= 0 ? [fx[p]! - fx0[p]!, fy[p]! - fy0[p]!] : [0, 0];
+    const de: Vec2 = [fx[i]! - fx0[i]!, fy[i]! - fy0[i]!];
+    b.curve = [from, [c1[0] + ds[0], c1[1] + ds[1]], [c2[0] + de[0], c2[1] + de[1]], m.position];
+  });
   leaves.forEach((m, i) => {
-    const f = from[i]!;
-    const base: Vec2 = [bx[i]!, by[i]!];
-    m.position = base;
-    m.angle = ang[i]!;
-    const mid: Vec2 = [(f[0] + base[0]) / 2, (f[1] + base[1]) / 2];
-    twig.get(m.personId)!.curve = [f, mid, mid, base];
+    const f = fatherOf[i]!;
+    const b = byId.get(m.personId)!;
+    const from: Vec2 = f >= 0 ? [fx[f]!, fy[f]!] : b.curve[0];
+    m.position = [lx[i]!, ly[i]!];
+    m.angle = la[i]!;
+    const mid: Vec2 = [(from[0] + m.position[0]) / 2, (from[1] + m.position[1]) / 2];
+    b.curve = [from, mid, mid, m.position];
   });
 }
 
