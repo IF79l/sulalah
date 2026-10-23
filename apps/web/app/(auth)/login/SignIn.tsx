@@ -147,9 +147,9 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
                   <h1 className="text-h2 font-bold text-forest">أدخل الرمز</h1>
                   <p className="text-body text-muted">
                     أرسلنا رمزًا من 6 أرقام إلى{' '}
-                    <bdi dir="ltr" className="font-semibold text-ink">
-                      {shownPhone}
-                    </bdi>
+                    <span dir="ltr" className="inline-block font-semibold text-ink [unicode-bidi:isolate]">
+                      {`\u2066${shownPhone}\u2069`}
+                    </span>
                   </p>
                 </div>
                 <OtpField value={code} onChange={setCode} />
