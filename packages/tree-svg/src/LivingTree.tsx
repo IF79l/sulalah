@@ -45,7 +45,15 @@ const GROW_MS = 1300;
  * written down it, each father a branch with his name on a medallion, each of his children
  * a named leaf (green for sons, pink for daughters). Tap to fly in; new people grow in.
  */
-export function LivingTree({
+export function LivingTree(props: LivingTreeProps) {
+  // The layout's trigonometry differs in its last digits between the server and the browser,
+  // so the scene is drawn only in the browser; the server sends an empty, sized frame.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? <LivingTreeScene {...props} /> : <div className={props.className} />;
+}
+
+function LivingTreeScene({
   people,
   rootId,
   unions = [],

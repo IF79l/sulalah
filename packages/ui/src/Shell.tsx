@@ -4,11 +4,7 @@ import { cn } from './cn';
 /** The gold wordmark. */
 export function Brand({ className }: { className?: string }) {
   return (
-    <span
-      className={cn('font-display text-[1.4rem] font-bold tracking-[0.01em] text-gold', className)}
-    >
-      سُلالة
-    </span>
+    <span className={cn('font-title text-[1.8rem] leading-none text-gold', className)}>سُلالة</span>
   );
 }
 

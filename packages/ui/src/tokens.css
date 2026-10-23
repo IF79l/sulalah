@@ -21,6 +21,13 @@
   --color-blossom: #e68db7;
   --color-sprout: #fff9e6;
   --color-withered: #d9be84;
+  /* The wall the poster hangs on: a walnut majlis panel, never pure black. */
+  --color-walnut: #241811;
+  --color-walnut-raised: #2f2118;
+  --color-walnut-line: rgb(201 164 92 / 0.22);
+  --color-parchment: #f3e7c9;
+  --color-parchment-soft: rgb(243 231 201 / 0.72);
+  --color-gilt: #c9a45c;
   --color-danger: #a8402c;
   --color-danger-soft: rgb(168 64 44 / 0.1);
   --color-ok: #4f7f3a;

@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { cn } from './cn';
 
-export type ButtonVariant = 'primary' | 'soft' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'soft' | 'ghost' | 'danger' | 'gilt' | 'onDark';
 export type ButtonSize = 'md' | 'sm';
 
 /** Shared so links that act as buttons look the same as buttons. */
@@ -17,6 +17,11 @@ export function buttonClass(variant: ButtonVariant = 'primary', size: ButtonSize
     variant === 'soft' &&
       'border border-line bg-gold-soft font-semibold text-gold hover:bg-gold/15',
     variant === 'ghost' && 'border border-line text-ink-soft hover:bg-card hover:text-ink',
+    // For the walnut wall around the poster.
+    variant === 'gilt' &&
+      'bg-gilt font-semibold text-walnut hover:-translate-y-px hover:bg-parchment',
+    variant === 'onDark' &&
+      'border border-parchment/30 text-parchment hover:border-parchment/60 hover:bg-parchment/5',
     variant === 'danger' &&
       'border border-danger/30 bg-danger-soft font-semibold text-danger hover:bg-danger/15',
   );
