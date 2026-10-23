@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import {
+  branchOutline,
   buildLineage,
   demoFamily,
-  layoutTree,
+  flyTo,
+  layoutTree2D,
   pathTo,
-  shotForBranch,
+  viewForBox,
   wouldCreateCycle,
+  type LineagePerson,
 } from './index';
+
+const sprout = (id: string, fatherId: string): LineagePerson => ({
+  id,
+  name: id,
+  gender: 'male',
+  fatherId,
+  status: 'proposed',
+});
 
 describe('lineage', () => {
   it('builds the paternal tree from the root', () => {
@@ -31,54 +42,62 @@ describe('lineage', () => {
   });
 
   it('attaches a proposed grandson under the right father', () => {
-    const people = [
-      ...demoFamily,
-      {
-        id: 'fahad',
-        name: 'فهد',
-        gender: 'male' as const,
-        fatherId: 'salem',
-        status: 'proposed' as const,
-      },
-      {
-        id: 'mohammed2',
-        name: 'محمد',
-        gender: 'male' as const,
-        fatherId: 'fahad',
-        status: 'proposed' as const,
-      },
-    ];
-    const lineage = buildLineage(people, 'mohammed');
-    expect(lineage.byId.get('mohammed2')?.parentId).toBe('fahad');
+    const lineage = buildLineage(
+      [...demoFamily, sprout('fahad', 'salem'), sprout('m2', 'fahad')],
+      'mohammed',
+    );
+    expect(lineage.byId.get('m2')?.parentId).toBe('fahad');
     expect(lineage.byId.get('fahad')?.depth).toBe(3);
   });
 });
 
-describe('layout', () => {
+describe('2D layout', () => {
+  const layout = layoutTree2D(buildLineage(demoFamily, 'mohammed'));
+
+  it('makes fathers branches and childless children leaves', () => {
+    expect(layout.markById.get('mohammed')?.kind).toBe('root');
+    expect(layout.markById.get('matrouk')?.kind).toBe('fork');
+    expect(layout.markById.get('hessa')?.kind).toBe('leaf');
+    expect(layout.branches.find((b) => b.personId === 'hessa')?.kind).toBe('twig');
+  });
+
+  it('grows every branch from its father', () => {
+    for (const b of layout.branches) {
+      if (!b.parentId || b.parentId === 'mohammed') continue;
+      expect(b.curve[0]).toEqual(layout.markById.get(b.parentId)?.position);
+    }
+  });
+
+  it('keeps the canopy above the trunk', () => {
+    for (const m of layout.marks) if (m.kind !== 'root') expect(m.position[1]).toBeLessThan(0);
+  });
+
   it('is deterministic', () => {
-    const a = layoutTree(buildLineage(demoFamily, 'mohammed'));
-    const b = layoutTree(buildLineage(demoFamily, 'mohammed'));
-    expect(a.branches).toEqual(b.branches);
+    expect(layoutTree2D(buildLineage(demoFamily, 'mohammed')).marks).toEqual(layout.marks);
   });
 
-  it('does not move existing branches when a sibling-free leaf is added', () => {
-    const before = layoutTree(buildLineage(demoFamily, 'mohammed'));
-    const after = layoutTree(
-      buildLineage(
-        [
-          ...demoFamily,
-          { id: 'fahad', name: 'فهد', gender: 'male', fatherId: 'salem', status: 'proposed' },
-        ],
-        'mohammed',
-      ),
-    );
-    expect(after.byId.get('khaled')?.tip).toEqual(before.byId.get('khaled')?.tip);
-    expect(after.byId.get('fahad')?.points[0]).toEqual(after.byId.get('salem')?.tip);
+  it('turns a new child into a leaf and its father into a branch', () => {
+    const next = layoutTree2D(buildLineage([...demoFamily, sprout('fahad', 'hessa')], 'mohammed'));
+    expect(next.markById.get('hessa')?.kind).toBe('fork');
+    expect(next.markById.get('fahad')?.status).toBe('proposed');
   });
 
-  it('frames a branch with the camera', () => {
-    const layout = layoutTree(buildLineage(demoFamily, 'mohammed'));
-    const shot = shotForBranch(layout, 'matrouk');
-    expect(shot?.target).toEqual(layout.subtreeBounds.get('matrouk')?.center);
+  it('draws a closed outline that can be partly grown', () => {
+    const b = layout.branches[1]!;
+    expect(branchOutline(b)).toMatch(/^M.*Z$/);
+    expect(branchOutline(b, 0.3).length).toBeGreaterThan(10);
+  });
+});
+
+describe('camera', () => {
+  it('flies between views and lands exactly', () => {
+    const layout = layoutTree2D(buildLineage(demoFamily, 'mohammed'));
+    const from = viewForBox(layout.box, 1.6);
+    const to = viewForBox(layout.subtreeBox.get('matrouk')!, 1.6);
+    const path = flyTo(from, to);
+    expect(path.at(0).width).toBeCloseTo(from.width);
+    expect(path.at(1).cx).toBeCloseTo(to.cx);
+    expect(path.at(1).width).toBeCloseTo(to.width);
+    expect(to.width).toBeLessThan(from.width);
   });
 });

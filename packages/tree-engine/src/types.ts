@@ -1,5 +1,3 @@
-export type Vec3 = readonly [number, number, number];
-
 export type NodeStatus = 'approved' | 'proposed';
 
 /** The minimum the engine needs to know about a person. */
@@ -10,6 +8,7 @@ export interface LineagePerson {
   fatherId?: string | null;
   motherId?: string | null;
   status: NodeStatus;
+  deceased?: boolean;
 }
 
 export interface LineageUnion {
@@ -34,30 +33,54 @@ export interface Lineage {
   orphans: LineagePerson[];
 }
 
-export interface BranchGeometry {
+export type Vec2 = readonly [number, number];
+
+export interface Box {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/**
+ * A wooden limb (trunk or father branch) or a thin twig that holds a single leaf.
+ * Coordinates are SVG-style: x to the right, y down, the trunk base at (0, 0).
+ */
+export interface Branch2D {
   personId: string;
   parentId: string | null;
+  kind: 'trunk' | 'limb' | 'twig';
   depth: number;
   status: NodeStatus;
-  /** Catmull-Rom control points from the parent's attachment point to the tip. */
-  points: Vec3[];
-  radiusStart: number;
-  radiusEnd: number;
-  /** Where the person's leaf and name label sit. */
-  tip: Vec3;
+  /** Cubic Bezier: start, control 1, control 2, end. */
+  curve: readonly [Vec2, Vec2, Vec2, Vec2];
+  widthStart: number;
+  widthEnd: number;
 }
 
-export interface Bounds {
-  min: Vec3;
-  max: Vec3;
-  center: Vec3;
-  radius: number;
+/** What is drawn for a person at the end of their branch. */
+export interface PersonMark {
+  personId: string;
+  name: string;
+  gender: 'male' | 'female';
+  status: NodeStatus;
+  deceased: boolean;
+  depth: number;
+  /** A father with children gets a fork badge on his branch; everyone else is a leaf. */
+  kind: 'root' | 'fork' | 'leaf';
+  position: Vec2;
+  /** Direction the leaf points, in radians, 0 = straight up, clockwise positive. */
+  angle: number;
+  spouseIds: string[];
 }
 
-export interface TreeLayout {
-  branches: BranchGeometry[];
-  byId: Map<string, BranchGeometry>;
-  /** Bounds of each person's whole sub-branch, used by the camera to frame it. */
-  subtreeBounds: Map<string, Bounds>;
-  bounds: Bounds;
+export interface TreeLayout2D {
+  branches: Branch2D[];
+  marks: PersonMark[];
+  markById: Map<string, PersonMark>;
+  /** Box around each person and their whole sub-branch; the camera frames these. */
+  subtreeBox: Map<string, Box>;
+  box: Box;
+  canopyRadius: number;
+  trunkTop: Vec2;
 }

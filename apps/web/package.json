@@ -12,7 +12,7 @@
   "dependencies": {
     "@sulalah/db": "workspace:*",
     "@sulalah/domain": "workspace:*",
-    "@sulalah/tree-3d": "workspace:*",
+    "@sulalah/tree-svg": "workspace:*",
     "@sulalah/tree-engine": "workspace:*",
     "@sulalah/ui": "workspace:*",
     "@supabase/ssr": "^0.12.7",

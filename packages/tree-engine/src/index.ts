@@ -1,6 +1,13 @@
 export * from './types';
 export { buildLineage, pathTo, wouldCreateCycle } from './graph';
-export { layoutTree, defaultLayoutOptions, boundsOf, type LayoutOptions } from './layout3d';
-export { shotFor, shotForBranch, shotForTree, type CameraShot } from './camera';
+export {
+  layoutTree2D,
+  defaultLayout2DOptions,
+  branchOutline,
+  bezierPoint,
+  boxOf,
+  type Layout2DOptions,
+} from './layout2d';
+export { viewForBox, flyTo, easeInOutCubic, type View } from './camera2d';
 export { seededRandom, hashString } from './random';
-export { demoFamily } from './demo';
+export { demoFamily, demoUnions, demoSpouses } from './demo';

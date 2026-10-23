@@ -1,18 +1,23 @@
 'use client';
 
-import { demoFamily } from '@sulalah/tree-engine';
-import dynamic from 'next/dynamic';
+import { LivingTree } from '@sulalah/tree-svg';
+import { demoFamily, demoSpouses, demoUnions } from '@sulalah/tree-engine';
+import { useState } from 'react';
 
-// WebGL only runs in the browser; the server renders the page shell instantly.
-const LivingTree = dynamic(() => import('@sulalah/tree-3d').then((m) => m.LivingTree), {
-  ssr: false,
-});
+const people = [...demoFamily, ...demoSpouses];
 
 /** Fictional demo family on the same engine as the real editor. Writes nothing. */
 export function DemoTree() {
+  const [selected, setSelected] = useState<string | null>(null);
   return (
     <div className="absolute inset-0" aria-label="شجرة عائلة تجريبية تفاعلية">
-      <LivingTree people={demoFamily} rootId="mohammed" fontUrl="/fonts/plex-arabic-500.woff" />
+      <LivingTree
+        people={people}
+        unions={demoUnions}
+        rootId="mohammed"
+        selectedId={selected}
+        onSelect={(id) => setSelected(id)}
+      />
     </div>
   );
 }
