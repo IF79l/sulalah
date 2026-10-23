@@ -5,13 +5,14 @@
  * browser so that the screens act on one another: a contributor's additions reach the
  * review queue, an approval greens the leaves, a setting sticks. Nothing leaves the device.
  */
-import { defaultPlanLimits, type PlanId } from '@sulalah/domain';
+import { defaultPlanLimits, type PlanId, type TreeFile, type TreeFilePerson } from '@sulalah/domain';
 import {
   demoAncestors,
   demoFamily,
   demoSpouses,
   demoUnions,
   type LineagePerson,
+  type LineageUnion,
 } from '@sulalah/tree-engine';
 import { useSyncExternalStore } from 'react';
 
@@ -93,7 +94,20 @@ export interface Settings {
   showBirthYears: boolean;
 }
 
+/** What names the tree. A CSV import or a restored backup replaces it along with the people. */
+export interface TreeInfo {
+  title: string;
+  family: string;
+  rootId: string;
+  /** The root's forefathers, nearest first, shown on the trunk. */
+  ancestors: string[];
+  unions: LineageUnion[];
+}
+
 export interface DemoState {
+  tree: TreeInfo;
+  /** The family's key for the encrypted tree file, made on first backup. */
+  treeKey?: string;
   people: Person[];
   submissions: Submission[];
   reviewers: Reviewer[];
@@ -198,6 +212,7 @@ function seed(): DemoState {
       { id: 'l5', who: 'فيصل بن خالد', action: 'invite', text: 'أنشأ رابط مساهمة لغصن ضيف الله', at: 'قبل أسبوعين' },
       { id: 'l6', who: 'فيصل بن خالد', action: 'reject', text: 'رفض إضافة مكررة: سلمان بن بندر', personId: 'bandar', at: 'قبل 3 أسابيع' },
     ],
+    tree: { title: TREE_TITLE, family: FAMILY, rootId: ROOT_ID, ancestors: ANCESTORS, unions: UNIONS },
     settings: { viewers: 'members', showDaughtersToVisitors: false, showDeceased: true, showBirthYears: true },
     plan: 'extended',
     me: { first: 'فيصل', father: 'خالد', phone: '551234567', notify: 'app' },
@@ -213,7 +228,9 @@ function load(): DemoState {
   if (state) return state;
   try {
     const raw = localStorage.getItem(KEY);
-    state = raw ? (JSON.parse(raw) as DemoState) : seed();
+    const saved = raw ? (JSON.parse(raw) as DemoState) : null;
+    // A state saved before the tree had its own field carries the sample tree.
+    state = saved ? { ...saved, tree: saved.tree ?? seed().tree } : seed();
   } catch {
     state = seed();
   }
@@ -251,6 +268,10 @@ export function useDemo(): DemoState {
 
 export const num = (n: number) => n.toLocaleString('en-US');
 
+/** "اسم واحد", "اسمان", "5 أسماء", "88 اسمًا": the counted noun as Arabic grammar wants it. */
+export const names = (n: number) =>
+  n === 1 ? 'اسم واحد' : n === 2 ? 'اسمان' : n % 100 >= 3 && n % 100 <= 10 ? `${num(n)} أسماء` : `${num(n)} اسمًا`;
+
 export function byId(people: Person[]) {
   return new Map(people.map((p) => [p.id, p]));
 }
@@ -264,11 +285,11 @@ export function pathTo(people: Person[], id: string): Person[] {
 }
 
 /** "فهد بن عبدالله بن محمد السهلي". */
-export function nasab(path: Person[], withFamily = false) {
+export function nasab(path: Person[], family?: string) {
   const words = [...path]
     .reverse()
     .map((p, i, all) => (i === 0 ? p.name : `${all[i - 1]!.gender === 'female' ? 'بنت' : 'بن'} ${p.name}`));
-  return withFamily ? `${words.join(' ')} ${FAMILY}` : words.join(' ');
+  return family ? `${words.join(' ')} ${family}` : words.join(' ');
 }
 
 export const childrenOf = (people: Person[], id: string) => people.filter((p) => p.fatherId === id);
@@ -278,14 +299,14 @@ export function inBranch(people: Person[], id: string, branchRoot: string) {
   return pathTo(people, id).some((p) => p.id === branchRoot);
 }
 
-export function lineage(people: Person[]) {
-  return people.filter((p) => p.id === ROOT_ID || p.fatherId);
+export function lineage(people: Person[], rootId: string) {
+  return people.filter((p) => p.id === rootId || p.fatherId);
 }
 
-export function generations(people: Person[]) {
+export function generations(people: Person[], rootId: string) {
   const m = byId(people);
   const depth = (p: Person): number => (p.fatherId && m.has(p.fatherId) ? 1 + depth(m.get(p.fatherId)!) : 1);
-  return Math.max(1, ...lineage(people).map(depth));
+  return Math.max(1, ...lineage(people, rootId).map(depth));
 }
 
 /** Arabic-aware matching: hamza forms, taa marbuta and alif maqsura fold to plain letters. */
@@ -356,4 +377,51 @@ export function sendBack(submissionId: string, status: 'changes' | 'rejected', n
       ],
     };
   });
+}
+
+// ---------- The tree file ----------
+
+/** The tree as the family's file holds it: names and relations only, no app settings. */
+export function toTreeFile(s: DemoState): TreeFile {
+  return {
+    format: 'sulalah-tree',
+    version: 1,
+    tree: { id: TREE_ID, title: s.tree.title, family: s.tree.family, rootId: s.tree.rootId, ancestors: s.tree.ancestors },
+    people: s.people,
+    unions: s.tree.unions,
+    submissions: s.submissions,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/** Puts a restored backup back in place of the tree; settings, invites and reviewers stay. */
+export function restoreTreeFile(file: TreeFile) {
+  update((st) => ({
+    ...st,
+    tree: { ...file.tree, unions: file.unions },
+    people: file.people as Person[],
+    submissions: file.submissions,
+    drafts: [],
+    log: [logEntry('edit', `استرجع نسخة احتياطية فيها ${names(file.people.length)}`), ...st.log],
+  }));
+}
+
+/** Starts the tree over from imported people, as the new-tree wizard does. */
+export function replaceTree(tree: Omit<TreeInfo, 'unions'>, people: TreeFilePerson[]) {
+  update((st) => ({
+    ...st,
+    tree: { ...tree, unions: [] },
+    people: people.map((p) => ({ ...p, status: 'approved' as const })) as Person[],
+    submissions: [],
+    reviewers: [],
+    invites: [],
+    drafts: [],
+    myBranch: undefined,
+    treeKey: undefined,
+    log: [logEntry('add', `أنشأ الشجرة من ملف فيه ${names(people.length)}`)],
+  }));
+}
+
+function logEntry(action: Action, text: string): LogEntry {
+  return { id: newId('log'), who: myName(load()), action, text, at: 'الآن' };
 }

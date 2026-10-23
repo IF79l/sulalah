@@ -3,7 +3,12 @@
 import { DemoPoster } from '@/components/DemoTree';
 import { Icon, Logo, Medallion, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
-import { TREE_TITLE, generations, lineage, num, useDemo } from '@/lib/demo-store';
+import {
+  generations,
+  lineage,
+  num,
+  useDemo,
+} from '@/lib/demo-store';
 
 const errors = {
   expired: ['timer_off', 'انتهت صلاحية هذا الرابط', 'اطلب رابطًا جديدًا من فيصل في قروب العائلة.'],
@@ -14,7 +19,7 @@ const errors = {
 /** S12: what a relative sees after tapping the link in the family group. */
 export function InviteLanding({ state }: { state: 'ok' | keyof typeof errors }) {
   const s = useDemo();
-  const people = lineage(s.people).length;
+  const people = lineage(s.people, s.tree.rootId).length;
   const err = state === 'ok' ? null : errors[state];
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden bg-forest-deep">
@@ -49,9 +54,9 @@ export function InviteLanding({ state }: { state: 'ok' | keyof typeof errors }) 
                 </p>
               </div>
               <div className="grid gap-1">
-                <h1 className="font-title text-[2.25rem]/[1.4] text-forest">{TREE_TITLE}</h1>
+                <h1 className="font-title text-[2.25rem]/[1.4] text-forest">{s.tree.title}</h1>
                 <p className="text-body text-muted">
-                  {num(people)} فردًا · {num(generations(s.people))} أجيال
+                  {num(people)} فردًا · {num(generations(s.people, s.tree.rootId))} أجيال
                 </p>
               </div>
               <ol className="grid gap-3 border-y border-line/40 py-5">

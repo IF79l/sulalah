@@ -3,8 +3,12 @@
 import { Chip, Icon, IconButton, Logo, Medallion, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
-import { TREE_ID, TREE_TITLE, num, useDemo } from '@/lib/demo-store';
+import { useEffect, useRef, type ReactNode } from 'react';
+import {
+  TREE_ID,
+  num,
+  useDemo,
+} from '@/lib/demo-store';
 
 const t = (p: string) => `/trees/${TREE_ID}${p}`;
 
@@ -43,6 +47,16 @@ export function AppShell({
   ];
   const isOn = (n: (typeof nav)[number]) => (n.exact ? path === n.href : path.startsWith(n.href));
 
+  // On phones the page pills scroll sideways; bring the current one into view.
+  const pills = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const on = pills.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!on || !pills.current) return;
+    const a = on.getBoundingClientRect();
+    const b = pills.current.getBoundingClientRect();
+    if (a.left < b.left || a.right > b.right) pills.current.scrollLeft += a.left + a.width / 2 - (b.left + b.width / 2);
+  }, [path]);
+
   return (
     <div className="flex min-h-dvh flex-col bg-ivory">
       <header className="sticky top-0 z-30 border-b border-line/30 bg-ivory/90 backdrop-blur-md">
@@ -74,6 +88,7 @@ export function AppShell({
           </div>
         </div>
         <nav
+          ref={pills}
           aria-label="صفحات الشجرة"
           className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none] lg:hidden"
         >
@@ -100,7 +115,7 @@ export function AppShell({
             <nav className="grid gap-0.5">
               <p className="mb-1 flex items-center gap-2 px-4 text-caption font-semibold text-muted">
                 <Icon name="park" fill className="text-olive" />
-                {TREE_TITLE}
+                {s.tree.title}
               </p>
               {nav.map((n) => (
                 <Link

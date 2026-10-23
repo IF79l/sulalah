@@ -4,7 +4,11 @@ import { Button, Chip, Field, Icon, OtpField, PhoneField, Segmented } from '@sul
 import Link from 'next/link';
 import { useState } from 'react';
 import { AppShell, Panel, Toast } from '@/components/AppShell';
-import { FAMILY, TREE_ID, TREE_TITLE, update, useDemo } from '@/lib/demo-store';
+import {
+  TREE_ID,
+  update,
+  useDemo,
+} from '@/lib/demo-store';
 
 /** S23: my name, my number, my trees, and leaving. */
 export function Account() {
@@ -25,7 +29,7 @@ export function Account() {
             <Field label="الاسم الأول" value={first} onChange={(e) => setFirst(e.target.value)} />
             <Field label="اسم الأب" value={father} onChange={(e) => setFather(e.target.value)} />
             <p className="rounded-xl bg-surface-low px-4 py-2.5 text-body text-ink-soft sm:col-span-2">
-              يظهر اسمك: <strong className="text-forest">{first} بن {father} {FAMILY}</strong>
+              يظهر اسمك: <strong className="text-forest">{first} بن {father} {s.tree.family}</strong>
             </p>
             <Button
               size="sm"
@@ -83,7 +87,7 @@ export function Account() {
         <Panel title="أشجاري" icon="forest">
           <ul>
             {[
-              [TREE_TITLE, 'المالك', `/trees/${TREE_ID}`],
+              [s.tree.title, 'المالك', `/trees/${TREE_ID}`],
               ['شجرة آل الخالدي', 'مساهم', '/trees/bani-khalid?as=contribute'],
             ].map(([t, role, href]) => (
               <li key={t} className="border-b border-line/30 last:border-0">
@@ -123,7 +127,7 @@ export function Account() {
         <Panel title="حذف الحساب" icon="person_remove" tone="danger">
           <div className="grid gap-3 p-5">
             <p className="text-body leading-relaxed text-ink-soft">
-              أنت مالك {TREE_TITLE}. قبل حذف حسابك لازم تنقل ملكيتها لأحد من العائلة أو تحذفها، عشان ما تضيع على أهلها.
+              أنت مالك {s.tree.title}. قبل حذف حسابك لازم تنقل ملكيتها لأحد من العائلة أو تحذفها، عشان ما تضيع على أهلها.
             </p>
             {deleting ? (
               <div className="flex flex-wrap gap-2">

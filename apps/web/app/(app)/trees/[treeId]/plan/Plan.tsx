@@ -5,7 +5,13 @@ import { Button, Chip, Icon, cn } from '@sulalah/ui';
 import { useState } from 'react';
 import { AppShell, Panel } from '@/components/AppShell';
 import { PlanArt } from '@/components/home/PlanArt';
-import { lineage, num, planName, update, useDemo } from '@/lib/demo-store';
+import {
+  lineage,
+  num,
+  planName,
+  update,
+  useDemo,
+} from '@/lib/demo-store';
 
 const order: PlanId[] = ['family', 'extended', 'tribe'];
 
@@ -31,7 +37,7 @@ export function Plan() {
   const s = useDemo();
   // Preview the limit banners against the smallest plan.
   const [preview, setPreview] = useState<'real' | 'near' | 'full'>('real');
-  const used = preview === 'near' ? 46 : preview === 'full' ? 50 : lineage(s.people).length;
+  const used = preview === 'near' ? 46 : preview === 'full' ? 50 : lineage(s.people, s.tree.rootId).length;
   const plan = preview === 'real' ? s.plan : 'family';
   const l = defaultPlanLimits[plan];
   const pct = used / l.maxPersons;

@@ -4,7 +4,15 @@ import { Chip, Icon, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AppShell, EmptyState, Tabs, Toast } from '@/components/AppShell';
-import { TREE_ID, byId, myName, num, update, useDemo, type Person } from '@/lib/demo-store';
+import {
+  TREE_ID,
+  byId,
+  myName,
+  num,
+  update,
+  useDemo,
+  type Person,
+} from '@/lib/demo-store';
 
 type Tab = 'drafts' | 'pending' | 'approved' | 'rejected';
 const t = (p = '') => `/trees/${TREE_ID}${p}`;

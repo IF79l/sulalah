@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AppShell, EmptyState, Panel, Toast } from '@/components/AppShell';
 import {
-  ROOT_ID,
   TREE_ID,
   byId,
   childrenOf,
@@ -50,10 +49,10 @@ export function Profile({ personId }: { personId: string }) {
     );
   }
   const path = pathTo(s.people, p.id);
-  const full = nasab(path, true);
+  const full = nasab(path, s.tree.family);
   const kids = childrenOf(s.people, p.id);
   const siblings = p.fatherId ? childrenOf(s.people, p.fatherId).filter((x) => x.id !== p.id) : [];
-  const fathers = lineage(s.people).filter((x) => x.gender === 'male' && x.id !== p.id && x.id !== p.fatherId && x.status === 'approved');
+  const fathers = lineage(s.people, s.tree.rootId).filter((x) => x.gender === 'male' && x.id !== p.id && x.id !== p.fatherId && x.status === 'approved');
 
   const copy = async () => {
     try {
@@ -202,7 +201,7 @@ export function Profile({ personId }: { personId: string }) {
             </ol>
           </Panel>
 
-          {p.id !== ROOT_ID ? (
+          {p.id !== s.tree.rootId ? (
             <Panel title="إجراءات المالك" icon="admin_panel_settings">
               <div className="grid gap-2 p-5">
                 <Link href={`${t()}?focus=${p.id}`} className={cn(buttonClass('quiet', 'sm'), 'justify-start rounded-xl')}>

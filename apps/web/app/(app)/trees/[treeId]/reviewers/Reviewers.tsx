@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { AppShell, Toast } from '@/components/AppShell';
 import {
-  ROOT_ID,
   TREE_ID,
   byId,
   childrenOf,
@@ -121,7 +120,7 @@ export function Reviewers() {
             setToast(editing === 'new' ? `صار ${r.name} مدققًا` : 'حفظنا النطاق');
           }}
           branchName={(id) => m.get(id)?.name ?? ''}
-          branches={childrenOf(s.people, ROOT_ID)
+          branches={childrenOf(s.people, s.tree.rootId)
             .filter((p) => p.gender === 'male')
             .map((p) => ({ id: p.id, name: p.name, sons: childrenOf(s.people, p.id).filter((c) => c.gender === 'male').map((c) => ({ id: c.id, name: c.name })) }))}
         />

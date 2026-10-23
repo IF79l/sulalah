@@ -5,7 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { AppShell, Panel, Toast } from '@/components/AppShell';
-import { ANCESTORS, FAMILY, TREE_ID, TREE_TITLE, resetDemo, update, useDemo, type Settings } from '@/lib/demo-store';
+import { TreeData } from '@/components/tree/TreeData';
+import {
+  TREE_ID,
+  resetDemo,
+  update,
+  useDemo,
+  type Settings,
+} from '@/lib/demo-store';
 
 function Toggle({
   label,
@@ -48,8 +55,8 @@ function Toggle({
 export function TreeSettings() {
   const s = useDemo();
   const router = useRouter();
-  const [title, setTitle] = useState(TREE_TITLE);
-  const [family, setFamily] = useState(FAMILY);
+  const [title, setTitle] = useState(s.tree.title);
+  const [family, setFamily] = useState(s.tree.family);
   const [confirm, setConfirm] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -59,7 +66,7 @@ export function TreeSettings() {
   };
 
   return (
-    <AppShell title="إعدادات الشجرة" subtitle={TREE_TITLE}>
+    <AppShell title="إعدادات الشجرة" subtitle={s.tree.title}>
       <div className="grid gap-6">
         <Panel title="عام" icon="tune">
           <div className="grid gap-4 p-5 md:grid-cols-2">
@@ -68,10 +75,18 @@ export function TreeSettings() {
             <div className="grid gap-1.5 md:col-span-2">
               <span className="text-body font-medium text-ink">الجد المؤسس والأجداد فوقه</span>
               <p className="rounded-xl border border-line/50 bg-surface-low px-4 py-3 font-title text-title text-forest">
-                محمد بن عبدالله بن {ANCESTORS.join(' بن ')}
+                {[s.people.find((p) => p.id === s.tree.rootId)?.name, ...s.tree.ancestors].filter(Boolean).join(' بن ')}
               </p>
             </div>
-            <Button size="sm" className="justify-self-start" onClick={() => setToast('حفظنا التغييرات')}>
+            <Button
+              size="sm"
+              className="justify-self-start"
+              disabled={!title.trim() || !family.trim()}
+              onClick={() => {
+                update((st) => ({ ...st, tree: { ...st.tree, title: title.trim(), family: family.trim() } }));
+                setToast('حفظنا التغييرات');
+              }}
+            >
               حفظ
             </Button>
           </div>
@@ -115,7 +130,9 @@ export function TreeSettings() {
           />
         </Panel>
 
-        <Panel title="السجل والبيانات" icon="history">
+        <TreeData onToast={setToast} />
+
+        <Panel title="السجل" icon="history">
           <Link href={`/trees/${TREE_ID}/activity`} className="flex items-center justify-between border-b border-line/30 px-5 py-4 hover:bg-surface-low">
             <span className="grid">
               <span className="text-body font-semibold text-ink">سجل النشاط</span>
@@ -164,12 +181,12 @@ export function TreeSettings() {
             {deleting ? (
               <div className="grid animate-rise gap-2 rounded-xl border border-danger/30 bg-danger-soft p-4">
                 <Field
-                  label={`اكتب «${TREE_TITLE}» للتأكيد`}
+                  label={`اكتب «${s.tree.title}» للتأكيد`}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                 />
                 <div className="flex gap-2">
-                  <Button size="sm" variant="danger" disabled={confirm.trim() !== TREE_TITLE} onClick={() => router.push('/trees')}>
+                  <Button size="sm" variant="danger" disabled={confirm.trim() !== s.tree.title} onClick={() => router.push('/trees')}>
                     احذفها نهائيًا
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setDeleting(false)}>

@@ -1,9 +1,10 @@
 'use client';
 
-import { defaultPlanLimits, type PlanId } from '@sulalah/domain';
+import { defaultPlanLimits, fromCsv, type CsvIssue, type PlanId, type TreeFilePerson } from '@sulalah/domain';
 import { Button, Chip, Field, Icon, Logo, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { TREE_ID, names, replaceTree, update } from '@/lib/demo-store';
 
 const steps = [
   { title: 'اسم الشجرة', icon: 'edit' },
@@ -23,6 +24,44 @@ const above = (i: number, founder: string) =>
 
 const num = (n: number) => n.toLocaleString('en-US');
 
+/** A starter file: the founder, his sons, and a granddaughter, so every column shows. */
+const templateCsv =
+  '\uFEFF' +
+  [
+    'المعرف,الاسم,الجنس,معرف الأب,متوفى,سنة الميلاد,سنة الوفاة,الكنية,نبذة',
+    '1,محمد بن عبدالله,ذكر,,نعم,1921,1998,أبو عبدالله,',
+    '2,عبدالله,ذكر,1,,1953,,,',
+    '3,سالم,ذكر,1,,1957,,,',
+    '4,نورة,أنثى,2,,1984,,,',
+  ].join('\r\n') +
+  '\r\n';
+
+interface Imported {
+  file: string;
+  people: TreeFilePerson[];
+  rootId: string;
+  issues: CsvIssue[];
+  /** People with no line to the founder, left out of the tree. */
+  dropped: number;
+}
+
+/** Keeps only the founder's line: anyone not descended from him has no place on the tree. */
+function readCsv(file: string, text: string): Imported | { file: string; issues: CsvIssue[] } {
+  const r = fromCsv(text);
+  if (!r.rootId) return { file, issues: r.issues.length ? r.issues : [{ line: 1, message: 'ما لقينا أسماء في الملف' }] };
+  const keep = new Set([r.rootId]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const p of r.people)
+      if (p.fatherId && keep.has(p.fatherId) && !keep.has(p.id)) {
+        keep.add(p.id);
+        grew = true;
+      }
+  }
+  const people = r.people.filter((p) => keep.has(p.id));
+  return { file, people, rootId: r.rootId, issues: r.issues, dropped: r.people.length - people.length };
+}
+
 /**
  * Three steps to plant a tree: its name, the trunk (the founder and his forefathers, which
  * the tree engraves on its trunk), then the plan. Saving arrives with the database (batch 2).
@@ -34,10 +73,22 @@ export function NewTreeWizard() {
   const [ancestors, setAncestors] = useState<string[]>(['']);
   const [plan, setPlan] = useState<PlanId>('extended');
   const [done, setDone] = useState(false);
+  const [imported, setImported] = useState<Imported | null>(null);
 
   const title = family.trim() ? `شجرة آل ${family.trim()}` : 'شجرة العائلة';
   const filled = ancestors.map((a) => a.trim()).filter(Boolean);
   const canNext = step === 0 ? !!family.trim() : step === 1 ? !!founder.trim() : true;
+
+  const plant = () => {
+    if (imported) {
+      replaceTree(
+        { title, family: family.trim(), rootId: imported.rootId, ancestors: filled },
+        imported.people.map((p) => (p.id === imported.rootId ? { ...p, name: founder.trim() } : p)),
+      );
+      update((st) => ({ ...st, plan }));
+    }
+    setDone(true);
+  };
   const chain = [...filled].reverse().concat(founder.trim() ? [founder.trim()] : []);
 
   if (done) {
@@ -49,10 +100,12 @@ export function NewTreeWizard() {
           </span>
           <h1 className="text-h2 font-bold text-forest">نبتت {title}</h1>
           <p className="text-body text-muted">
-            الخطوة التالية: ادعُ عائلتك يختارون أغصانهم ويضيفون أبناءهم.
+            {imported
+              ? `نبتت بـ ${names(imported.people.length)} من ملفك. ادعُ عائلتك يكملون أغصانهم.`
+              : 'الخطوة التالية: ادعُ عائلتك يختارون أغصانهم ويضيفون أبناءهم.'}
           </p>
           <div className="grid w-full gap-2">
-            <Link href="/trees/al-sahli" className={buttonClass('primary')}>
+            <Link href={`/trees/${TREE_ID}`} className={buttonClass('primary')}>
               افتح الشجرة
               <Icon name="arrow_back" />
             </Link>
@@ -173,6 +226,16 @@ export function NewTreeWizard() {
                   autoFocus
                 />
               </Card>
+              <CsvImport
+                imported={imported}
+                onImport={(r) => {
+                  setImported(r);
+                  const root = r.people.find((p) => p.id === r.rootId);
+                  if (root) setFounder(root.name);
+                }}
+                onClear={() => setImported(null)}
+                maxPersons={defaultPlanLimits[plan].maxPersons}
+              />
               <Card>
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -285,7 +348,7 @@ export function NewTreeWizard() {
               </span>
               <Button
                 disabled={!canNext}
-                onClick={() => (step < steps.length - 1 ? setStep(step + 1) : setDone(true))}
+                onClick={() => (step < steps.length - 1 ? setStep(step + 1) : plant())}
               >
                 {step < steps.length - 1 ? `التالي: ${steps[step + 1]!.title}` : 'ازرع الشجرة'}
                 <Icon name="arrow_back" />
@@ -346,6 +409,118 @@ export function NewTreeWizard() {
         </aside>
       </div>
     </div>
+  );
+}
+
+/** Start from a spreadsheet the family already keeps, instead of typing every name. */
+function CsvImport({
+  imported,
+  onImport,
+  onClear,
+  maxPersons,
+}: {
+  imported: Imported | null;
+  onImport: (r: Imported) => void;
+  onClear: () => void;
+  maxPersons: number;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [failed, setFailed] = useState<{ file: string; issues: CsvIssue[] } | null>(null);
+
+  const read = async (f: File | undefined) => {
+    if (!f) return;
+    const r = readCsv(f.name, await f.text());
+    if ('people' in r) {
+      setFailed(null);
+      onImport(r);
+    } else setFailed(r);
+    if (input.current) input.current.value = '';
+  };
+
+  const template = () => {
+    const url = URL.createObjectURL(new Blob([templateCsv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'نموذج-سلالة.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const issues = imported?.issues ?? failed?.issues ?? [];
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-0.5">
+          <h3 className="flex items-center gap-2 text-title font-bold text-forest">
+            <Icon name="table_view" className="text-olive" />
+            عندك الأسماء في جدول؟ (اختياري)
+          </h3>
+          <p className="max-w-[52ch] text-caption leading-relaxed text-muted">
+            ارفع ملف CSV من Excel أو Google Sheets، وتنبت الشجرة بكل أسمائها. كل صف شخص، ومعه معرف أبيه.
+          </p>
+        </div>
+        <button type="button" onClick={template} className="text-caption font-semibold text-olive hover:underline">
+          نزّل ملف نموذج
+        </button>
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept=".csv,text/csv,text/plain"
+        className="sr-only"
+        onChange={(e) => read(e.target.files?.[0])}
+      />
+
+      {imported ? (
+        <div className="grid animate-rise gap-2 rounded-xl border border-success/25 bg-success-soft p-4">
+          <p className="flex items-start gap-2 text-body text-ink">
+            <Icon name="check_circle" fill className="mt-0.5 text-success" />
+            <span>
+              قرأنا <strong className="text-forest">{names(imported.people.length)}</strong> من {imported.file}، والجد
+              المؤسس {imported.people.find((p) => p.id === imported.rootId)?.name}.
+              {imported.dropped ? ` تركنا ${num(imported.dropped)} ما لهم صلة بالجد المؤسس.` : ''}
+            </span>
+          </p>
+          {imported.people.length > maxPersons ? (
+            <p className="text-caption text-pending">
+              العدد أكبر من حد الباقة ({num(maxPersons)} فرد). اختر باقة أكبر في الخطوة الجاية.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="ghost" onClick={() => input.current?.click()}>
+              <Icon name="sync" />
+              ملف ثاني
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onClear}>
+              <Icon name="close" />
+              بدون استيراد
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="secondary" className="justify-self-start rounded-xl" onClick={() => input.current?.click()}>
+          <Icon name="upload_file" />
+          اختر ملف CSV
+        </Button>
+      )}
+
+      {issues.length ? (
+        <div className={cn('grid gap-1.5 rounded-xl p-3', failed && !imported ? 'bg-danger-soft' : 'bg-pending-soft')}>
+          <p className={cn('text-caption font-semibold', failed && !imported ? 'text-danger' : 'text-pending')}>
+            {failed && !imported ? `ما قدرنا نقرأ ${failed.file}` : `ملاحظات على الملف (${num(issues.length)})`}
+          </p>
+          <ul className="grid gap-1 text-caption leading-relaxed text-ink-soft">
+            {issues.slice(0, 5).map((i, k) => (
+              <li key={k}>
+                <span className="text-muted">السطر {num(i.line)}:</span> {i.message}
+              </li>
+            ))}
+            {issues.length > 5 ? <li className="text-muted">و{num(issues.length - 5)} ملاحظات ثانية</li> : null}
+          </ul>
+        </div>
+      ) : null}
+    </Card>
   );
 }
 

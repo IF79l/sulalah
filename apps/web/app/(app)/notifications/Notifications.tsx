@@ -3,13 +3,19 @@
 import { Icon, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { AppShell, EmptyState } from '@/components/AppShell';
-import { planLimits, lineage, num, update, useDemo } from '@/lib/demo-store';
+import {
+  planLimits,
+  lineage,
+  num,
+  update,
+  useDemo,
+} from '@/lib/demo-store';
 
 /** S19: what happened on my trees, newest first. */
 export function Notifications() {
   const s = useDemo();
   const unread = s.notices.filter((n) => n.unread).length;
-  const used = lineage(s.people).length;
+  const used = lineage(s.people, s.tree.rootId).length;
   const limit = planLimits(s).maxPersons;
   const near = used / limit >= 0.9;
   const read = (id?: string) =>

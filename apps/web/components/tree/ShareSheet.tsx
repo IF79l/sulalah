@@ -3,7 +3,13 @@
 import { Button, Icon, IconButton, Segmented, Sheet, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useState } from 'react';
-import { ROOT_ID, TREE_ID, TREE_TITLE, childrenOf, newId, update, useDemo } from '@/lib/demo-store';
+import {
+  TREE_ID,
+  childrenOf,
+  newId,
+  update,
+  useDemo,
+} from '@/lib/demo-store';
 
 type Kind = 'contribute' | 'view';
 const days = { day: 1, week: 7, month: 30 } as const;
@@ -17,12 +23,12 @@ export function ShareSheet({ onClose, onCopied }: { onClose: () => void; onCopie
   const [scope, setScope] = useState<string>('all');
   const [made, setMade] = useState<string | null>(null);
 
-  const branches = childrenOf(s.people, ROOT_ID).filter((p) => p.gender === 'male');
+  const branches = childrenOf(s.people, s.tree.rootId).filter((p) => p.gender === 'male');
   const link = made ? `https://sulalah.app/i/${made.slice(-6)}` : '';
   const message =
     kind === 'view'
-      ? `هذي ${TREE_TITLE}، تقدرون تتصفحونها من هنا: ${link}`
-      : `حيّاكم تساهمون في ${TREE_TITLE}، اختار غصنك وأضف أبناءك: ${link}`;
+      ? `هذي ${s.tree.title}، تقدرون تتصفحونها من هنا: ${link}`
+      : `حيّاكم تساهمون في ${s.tree.title}، اختار غصنك وأضف أبناءك: ${link}`;
 
   const make = () => {
     const id = newId('inv');

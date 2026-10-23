@@ -7,11 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { TreeExplorer } from '@/components/TreeExplorer';
 import {
-  ANCESTORS,
-  ROOT_ID,
   TREE_ID,
-  TREE_TITLE,
-  UNIONS,
   byId,
   childrenOf,
   inBranch,
@@ -115,7 +111,7 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
   const [undo, setUndo] = useState<{ text: string; run: () => void } | null>(null);
 
   const sendDrafts = () => {
-    const fatherId = drafts[0]?.fatherId ?? branch ?? ROOT_ID;
+    const fatherId = drafts[0]?.fatherId ?? branch ?? s.tree.rootId;
     const sub = newId('sub');
     update((st) => ({
       ...st,
@@ -190,7 +186,7 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
           <Icon name="more_horiz" />
         </Link>
         <span className="mx-1 hidden h-6 w-px bg-line/50 sm:block" />
-        <Button size="sm" className="rounded-xl" onClick={() => setForm({ father: (current as Person) ?? m.get(ROOT_ID)!, gender: 'male' })}>
+        <Button size="sm" className="rounded-xl" onClick={() => setForm({ father: (current as Person) ?? m.get(s.tree.rootId)!, gender: 'male' })}>
           <Icon name="person_add" />
           <span className="hidden sm:inline">إضافة فرد</span>
         </Button>
@@ -241,10 +237,10 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
     <>
       <TreeExplorer
         people={people}
-        unions={UNIONS}
-        rootId={ROOT_ID}
-        ancestors={ANCESTORS}
-        title={TREE_TITLE}
+        unions={s.tree.unions}
+        rootId={s.tree.rootId}
+        ancestors={s.tree.ancestors}
+        title={s.tree.title}
         back={visitor ? undefined : { href: contributing ? '/trees' : '/trees', label: 'أشجاري' }}
         headerEnd={headerEnd}
         notice={note}
@@ -263,11 +259,11 @@ export function TreeScreen({ mode, reviewId, focusId }: { mode: TreeMode; review
               <Icon name="badge" />
               الملف الشخصي
             </Link>
-            {!visitor && mode !== 'reviewer' && (!contributing || (p.status === 'proposed' && s.drafts.includes(p.id))) && p.id !== ROOT_ID ? (
+            {!visitor && mode !== 'reviewer' && (!contributing || (p.status === 'proposed' && s.drafts.includes(p.id))) && p.id !== s.tree.rootId ? (
               <button
                 type="button"
                 className={cn(buttonClass('quiet', 'sm'), 'rounded-xl')}
-                onClick={() => setForm({ father: m.get(p.fatherId ?? '') ?? m.get(ROOT_ID)!, gender: p.gender, editing: p as Person })}
+                onClick={() => setForm({ father: m.get(p.fatherId ?? '') ?? m.get(s.tree.rootId)!, gender: p.gender, editing: p as Person })}
               >
                 <Icon name="edit" />
                 تعديل

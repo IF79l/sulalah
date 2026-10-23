@@ -5,9 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
-  ROOT_ID,
   TREE_ID,
-  TREE_TITLE,
   byId,
   childrenOf,
   fold,
@@ -25,12 +23,12 @@ export function JoinBranch() {
   const router = useRouter();
   const [how, setHow] = useState<'search' | 'browse'>('search');
   const [q, setQ] = useState('');
-  const [trail, setTrail] = useState<string[]>([ROOT_ID]);
+  const [trail, setTrail] = useState<string[]>([s.tree.rootId]);
   const [picked, setPicked] = useState<string | null>(null);
   const [who, setWho] = useState<'me' | 'father'>('me');
 
   const m = byId(s.people);
-  const men = lineage(s.people).filter((p) => p.gender === 'male' && p.status === 'approved');
+  const men = lineage(s.people, s.tree.rootId).filter((p) => p.gender === 'male' && p.status === 'approved');
   const hits = fold(q) ? men.filter((p) => fold(nasab(pathTo(s.people, p.id))).includes(fold(q))).slice(0, 8) : [];
   const here = trail.at(-1)!;
   const sons = childrenOf(s.people, here).filter((p) => p.gender === 'male' && p.status === 'approved');
@@ -69,7 +67,7 @@ export function JoinBranch() {
     <div className="flex min-h-dvh flex-col bg-ivory">
       <header className="flex h-16 items-center justify-between border-b border-line/30 px-4 md:px-8">
         <Logo />
-        <span className="text-caption font-semibold text-muted">{TREE_TITLE}</span>
+        <span className="text-caption font-semibold text-muted">{s.tree.title}</span>
       </header>
       <main className="mx-auto grid w-full max-w-xl flex-1 content-start gap-5 px-4 py-8">
         <div className="grid gap-1.5">
