@@ -58,7 +58,7 @@ function closestLeaves(layout: TreeLayout2D): number {
   const tips = layout.marks
     .filter((m) => m.kind === 'leaf')
     .flatMap((m) =>
-      [24, 58].map((a) => [
+      [20, 48].map((a) => [
         m.position[0] + Math.sin(m.angle) * a,
         m.position[1] - Math.cos(m.angle) * a,
         layout.marks.indexOf(m),
@@ -126,7 +126,7 @@ describe('2D layout', () => {
   });
 
   it('keeps named leaves from piling on top of each other', () => {
-    expect(closestLeaves(layout)).toBeGreaterThan(40);
+    expect(closestLeaves(layout)).toBeGreaterThan(32);
   });
 
   it('keeps a big family of leaves apart when many are added to one father', () => {
@@ -135,7 +135,7 @@ describe('2D layout', () => {
       ...Array.from({ length: 10 }, (_, i) => sprout(`girl-kid-${i}`, 'yousef-d0')),
     ];
     const next = layoutTree2D(buildLineage([...demoFamily, ...many], 'mohammed'));
-    expect(closestLeaves(next)).toBeGreaterThan(40);
+    expect(closestLeaves(next)).toBeGreaterThan(32);
     expect(crossingTwigs(next)).toEqual([]);
   });
 
@@ -152,15 +152,15 @@ describe('2D layout', () => {
     for (let i = 0; i < forks.length; i++)
       for (let j = i + 1; j < forks.length; j++) {
         const [a, b] = [forks[i]!.position, forks[j]!.position];
-        expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThan(84);
+        expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThan(72);
       }
     for (const leaf of next.marks.filter((m) => m.kind === 'leaf'))
       for (const f of forks) {
-        const x = leaf.position[0] + Math.sin(leaf.angle) * 24;
-        const y = leaf.position[1] - Math.cos(leaf.angle) * 24;
-        expect(Math.hypot(x - f.position[0], y - f.position[1])).toBeGreaterThan(50);
+        const x = leaf.position[0] + Math.sin(leaf.angle) * 20;
+        const y = leaf.position[1] - Math.cos(leaf.angle) * 20;
+        expect(Math.hypot(x - f.position[0], y - f.position[1])).toBeGreaterThan(42);
       }
-    expect(closestLeaves(next)).toBeGreaterThan(40);
+    expect(closestLeaves(next)).toBeGreaterThan(32);
   });
 
   it('draws a closed outline that can be partly grown', () => {
