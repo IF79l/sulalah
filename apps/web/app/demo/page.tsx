@@ -9,7 +9,9 @@ export default function DemoPage() {
   return (
     <main className="h-dvh overflow-hidden">
       <DemoExplorer
-        topEnd={
+        back={{ href: '/', label: 'الرئيسية' }}
+        notice="عائلة خيالية للتجربة. إضافاتك لا تُحفظ."
+        headerEnd={
           <Link href="/trees/new" className={buttonClass('primary', 'sm')}>
             ابدأ شجرة عائلتك
           </Link>

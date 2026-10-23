@@ -33,6 +33,8 @@ export interface LivingTreeProps {
   onSelect?: (personId: string | null, path: LineagePerson[]) => void;
   /** Bumped by the host to fly back to the whole tree. */
   fitSignal?: number;
+  /** Bumped by the host's zoom buttons; factor < 1 zooms in. */
+  zoomSignal?: { n: number; factor: number };
   className?: string;
 }
 
@@ -62,6 +64,7 @@ function LivingTreeScene({
   selectedId = null,
   onSelect,
   fitSignal = 0,
+  zoomSignal,
   className,
 }: LivingTreeProps) {
   const lineage = useMemo(() => buildLineage(people, rootId, unions), [people, rootId, unions]);
@@ -117,6 +120,10 @@ function LivingTreeScene({
     if (cam.size.w <= 1) return;
     cam.fly(shotFor(layout, fullBox, selectedId, aspect));
   }, [selectedId, fitSignal, cam.size.w > 1]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (zoomSignal) cam.zoomBy(zoomSignal.factor);
+  }, [zoomSignal?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const select = (id: string | null) => {
     if (cam.wasDrag()) return;

@@ -121,5 +121,14 @@ export function useCamera(svg: RefObject<SVGSVGElement | null>, initial: View) {
     },
   };
 
-  return { view, size, fly, handlers, wasDrag: () => dragged.current };
+  /** Zoom about the centre of the view, as the on-screen +/- buttons do. */
+  const zoomBy = useCallback(
+    (factor: number) => {
+      const v = viewRef.current;
+      fly({ ...v, width: Math.min(12000, Math.max(120, v.width * factor)) });
+    },
+    [fly],
+  );
+
+  return { view, size, fly, zoomBy, handlers, wasDrag: () => dragged.current };
 }

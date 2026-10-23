@@ -1,44 +1,70 @@
 /*
- * SULALAH design tokens: a printed nasab poster brought to life. Ivory paper, bark ink,
- * quiet gold for actions, green leaves for sons and blossom pink for daughters.
- * One deliberate light look, the same as the tree itself.
+ * SULALAH design tokens, taken from the approved Stitch design system: warm ivory surfaces,
+ * deep forest green for roots and primary actions, olive for growth, muted gold for
+ * medallions and fine borders. The tree itself keeps its own approved palette.
  */
 @theme {
-  --color-paper: #f6efdd;
-  --color-paper-deep: #e8dcbd;
-  --color-card: #fbf5e2;
-  --color-glass: rgb(251 245 226 / 0.86);
-  --color-ink: #3a2716;
-  --color-ink-soft: rgb(58 39 22 / 0.68);
-  --color-ink-faint: rgb(58 39 22 / 0.45);
-  --color-bark: #6b4329;
-  --color-gold: #a87c26;
-  --color-gold-deep: #8a6418;
-  --color-gold-soft: rgb(168 124 38 / 0.1);
-  --color-line: rgb(168 124 38 / 0.35);
-  --color-on-gold: #fff8e6;
-  --color-leaf: #6fa65e;
+  --color-ivory: #f8f5ee;
+  --color-ivory-deep: #efece3;
+  --color-card: #ffffff;
+  --color-surface-low: #f6f3ec;
+  --color-surface: #f0eee7;
+  --color-surface-high: #ebe8e1;
+  --color-surface-highest: #e5e2db;
+
+  --color-forest: #16382f;
+  --color-forest-deep: #00221a;
+  --color-on-forest-soft: #7ea296;
+  --color-olive: #516442;
+  --color-olive-soft: #d3eabe;
+  --color-on-olive-soft: #576a48;
+  --color-gold: #b59a6b;
+  --color-gold-light: #dfc9a1;
+
+  --color-ink: #1a2421;
+  --color-ink-soft: #414845;
+  --color-muted: #616c66;
+  --color-outline: #717975;
+  --color-line: #c1c8c4;
+
+  /* Person states, matching the tree's leaves. */
+  --color-leaf: #2d6a4f;
   --color-blossom: #e68db7;
-  --color-sprout: #fff9e6;
-  --color-withered: #d9be84;
-  /* The wall the poster hangs on: a walnut majlis panel, never pure black. */
-  --color-walnut: #241811;
-  --color-walnut-raised: #2f2118;
-  --color-walnut-line: rgb(201 164 92 / 0.22);
-  --color-parchment: #f3e7c9;
-  --color-parchment-soft: rgb(243 231 201 / 0.72);
-  --color-gilt: #c9a45c;
-  --color-danger: #a8402c;
-  --color-danger-soft: rgb(168 64 44 / 0.1);
-  --color-ok: #4f7f3a;
-  --color-ok-soft: rgb(79 127 58 / 0.12);
+  --color-pending: #c78229;
+  --color-pending-soft: #fdf3e3;
+  --color-deceased: #7d827d;
+
+  --color-danger: #b83a3a;
+  --color-danger-soft: #fff1f0;
+  --color-success: #1e6b4b;
+  --color-success-soft: #e8f4ec;
 
   --font-sans: var(--font-plex-arabic), system-ui, sans-serif;
-  --font-display: var(--font-alexandria), var(--font-plex-arabic), sans-serif;
-  --font-title: var(--tree-title-font), var(--font-alexandria), serif;
+  --font-title: var(--tree-title-font), var(--font-plex-arabic), serif;
 
-  --radius-control: 14px;
-  --radius-sheet: 22px;
+  /* Type scale from the design system (size / line height). */
+  --text-hero: 2.75rem;
+  --text-hero--line-height: 3.75rem;
+  --text-hero-m: 1.875rem;
+  --text-hero-m--line-height: 2.625rem;
+  --text-h1: 2rem;
+  --text-h1--line-height: 2.75rem;
+  --text-h1-m: 1.5rem;
+  --text-h1-m--line-height: 2.125rem;
+  --text-h2: 1.375rem;
+  --text-h2--line-height: 2rem;
+  --text-title: 1.125rem;
+  --text-title--line-height: 1.625rem;
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.625rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.375rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.125rem;
+
+  --shadow-float: 0 12px 32px -6px rgb(22 56 47 / 0.12), 0 4px 12px -2px rgb(22 56 47 / 0.06);
+  --shadow-sheet: 0 -8px 24px -4px rgb(22 56 47 / 0.08), 0 -2px 6px -1px rgb(22 56 47 / 0.04);
+  --shadow-toast: 0 8px 20px -2px rgb(22 56 47 / 0.2);
 
   --ease-cinematic: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -63,4 +89,24 @@
       opacity: 1;
     }
   }
+}
+
+/* Material Symbols ligatures; the font is loaded once in the app layout. */
+.icon {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 1.25em;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+.icon-fill {
+  font-variation-settings: 'FILL' 1;
 }

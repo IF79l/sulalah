@@ -3,7 +3,7 @@
 @source '../../../packages/ui/src';
 
 html {
-  background: var(--color-paper);
+  background: var(--color-ivory);
   color: var(--color-ink);
 }
 

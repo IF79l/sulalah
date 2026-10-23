@@ -9,7 +9,7 @@ import {
   type LineagePerson,
 } from '@sulalah/tree-engine';
 import { useState } from 'react';
-import { TreeExplorer } from './TreeExplorer';
+import { TreeExplorer, type TreeExplorerProps } from './TreeExplorer';
 
 const people = [...demoFamily, ...demoSpouses];
 const SONS = ['فهد', 'محمد', 'سعود', 'عبدالرحمن', 'تميم', 'إبراهيم', 'حمد'];
@@ -34,7 +34,7 @@ export function DemoPoster() {
 }
 
 /** The full demo: pick anyone and grow the family. Additions stay in the page only. */
-export function DemoExplorer({ topEnd }: { topEnd?: React.ReactNode }) {
+export function DemoExplorer(chrome: Pick<TreeExplorerProps, 'back' | 'headerEnd' | 'notice'>) {
   const [family, setFamily] = useState<LineagePerson[]>(people);
   const [n, setN] = useState(0);
   return (
@@ -44,7 +44,7 @@ export function DemoExplorer({ topEnd }: { topEnd?: React.ReactNode }) {
       rootId="mohammed"
       ancestors={demoAncestors}
       title="شجرة أسرة الراشد"
-      topEnd={topEnd}
+      {...chrome}
       onAdd={(father, gender) => {
         const names = gender === 'male' ? SONS : DAUGHTERS;
         setFamily((f) => [
