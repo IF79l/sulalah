@@ -36,8 +36,8 @@ export interface LivingTreeProps {
   className?: string;
 }
 
-const LEAF_L = 66;
-const LEAF_W = 44;
+const LEAF_L = 80;
+const LEAF_W = 52;
 const GROW_MS = 1300;
 
 /**
@@ -125,7 +125,7 @@ export function LivingTree({
   const h = v.width / aspect;
   const viewBox = `${v.cx - v.width / 2} ${v.cy - h / 2} ${v.width} ${h}`;
   const visible = cullBox(v, h);
-  const showLeafNames = LEAF_W * pxPerUnit > 15;
+  const showLeafNames = LEAF_W * pxPerUnit > 17;
   const showForkNames = pxPerUnit > 0.14;
   const trunk = layout.branches[0]!;
   const root = layout.marks[0]!;
@@ -300,7 +300,7 @@ function Leaf({
     mark.status === 'proposed' ? 'sprout' : mark.deceased ? 'withered' : female ? 'female' : 'male';
   const cx = x + Math.sin(mark.angle) * LEAF_L * 0.5;
   const cy = y - Math.cos(mark.angle) * LEAF_L * 0.5;
-  const size = Math.min(12.5, (LEAF_W * 1.55) / Math.max(3, mark.name.length * 0.6));
+  const size = Math.min(14.5, (LEAF_W * 1.5) / Math.max(3, mark.name.length * 0.6));
   const s = easeOutBack(grow);
   if (grow <= 0) return null;
   return (
@@ -364,7 +364,7 @@ function Medallion({
   spouseNames: string[];
 }) {
   const [x, y] = mark.position;
-  const r = Math.max(24, Math.min(38, mark.name.length * 3.8 + 11));
+  const r = Math.max(27, Math.min(44, mark.name.length * 4.4 + 13));
   const size = Math.min(15, (r * 1.75) / Math.max(2.5, mark.name.length * 0.62));
   const cls = [
     'lt-medal',

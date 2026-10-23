@@ -4,110 +4,38 @@ import type { Box, Branch2D, Lineage, LineageNode, PersonMark, TreeLayout2D, Vec
 export interface Layout2DOptions {
   trunkHeight: number;
   trunkWidth: number;
-  /** Horizontal room kept between neighbouring families. */
-  familyGap: number;
-  /** How far a son's medallion sits above his father's, before climbing for outer sons. */
-  climb: number;
+  /** Smallest horizontal canopy radius; it grows automatically so leaves never crowd. */
+  minCanopyRadius: number;
+  /** Space each leaf needs along its ring, in world units. */
+  leafSpacing: number;
+  /**
+   * How far the crown wraps around its centre, in radians from straight up. Past 90° the
+   * lowest leaves hang beside the trunk, like a full family-tree poster.
+   */
+  fanAngle: number;
+  /** Crown width relative to its height; below 1 makes an upright egg. */
+  canopyAspect: number;
 }
 
 export const defaultLayout2DOptions: Layout2DOptions = {
-  trunkHeight: 460,
+  trunkHeight: 500,
   trunkWidth: 150,
-  familyGap: 16,
-  climb: 120,
+  minCanopyRadius: 420,
+  leafSpacing: 64,
+  fanAngle: (118 * Math.PI) / 180,
+  canopyAspect: 0.92,
 };
 
-/** Leaf blade length and width, matching the renderer. */
-const LEAF_LENGTH = 66;
-const LEAF_WIDTH = 44;
-/** Leaves pair up along a father's stem: first pair this far above him, then every STEP. */
-const STEM_START = 40;
-const STEM_STEP = 54;
-/** Angle a stem leaf opens away from the stem, in radians. */
-const LEAF_OPEN = 0.95;
-/** Largest father's medallion radius the renderer draws. */
-const MEDAL = 38;
-/** Height of one row of a family's outline, in world units. */
-const BAND = 16;
-
-/**
- * A family's outline: for each horizontal band, the leftmost and rightmost x it occupies,
- * relative to the father. Packing compares outlines band by band, so a tall thin family and a
- * short wide one can sit close where their shapes allow.
- */
-type Outline = Map<number, [number, number]>;
-
-function addSpan(o: Outline, yTop: number, yBottom: number, x0: number, x1: number) {
-  for (let b = Math.floor(yTop / BAND); b <= Math.floor(yBottom / BAND); b++) {
-    const cur = o.get(b);
-    o.set(b, cur ? [Math.min(cur[0], x0), Math.max(cur[1], x1)] : [x0, x1]);
-  }
-}
-
-function merge(into: Outline, from: Outline, dx: number, dy: number) {
-  const shift = Math.round(dy / BAND);
-  for (const [b, [x0, x1]] of from) {
-    const k = b + shift;
-    const cur = into.get(k);
-    into.set(k, cur ? [Math.min(cur[0], x0 + dx), Math.max(cur[1], x1 + dx)] : [x0 + dx, x1 + dx]);
-  }
-}
-
-/** Smallest shift right (side 1) or left (side -1) that keeps `next` clear of `placed`. */
-function clearance(placed: Outline, next: Outline, dy: number, side: 1 | -1, gap: number) {
-  const shift = Math.round(dy / BAND);
-  let best = side === 1 ? -Infinity : Infinity;
-  for (const [b, [x0, x1]] of next) {
-    for (let k = b + shift - 1; k <= b + shift + 1; k++) {
-      const p = placed.get(k);
-      if (!p) continue;
-      best = side === 1 ? Math.max(best, p[1] + gap - x0) : Math.min(best, p[0] - gap - x1);
-    }
-  }
-  return Number.isFinite(best) ? best : 0;
-}
-
-function widthOf(o: Outline): number {
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (const [x0, x1] of o.values()) {
-    lo = Math.min(lo, x0);
-    hi = Math.max(hi, x1);
-  }
-  return hi - lo;
-}
-
-/** Where a father's i-th of k leaves attaches on his stem, and which way it opens. */
-function stemSlot(i: number, k: number): { y: number; angle: number } {
-  // The last leaf of an odd family crowns the stem, pointing straight up.
-  if (k % 2 === 1 && i === k - 1)
-    return { y: -(STEM_START + Math.floor(i / 2) * STEM_STEP + STEM_STEP * 0.75), angle: 0 };
-  const side = i % 2 === 0 ? 1 : -1;
-  return {
-    y: -(STEM_START + Math.floor(i / 2) * STEM_STEP + (i % 2) * (STEM_STEP / 2)),
-    angle: side * LEAF_OPEN,
-  };
-}
-
-/** The father's own column: his medallion and the leaves along his stem. */
-function columnOutline(k: number): Outline {
-  const o: Outline = new Map();
-  addSpan(o, -MEDAL, MEDAL, -MEDAL, MEDAL);
-  for (let i = 0; i < k; i++) {
-    const { y, angle } = stemSlot(i, k);
-    const tipX = Math.sin(angle) * LEAF_LENGTH;
-    const tipY = y - Math.cos(angle) * LEAF_LENGTH;
-    const w = LEAF_WIDTH / 2 + 4;
-    addSpan(
-      o,
-      Math.min(y, tipY) - w,
-      Math.max(y, tipY) + 4,
-      Math.min(0, tipX) - w,
-      Math.max(0, tipX) + w,
-    );
-  }
-  return o;
-}
+/** How far a father's leaves sit from his branch end, and the angle between neighbours. */
+const LEAF_BASE = 44;
+const LEAF_STEP = 0.6;
+/** Widest fan, in radians, so leaves never fold back over their father's own branch. */
+const LEAF_SPREAD = 2.5;
+/** Gap between rows of leaves, base to base. */
+const LEAF_ROW = 92;
+/** From a leaf's base to its middle, and the width a leaf needs beside its neighbour. */
+const LEAF_REACH = 40;
+const LEAF_SLOT = 64;
 
 /** How many leaves (childless people) hang under a node; sets how thick its wood is. */
 function leafCount(node: LineageNode, memo: Map<string, number>): number {
@@ -119,79 +47,65 @@ function leafCount(node: LineageNode, memo: Map<string, number>): number {
   return n;
 }
 
+/** Rows of a father's leaf fan, innermost first: how far out each row sits and how many it holds. */
+function fanRows(count: number): { reach: number; n: number }[] {
+  const rows: { reach: number; n: number }[] = [];
+  for (let row = 0, left = count; left > 0; row++) {
+    const reach = LEAF_BASE + row * LEAF_ROW;
+    const fit = Math.max(1, Math.floor((LEAF_SPREAD * (reach + LEAF_REACH)) / LEAF_SLOT));
+    const n = Math.min(fit, left);
+    rows.push({ reach, n });
+    left -= n;
+  }
+  return rows;
+}
+
+/** Depth of the youngest father; leaves hang beyond it. */
+function maxForkDepth(node: LineageNode): number {
+  if (node.children.length === 0) return 0;
+  return node.children.reduce((m, c) => Math.max(m, maxForkDepth(c)), node.depth);
+}
+
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const leavesOf = (node: LineageNode) => node.children.filter((c) => c.children.length === 0);
-const forksOf = (node: LineageNode) => node.children.filter((c) => c.children.length > 0);
 
 /**
- * Lays the family out as a tree seen from the front, growing upward: the root ancestor is the
- * trunk, every father is a branch with his name on a medallion, and his childless children are
- * leaves paired up the stem that rises from it. His sons who have children of their own branch
- * off to either side and climb, the outer ones higher, so the crown rises like a real tree.
- *
- * Families are packed bottom-up by their real outlines: each son's whole family is slid as
- * close to his brothers as their shapes allow, never closer. So no two families overlap or
- * interleave, yet the crown stays dense. Output is deterministic for the same data.
+ * Lays the family out as a tree seen from the front: the root ancestor is the trunk,
+ * every father is a branch, and each of his children is a leaf (or a further branch
+ * if they have children of their own). The crown is an upright egg filled from the
+ * centre outward, one generation per ring. Output is deterministic for the same data.
  */
 export function layoutTree2D(
   lineage: Lineage,
   options: Partial<Layout2DOptions> = {},
 ): TreeLayout2D {
   const o = { ...defaultLayout2DOptions, ...options };
-  const root = lineage.root;
   const memo = new Map<string, number>();
-  leafCount(root, memo);
+  leafCount(lineage.root, memo);
+  // Fathers sit on rings, one generation per ring; their children's leaves cluster round them.
+  const forkDepth = Math.max(1, maxForkDepth(lineage.root));
+  const ringOf = (depth: number) => 0.14 + 0.86 * Math.pow(depth / forkDepth, 0.85);
 
-  // Bottom-up: each family's outline, and where each son sits relative to his father.
-  const offset = new Map<string, Vec2>();
-  const outlineOf = (node: LineageNode): Outline => {
-    const own = node === root ? rootOutline(o.trunkWidth) : columnOutline(leavesOf(node).length);
-    const sons = forksOf(node);
-    const shapes = sons.map((s) => outlineOf(s));
-    const all: Outline = new Map(own);
-    // Sons go to whichever side of the stem is lighter so far, the first ones closest and lowest.
-    const sides: Outline[] = [new Map(own), new Map(own)];
-    const load = [0, 0];
-    const ranks = [0, 0];
-    sons.forEach((son, i) => {
-      const s = load[0]! <= load[1]! ? 0 : 1;
-      const side: 1 | -1 = s === 0 ? 1 : -1;
-      const rand = seededRandom(son.person.id);
-      const dy = -(o.climb * (node === root ? 1.35 : 1) + ranks[s]! * 60 + rand() * 14);
-      ranks[s]!++;
-      let dx = clearance(sides[s]!, shapes[i]!, dy, side, o.familyGap);
-      // Even with room to spare, a son leans out a little so his branch reads as his own.
-      dx = side === 1 ? Math.max(dx, 46) : Math.min(dx, -46);
-      offset.set(son.person.id, [dx, dy]);
-      merge(sides[s]!, shapes[i]!, dx, dy);
-      merge(all, shapes[i]!, dx, dy);
-      load[s]! += widthOf(shapes[i]!);
-    });
-    return all;
-  };
-  const crown = outlineOf(root);
-  // Stand the crown centred over the trunk.
-  {
-    let lo = Infinity;
-    let hi = -Infinity;
-    for (const [x0, x1] of crown.values()) {
-      lo = Math.min(lo, x0);
-      hi = Math.max(hi, x1);
-    }
-    const shift = -(lo + hi) / 2;
-    for (const son of forksOf(root)) {
-      const [dx, dy] = offset.get(son.person.id)!;
-      offset.set(son.person.id, [dx + shift, dy]);
-    }
-    for (const [b, [x0, x1]] of [...crown]) crown.set(b, [x0 + shift, x1 + shift]);
-  }
+  // The crown is sized by area, so it fills in like a poster instead of a thin outer rim.
+  const people = lineage.root.weight;
+  const area = people * o.leafSpacing * o.leafSpacing * 2;
+  const rx = Math.min(
+    9000,
+    Math.max(o.minCanopyRadius, Math.sqrt((area * o.canopyAspect) / Math.PI)),
+  );
+  const ry = rx / o.canopyAspect;
 
   const trunkTop: Vec2 = [0, -o.trunkHeight];
+  const center: Vec2 = [0, trunkTop[1] - ry * 0.62];
+  const polar = (phi: number, ring: number): Vec2 => [
+    center[0] + rx * ring * Math.sin(phi),
+    center[1] - ry * ring * Math.cos(phi),
+  ];
   const widthFor = (node: LineageNode) =>
     Math.min(o.trunkWidth * 0.5, 5 + 6 * Math.sqrt(memo.get(node.person.id) ?? 1));
 
   const branches: Branch2D[] = [];
   const marks: PersonMark[] = [];
+  const root = lineage.root;
 
   branches.push({
     personId: root.person.id,
@@ -203,17 +117,29 @@ export function layoutTree2D(
     widthStart: o.trunkWidth,
     widthEnd: o.trunkWidth * 0.62,
   });
-  marks.push(markFor(root, 'root', [0, trunkTop[1] + 100], 0));
+  marks.push(markFor(root, 'root', [0, trunkTop[1] + o.trunkHeight * 0.2], 0));
 
-  /** A father's childless children, paired up the stem above his medallion. */
-  const stem = (node: LineageNode, at: Vec2) => {
-    const leaves = leavesOf(node);
+  /** A father's childless children fan out round the end of his branch, continuing its heading. */
+  const leafFan = (node: LineageNode, at: Vec2, heading: number) => {
+    const leaves = node.children.filter((c) => c.children.length === 0);
+    // Fill rows outward: each row holds as many leaves as fit side by side on its arc,
+    // so a large family grows a fuller fan instead of stacking leaves on each other.
+    const slots: { angle: number; reach: number }[] = [];
+    fanRows(leaves.length).forEach(({ reach, n }, row) => {
+      const step = Math.min(LEAF_STEP, LEAF_SPREAD / Math.max(1, n - 1));
+      const offset = row % 2 ? step / 2 : 0;
+      for (let i = 0; i < n; i++)
+        slots.push({ angle: heading + (i - (n - 1) / 2) * step + offset, reach });
+    });
     leaves.forEach((leaf, i) => {
-      const slot = stemSlot(i, leaves.length);
       const rand = seededRandom(leaf.person.id);
-      const angle = slot.angle + (rand() - 0.5) * 0.08;
-      const to: Vec2 = [at[0], at[1] + slot.y];
-      const mid: Vec2 = [at[0], at[1] + slot.y / 2];
+      const angle = slots[i]!.angle + (rand() - 0.5) * 0.06;
+      const reach = slots[i]!.reach + rand() * 5;
+      const to: Vec2 = [at[0] + Math.sin(angle) * reach, at[1] - Math.cos(angle) * reach];
+      const mid: Vec2 = [
+        at[0] + Math.sin(angle) * reach * 0.5,
+        at[1] - Math.cos(angle) * reach * 0.5,
+      ];
       branches.push({
         personId: leaf.person.id,
         parentId: node.person.id,
@@ -228,35 +154,59 @@ export function layoutTree2D(
     });
   };
 
-  const place = (node: LineageNode, at: Vec2) => {
-    stem(node, at);
-    for (const son of forksOf(node)) {
-      const [dx, dy] = offset.get(son.person.id)!;
-      const to: Vec2 = [at[0] + dx, at[1] + dy];
-      let origin = at;
+  const place = (
+    node: LineageNode,
+    from: Vec2,
+    phiP: number,
+    ringP: number,
+    start: number,
+    span: number,
+  ) => {
+    const forks = node.children.filter((c) => c.children.length > 0);
+    const forkWeight = forks.reduce((s, c) => s + c.weight, 0);
+    let cursor = start;
+    for (const child of forks) {
+      const share = (child.weight / forkWeight) * span;
+      const rand = seededRandom(child.person.id);
+      const phi = cursor + share / 2 + (rand() - 0.5) * share * 0.14;
+      const ring = Math.min(1, ringOf(child.depth) * (0.97 + rand() * 0.05));
+      const to = polar(phi, ring);
+
+      let origin = from;
+      let c1: Vec2;
+      let c2: Vec2;
       if (node === root) {
-        // The outermost sons leave the trunk a little lower, as on a real tree.
-        const low = Math.min(1, Math.abs(dx) / 900);
-        origin = [Math.sign(dx) * o.trunkWidth * 0.12 * low, trunkTop[1] + 110 * low];
+        // Sons rise out of the trunk; the outermost ones leave it lower down, as on a real tree.
+        const low = Math.max(0, Math.min(1, (Math.abs(phi) - 1.5) / 0.9));
+        origin = [
+          Math.sign(phi) * o.trunkWidth * 0.14 * low,
+          trunkTop[1] + o.trunkHeight * 0.24 * low,
+        ];
+        c1 = [lerp(origin[0], to[0], 0.1), lerp(origin[1], to[1], 0.5)];
+        c2 = [lerp(origin[0], to[0], 0.6), lerp(origin[1], to[1], 0.9)];
+      } else {
+        // Follow the crown's rings: out from the father, then sweep round to the son.
+        c1 = polar(lerp(phiP, phi, 0.2), lerp(ringP, ring, 0.45));
+        c2 = polar(lerp(phiP, phi, 0.8), lerp(ringP, ring, 0.78));
       }
-      // Out from the father, then curving up into the son: every branch climbs.
-      const c1: Vec2 = [lerp(origin[0], to[0], 0.5), lerp(origin[1], to[1], 0.2)];
-      const c2: Vec2 = [to[0], lerp(origin[1], to[1], 0.62)];
       branches.push({
-        personId: son.person.id,
+        personId: child.person.id,
         parentId: node.person.id,
         kind: 'limb',
-        depth: son.depth,
-        status: son.person.status,
+        depth: child.depth,
+        status: child.person.status,
         curve: [origin, c1, c2, to],
-        widthStart: widthFor(son) * (node === root ? 1.5 : 1.1),
-        widthEnd: widthFor(son) * 0.72,
+        widthStart: widthFor(child) * (node === root ? 1.5 : 1.1),
+        widthEnd: widthFor(child) * 0.72,
       });
-      marks.push(markFor(son, 'fork', to, Math.atan2(to[0] - c2[0], -(to[1] - c2[1]))));
-      place(son, to);
+      marks.push(markFor(child, 'fork', to, phi));
+      leafFan(child, to, Math.atan2(to[0] - c2[0], -(to[1] - c2[1])));
+      place(child, to, phi, ring, cursor, share);
+      cursor += share;
     }
   };
-  place(root, trunkTop);
+  leafFan(root, trunkTop, 0);
+  place(root, trunkTop, Math.PI, 0, -o.fanAngle, 2 * o.fanAngle);
   settleCrown(marks, branches);
 
   const markById = new Map(marks.map((m) => [m.personId, m]));
@@ -264,26 +214,14 @@ export function layoutTree2D(
   const collect = (node: LineageNode): Vec2[] => {
     const own = markById.get(node.person.id)?.position;
     const pts = [...(own ? [own] : []), ...node.children.flatMap(collect)];
-    subtreeBox.set(node.person.id, pad(boxOf(pts), 100));
+    subtreeBox.set(node.person.id, pad(boxOf(pts), 80));
     return pts;
   };
   collect(root);
-  const all = boxOf([[-o.trunkWidth * 1.4, 40], ...marks.map((m) => m.position)]);
-  subtreeBox.set(root.person.id, pad({ ...all, minY: all.minY - LEAF_LENGTH }, 90));
-
-  // The soft backdrop behind the crown follows the packed outline.
-  let minX = 0;
-  let maxX = 0;
-  let minB = 0;
-  for (const [b, [x0, x1]] of crown) {
-    minX = Math.min(minX, x0);
-    maxX = Math.max(maxX, x1);
-    minB = Math.min(minB, b);
-  }
-  const crownTop = trunkTop[1] + minB * BAND;
-  const rx = Math.max(200, (maxX - minX) / 2);
-  const ry = Math.max(200, (trunkTop[1] + 60 - crownTop) / 2);
-  const center: Vec2 = [(minX + maxX) / 2, crownTop + ry];
+  subtreeBox.set(
+    root.person.id,
+    pad(boxOf([[-o.trunkWidth * 1.4, 40], ...marks.map((m) => m.position)]), 100),
+  );
 
   return {
     branches,
@@ -299,13 +237,6 @@ export function layoutTree2D(
   };
 }
 
-/** Above the trunk the root's sons must clear the top of the trunk itself. */
-function rootOutline(trunkWidth: number): Outline {
-  const o: Outline = new Map();
-  addSpan(o, -10, 200, -trunkWidth * 0.4, trunkWidth * 0.4);
-  return o;
-}
-
 /**
  * The rings give every family a slice of the crown, but a family that grows fast (a leaf that
  * gains sons, then grandsons) can outgrow its slice. This settles the crown by pushing apart
@@ -315,9 +246,10 @@ function rootOutline(trunkWidth: number): Outline {
  * places. Uses a grid so it stays quick for large trees.
  */
 function settleCrown(marks: PersonMark[], branches: Branch2D[]) {
-  const MEDAL_R = 40;
-  const LEAF_R = 19;
-  const along = [20, 48];
+  const MEDAL_R = 46;
+  const LEAF_R = 23;
+  const TWIG_R = 12;
+  const along = [24, 58];
   const cell = 2 * MEDAL_R;
   const parentOf = new Map(branches.map((b) => [b.personId, b.parentId]));
   const forks = marks.filter((m) => m.kind === 'fork');
@@ -339,30 +271,39 @@ function settleCrown(marks: PersonMark[], branches: Branch2D[]) {
   fatherOf.forEach((f, i) => f >= 0 && kids[f]!.push(i));
 
   // Discs: forks first (one each), then two per leaf. owner < nf is a fork, else a leaf.
-  const nd = nf + 2 * nl;
+  const nd = nf + 3 * nl;
   const dx = new Float64Array(nd);
   const dy = new Float64Array(nd);
   const dr = new Float64Array(nd);
   const pfx = new Float64Array(nf);
   const pfy = new Float64Array(nf);
+  const carryX = new Float64Array(nf);
+  const carryY = new Float64Array(nf);
   const plx = new Float64Array(nl);
   const ply = new Float64Array(nl);
   const key = (gx: number, gy: number) => gx * 100003 + gy;
   // Who a disc belongs to, as a family: a fork's own family is itself; a leaf's is its father.
-  const family = (d: number) => (d < nf ? d : fatherOf[(d - nf) >> 1]!);
+  const leafOf = (d: number) => ((d - nf) / 3) | 0;
+  const isTwig = (d: number) => d >= nf && (d - nf) % 3 === 2;
+  const family = (d: number) => (d < nf ? d : fatherOf[leafOf(d)]!);
   const rounds = Math.round(Math.max(16, Math.min(200, 160000 / Math.max(1, nd))));
 
-  const pushDisc = (d: number, x: number, y: number) => {
+  const pushDisc = (d: number, x: number, y: number, kin: boolean) => {
     if (d < nf) {
       pfx[d]! += x;
       pfy[d]! += y;
       return;
     }
-    // Leaves sit fixed on their father's stem, so a push on a leaf moves his whole family.
-    const f = fatherOf[(d - nf) >> 1]!;
-    if (f >= 0) {
-      pfx[f]! += x;
-      pfy[f]! += y;
+    const leaf = leafOf(d);
+    const f = fatherOf[leaf]!;
+    // Siblings only spread their own fan. A clash with another family mostly moves the
+    // family as a whole, so a fan keeps to its own father instead of mixing with the next.
+    const own = kin || f < 0 ? 1 : 0.3;
+    plx[leaf]! += x * own;
+    ply[leaf]! += y * own;
+    if (!kin && f >= 0) {
+      pfx[f]! += x * 0.7;
+      pfy[f]! += y * 0.7;
     }
   };
 
@@ -372,13 +313,20 @@ function settleCrown(marks: PersonMark[], branches: Branch2D[]) {
       dy[i] = fy[i]!;
       dr[i] = MEDAL_R;
     }
-    for (let i = 0; i < nl; i++)
+    for (let i = 0; i < nl; i++) {
       for (let k = 0; k < 2; k++) {
-        const d = nf + 2 * i + k;
+        const d = nf + 3 * i + k;
         dx[d] = lx[i]! + Math.sin(la[i]!) * along[k]!;
         dy[d] = ly[i]! - Math.cos(la[i]!) * along[k]!;
         dr[d] = LEAF_R;
       }
+      // The twig's middle, so another family's leaves keep off it and twigs never cross.
+      const f = fatherOf[i]!;
+      const d = nf + 3 * i + 2;
+      dx[d] = f >= 0 ? (fx[f]! + lx[i]!) / 2 : lx[i]!;
+      dy[d] = f >= 0 ? (fy[f]! + ly[i]!) / 2 : ly[i]!;
+      dr[d] = f >= 0 ? TWIG_R : 0;
+    }
     const grid = new Map<number, number[]>();
     for (let d = 0; d < nd; d++) {
       const k = key(Math.floor(dx[d]! / cell), Math.floor(dy[d]! / cell));
@@ -403,32 +351,54 @@ function settleCrown(marks: PersonMark[], branches: Branch2D[]) {
           if (!bucket) continue;
           for (const b of bucket) {
             if (b <= a) continue;
-            // A leaf's two discs are one blade; a father and his own fan are placed together.
-            if (a >= nf && b >= nf && (a - nf) >> 1 === (b - nf) >> 1) continue;
-            if (a < nf !== b < nf && famA === family(b)) continue;
+            // A leaf's discs are one blade; a father and his own fan are placed together, and
+            // twigs only keep clear of other families.
+            if (a >= nf && b >= nf && leafOf(a) === leafOf(b)) continue;
+            const kin = famA === family(b);
+            if (kin && (a < nf !== b < nf || isTwig(a) || isTwig(b))) continue;
             const ex = dx[b]! - x;
             const ey = dy[b]! - y;
             const dist = Math.sqrt(ex * ex + ey * ey) || 0.01;
             const gap = dr[a]! + dr[b]!;
             if (dist >= gap) continue;
             const f = (gap - dist) / 2 / dist;
-            pushDisc(a, -ex * f, -ey * f);
-            pushDisc(b, ex * f, ey * f);
+            pushDisc(a, -ex * f, -ey * f, kin);
+            pushDisc(b, ex * f, ey * f, kin);
             moved = true;
           }
         }
     }
     if (!moved) break;
+    // Forks are listed fathers first, so a father's move can carry his sons' families with it.
     for (let i = 0; i < nf; i++) {
-      if (pfx[i] === 0 && pfy[i] === 0) continue;
-      const mx = pfx[i]! * 0.7;
-      const my = pfy[i]! * 0.7;
+      const p = forkFather[i]!;
+      const mx = pfx[i]! * 0.7 + (p >= 0 ? carryX[p]! * 0.6 : 0);
+      const my = pfy[i]! * 0.7 + (p >= 0 ? carryY[p]! * 0.6 : 0);
+      carryX[i] = mx;
+      carryY[i] = my;
+      if (mx === 0 && my === 0) continue;
       fx[i]! += mx;
       fy[i]! += my;
       for (const leaf of kids[i]!) {
         lx[leaf]! += mx;
         ly[leaf]! += my;
       }
+    }
+    for (let i = 0; i < nl; i++) {
+      if (plx[i] === 0 && ply[i] === 0) continue;
+      lx[i]! += plx[i]! * 0.7;
+      ly[i]! += ply[i]! * 0.7;
+      const f = fatherOf[i]!;
+      if (f < 0) continue;
+      // Keep every leaf clear of its own father's medallion.
+      const ex = lx[i]! - fx[f]!;
+      const ey = ly[i]! - fy[f]!;
+      const dist = Math.hypot(ex, ey) || 0.01;
+      if (dist < LEAF_BASE) {
+        lx[i] = fx[f]! + (ex / dist) * LEAF_BASE;
+        ly[i] = fy[f]! + (ey / dist) * LEAF_BASE;
+      }
+      la[i] = Math.atan2(ex, -ey);
     }
   }
 
