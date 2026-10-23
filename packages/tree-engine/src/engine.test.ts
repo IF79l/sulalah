@@ -82,6 +82,20 @@ describe('2D layout', () => {
     expect(next.markById.get('fahad')?.status).toBe('proposed');
   });
 
+  it('keeps named leaves from piling on top of each other', () => {
+    const tips = layout.marks
+      .filter((m) => m.kind === 'leaf')
+      .map((m) => [m.position[0] + Math.sin(m.angle) * 40, m.position[1] - Math.cos(m.angle) * 40]);
+    let closest = Infinity;
+    for (let i = 0; i < tips.length; i++)
+      for (let j = i + 1; j < tips.length; j++)
+        closest = Math.min(
+          closest,
+          Math.hypot(tips[i]![0]! - tips[j]![0]!, tips[i]![1]! - tips[j]![1]!),
+        );
+    expect(closest).toBeGreaterThan(36);
+  });
+
   it('draws a closed outline that can be partly grown', () => {
     const b = layout.branches[1]!;
     expect(branchOutline(b)).toMatch(/^M.*Z$/);

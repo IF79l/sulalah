@@ -81,6 +81,11 @@ export interface TreeLayout2D {
   /** Box around each person and their whole sub-branch; the camera frames these. */
   subtreeBox: Map<string, Box>;
   box: Box;
+  /** Horizontal radius of the canopy. */
   canopyRadius: number;
+  /** The egg-shaped crown every leaf sits inside. */
+  canopy: { center: Vec2; rx: number; ry: number };
   trunkTop: Vec2;
+  trunkHeight: number;
+  trunkWidth: number;
 }

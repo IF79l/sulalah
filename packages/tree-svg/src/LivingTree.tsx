@@ -4,15 +4,18 @@ import {
   buildLineage,
   layoutTree2D,
   pathTo,
+  seededRandom,
   viewForBox,
+  type Box,
   type Branch2D,
   type LineagePerson,
   type LineageUnion,
   type PersonMark,
   type TreeLayout2D,
+  type Vec2,
   type View,
 } from '@sulalah/tree-engine';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { treeTheme as T } from './theme';
 import { useCamera } from './useCamera';
 
@@ -21,6 +24,10 @@ export interface LivingTreeProps {
   people: LineagePerson[];
   rootId: string;
   unions?: LineageUnion[];
+  /** Forefathers above the root, nearest first, written down the trunk; the last is the family name. */
+  ancestors?: string[];
+  /** Heading over the crown, e.g. "شجرة أسرة الراشد". */
+  title?: string;
   selectedId?: string | null;
   onSelect?: (personId: string | null, path: LineagePerson[]) => void;
   /** Bumped by the host to fly back to the whole tree. */
@@ -28,18 +35,21 @@ export interface LivingTreeProps {
   className?: string;
 }
 
-const LEAF_L = 78;
-const LEAF_W = 54;
+const LEAF_L = 80;
+const LEAF_W = 52;
 const GROW_MS = 1300;
 
 /**
- * The family tree as a living illustration: the root ancestor is the trunk, each father
- * a branch, each of his children a named leaf. Tap a branch to fly to it; new people grow in.
+ * The family tree as a living poster: the root ancestor is the trunk with his forefathers
+ * written down it, each father a branch with his name on a medallion, each of his children
+ * a named leaf (green for sons, pink for daughters). Tap to fly in; new people grow in.
  */
 export function LivingTree({
   people,
   rootId,
   unions = [],
+  ancestors = [],
+  title,
   selectedId = null,
   onSelect,
   fitSignal = 0,
@@ -47,9 +57,14 @@ export function LivingTree({
 }: LivingTreeProps) {
   const lineage = useMemo(() => buildLineage(people, rootId, unions), [people, rootId, unions]);
   const layout = useMemo(() => layoutTree2D(lineage), [lineage]);
+  const filler = useMemo(() => fillerLeaves(layout), [layout]);
   const names = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
+  const titleY = layout.box.minY - 60;
+  const fullBox: Box = title
+    ? { ...layout.box, minY: Math.min(layout.box.minY, titleY - 90) }
+    : layout.box;
   const svg = useRef<SVGSVGElement>(null);
-  const cam = useCamera(svg, viewForBox(layout.box, 0.6));
+  const cam = useCamera(svg, viewForBox(fullBox, 0.6));
   const aspect = cam.size.w / cam.size.h;
   const pxPerUnit = cam.size.w / cam.view.width;
 
@@ -92,7 +107,7 @@ export function LivingTree({
   // Camera follows the selection; a leaf gets a close-up, a branch gets its whole family.
   useEffect(() => {
     if (cam.size.w <= 1) return;
-    cam.fly(shotFor(layout, selectedId, aspect));
+    cam.fly(shotFor(layout, fullBox, selectedId, aspect));
   }, [selectedId, fitSignal, cam.size.w > 1]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const select = (id: string | null) => {
@@ -110,8 +125,10 @@ export function LivingTree({
   const h = v.width / aspect;
   const viewBox = `${v.cx - v.width / 2} ${v.cy - h / 2} ${v.width} ${h}`;
   const visible = cullBox(v, h);
-  const showLeafNames = LEAF_W * pxPerUnit > 16;
-  const showForkNames = pxPerUnit > 0.16;
+  const showLeafNames = LEAF_W * pxPerUnit > 17;
+  const showForkNames = pxPerUnit > 0.14;
+  const trunk = layout.branches[0]!;
+  const root = layout.marks[0]!;
 
   return (
     <div
@@ -120,7 +137,8 @@ export function LivingTree({
         position: 'absolute',
         inset: 0,
         overflow: 'hidden',
-        background: `radial-gradient(120% 90% at 50% 35%, ${T.skyBottom}, ${T.skyTop})`,
+        backgroundColor: T.paper,
+        backgroundImage: `${PATTERN}, radial-gradient(110% 80% at 50% 40%, ${T.paper}, ${T.paperDeep})`,
       }}
     >
       <style>{css}</style>
@@ -135,24 +153,25 @@ export function LivingTree({
       >
         <Defs />
         <ellipse
-          cx={0}
-          cy={layout.trunkTop[1] - layout.canopyRadius * 0.2}
-          rx={layout.canopyRadius * 1.05}
-          ry={layout.canopyRadius * 0.95}
-          fill="url(#lt-glow)"
+          cx={layout.canopy.center[0]}
+          cy={layout.canopy.center[1]}
+          rx={layout.canopy.rx * 1.08}
+          ry={layout.canopy.ry * 1.06}
+          fill="url(#lt-crown)"
+          pointerEvents="none"
+          aria-hidden="true"
         />
-        <ellipse cx={0} cy={18} rx={layout.canopyRadius * 1.25} ry={70} fill="url(#lt-ground)" />
-        <Canopy marks={layout.marks} branches={layout.branches} />
-        <Roots trunk={layout.branches[0]!} />
+        <Ground width={layout.canopy.rx * 1.1} />
+        <Trunk trunk={trunk} />
 
         {layout.branches
-          .filter((b) => b.kind !== 'twig' && inView(visible, b.curve[3], b.curve[0]))
+          .filter((b) => b.kind === 'limb' && inView(visible, b.curve[3], b.curve[0]))
           .sort((a, b) => b.widthStart - a.widthStart)
           .map((b) => (
             <path
               key={b.personId}
-              d={branchOutline(b, growth(b.personId))}
-              fill={b.status === 'proposed' ? 'url(#lt-sprout-wood)' : 'url(#lt-bark)'}
+              d={branchOutline(b, growth(b.personId), 22)}
+              fill={b.status === 'proposed' ? 'url(#lt-sprout-wood)' : T.bark}
               className={onPath.has(b.personId) ? 'lt-wood lt-on-path' : 'lt-wood'}
               onClick={(e) => {
                 e.stopPropagation();
@@ -160,13 +179,12 @@ export function LivingTree({
               }}
             />
           ))}
-
         <ellipse
           cx={layout.trunkTop[0]}
-          cy={layout.trunkTop[1] + 6}
-          rx={layout.branches[0]!.widthEnd * 0.55}
-          ry={layout.branches[0]!.widthEnd * 0.22}
-          fill="url(#lt-bark)"
+          cy={layout.trunkTop[1] + 10}
+          rx={trunk.widthEnd * 0.52}
+          ry={trunk.widthEnd * 0.3}
+          fill={T.bark}
           aria-hidden="true"
         />
 
@@ -175,6 +193,8 @@ export function LivingTree({
           .map((b) => (
             <Twig key={b.personId} branch={b} progress={growth(b.personId)} />
           ))}
+
+        <Filler leaves={filler} visible={visible} />
 
         {layout.marks
           .filter((m) => m.kind === 'leaf' && inView(visible, m.position))
@@ -192,34 +212,53 @@ export function LivingTree({
         {layout.marks
           .filter((m) => m.kind === 'fork' && inView(visible, m.position))
           .map((m) => (
-            <Fork
+            <Medallion
               key={m.personId}
               mark={m}
+              grow={growth(m.personId)}
               selected={m.personId === selectedId}
+              onPath={onPath.has(m.personId)}
               showName={showForkNames || onPath.has(m.personId)}
               onSelect={select}
               spouseNames={m.spouseIds.map((id) => names.get(id) ?? '')}
             />
           ))}
 
-        <TrunkName
-          mark={layout.marks[0]!}
+        <TrunkLineage
+          mark={root}
+          ancestors={ancestors}
           selected={selectedId === rootId}
           onSelect={select}
-          spouseNames={layout.marks[0]!.spouseIds.map((id) => names.get(id) ?? '')}
-          trunkTop={layout.trunkTop}
+          spouseNames={root.spouseIds.map((id) => names.get(id) ?? '')}
         />
+
+        {title && (
+          <g className="lt-title" aria-hidden="true">
+            <text x={0} y={titleY}>
+              {title}
+            </text>
+            <path
+              d={`M-260 ${titleY + 34}Q0 ${titleY + 18} 260 ${titleY + 34}`}
+              className="lt-title-rule"
+            />
+            <circle cx={0} cy={titleY + 26} r={6} fill={T.gold} />
+          </g>
+        )}
       </svg>
     </div>
   );
 }
 
-function shotFor(layout: TreeLayout2D, id: string | null, aspect: number): View {
+function shotFor(layout: TreeLayout2D, full: Box, id: string | null, aspect: number): View {
   const mark = id ? layout.markById.get(id) : undefined;
-  if (!mark || mark.kind === 'root') return viewForBox(layout.box, aspect, 1.04);
+  if (!mark) return viewForBox(full, aspect, 1.02);
+  if (mark.kind === 'root') {
+    const [x, y] = mark.position;
+    return viewForBox({ minX: x - 260, maxX: x + 260, minY: y - 260, maxY: 60 }, aspect);
+  }
   if (mark.kind === 'leaf') {
     const [x, y] = mark.position;
-    return viewForBox({ minX: x - 210, maxX: x + 210, minY: y - 230, maxY: y + 190 }, aspect);
+    return viewForBox({ minX: x - 220, maxX: x + 220, minY: y - 240, maxY: y + 200 }, aspect);
   }
   return viewForBox(layout.subtreeBox.get(mark.personId)!, aspect, 1.12);
 }
@@ -249,15 +288,12 @@ function Leaf({
 }) {
   const [x, y] = mark.position;
   const deg = (mark.angle * 180) / Math.PI;
+  const female = mark.gender === 'female';
   const tone =
-    mark.status === 'proposed'
-      ? 'sprout'
-      : mark.deceased
-        ? 'withered'
-        : `leaf-${hashIndex(mark.personId, 4)}`;
-  const cx = x + Math.sin(mark.angle) * LEAF_L * 0.52;
-  const cy = y - Math.cos(mark.angle) * LEAF_L * 0.52;
-  const size = Math.min(14, (LEAF_W * 1.45) / Math.max(3, mark.name.length * 0.55));
+    mark.status === 'proposed' ? 'sprout' : mark.deceased ? 'withered' : female ? 'female' : 'male';
+  const cx = x + Math.sin(mark.angle) * LEAF_L * 0.5;
+  const cy = y - Math.cos(mark.angle) * LEAF_L * 0.5;
+  const size = Math.min(14.5, (LEAF_W * 1.5) / Math.max(3, mark.name.length * 0.6));
   const s = easeOutBack(grow);
   if (grow <= 0) return null;
   return (
@@ -277,24 +313,24 @@ function Leaf({
           <path
             d={LEAF_PATH}
             fill={`url(#lt-${tone})`}
-            className={mark.status === 'proposed' ? 'lt-proposed' : undefined}
+            className={mark.status === 'proposed' ? 'lt-blade lt-proposed' : 'lt-blade'}
           />
-          <path d={`M0 -4 Q 3 ${-LEAF_L * 0.5} 0 ${-LEAF_L * 0.92}`} className="lt-rib" />
+          <path d={`M0 -3 Q 2.5 ${-LEAF_L * 0.5} 0 ${-LEAF_L * 0.9}`} className="lt-rib" />
         </g>
       </g>
       {showName && grow > 0.6 && (
         <text
           x={cx}
-          y={cy + size * 0.35}
+          y={cy + size * 0.36}
           fontSize={size}
-          className={mark.deceased ? 'lt-leaf-name lt-dark' : 'lt-leaf-name'}
+          className={`lt-leaf-name${female ? ' lt-on-female' : ''}`}
           style={{ opacity: Math.min(1, (grow - 0.6) / 0.4) }}
         >
           {mark.name}
         </text>
       )}
       {mark.status === 'proposed' && grow >= 1 && (
-        <text x={cx} y={cy + LEAF_L * 0.62} fontSize={9.5} className="lt-tag">
+        <text x={cx} y={cy + LEAF_L * 0.6} fontSize={10} className="lt-tag">
           بانتظار الاعتماد
         </text>
       )}
@@ -302,24 +338,40 @@ function Leaf({
   );
 }
 
-function Fork({
+/** A father's name on a round medallion where his branch divides. */
+function Medallion({
   mark,
+  grow,
   selected,
+  onPath,
   showName,
   onSelect,
   spouseNames,
 }: {
   mark: PersonMark;
+  grow: number;
   selected: boolean;
+  onPath: boolean;
   showName: boolean;
   onSelect: (id: string) => void;
   spouseNames: string[];
 }) {
   const [x, y] = mark.position;
-  const w = Math.max(58, mark.name.length * 10 + 26);
+  const r = Math.max(27, Math.min(44, mark.name.length * 4.4 + 13));
+  const size = Math.min(15, (r * 1.75) / Math.max(2.5, mark.name.length * 0.62));
+  const cls = [
+    'lt-medal',
+    mark.deceased && 'lt-medal-deceased',
+    mark.status === 'proposed' && 'lt-medal-proposed',
+    selected && 'lt-selected',
+    onPath && 'lt-medal-path',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  if (grow < 0.85) return null;
   return (
     <g
-      className={`lt-fork${selected ? ' lt-selected' : ''}`}
+      className={cls}
       role="treeitem"
       tabIndex={0}
       aria-label={`غصن ${mark.name}`}
@@ -329,25 +381,17 @@ function Fork({
       }}
       onKeyDown={(e) => e.key === 'Enter' && onSelect(mark.personId)}
     >
-      <circle cx={x} cy={y} r={9} className="lt-knot" />
+      <circle cx={x} cy={y} r={r} className="lt-medal-face" />
+      <circle cx={x} cy={y} r={r - 4.5} className="lt-medal-ring" />
       {showName && (
-        <>
-          <rect
-            x={x - w / 2}
-            y={y + 12}
-            width={w}
-            height={28}
-            rx={14}
-            className={mark.status === 'proposed' ? 'lt-badge lt-badge-proposed' : 'lt-badge'}
-          />
-          <text x={x} y={y + 31} className="lt-fork-name">
-            {mark.name}
-          </text>
-          {spouseNames.filter(Boolean).map((n, i) => (
-            <Spouse key={n} x={x - w / 2 - 14 - i * 64} y={y + 26} name={n} />
-          ))}
-        </>
+        <text x={x} y={y + size * 0.36} fontSize={size} className="lt-medal-name">
+          {mark.name}
+        </text>
       )}
+      {showName &&
+        spouseNames
+          .filter(Boolean)
+          .map((n, i) => <Spouse key={n} x={x - r - 16 - i * 70} y={y + r * 0.55} name={n} />)}
     </g>
   );
 }
@@ -356,50 +400,94 @@ function Spouse({ x, y, name }: { x: number; y: number; name: string }) {
   return (
     <g className="lt-spouse" aria-label={`الزوجة ${name}`}>
       {[0, 72, 144, 216, 288].map((a) => (
-        <ellipse key={a} cx={x} cy={y - 6} rx={3.4} ry={6} transform={`rotate(${a} ${x} ${y})`} />
+        <ellipse key={a} cx={x} cy={y - 6.5} rx={4} ry={6.5} transform={`rotate(${a} ${x} ${y})`} />
       ))}
-      <circle cx={x} cy={y} r={3} className="lt-spouse-heart" />
-      <text x={x - 12} y={y + 4} className="lt-spouse-name">
+      <circle cx={x} cy={y} r={3.4} className="lt-spouse-heart" />
+      <text x={x - 13} y={y + 4.5} className="lt-spouse-name">
         {name}
       </text>
     </g>
   );
 }
 
-function TrunkName({
+/** The root's medallion at the top of the trunk, his forefathers engraved below it. */
+function TrunkLineage({
   mark,
+  ancestors,
   selected,
   onSelect,
   spouseNames,
-  trunkTop,
 }: {
   mark: PersonMark;
+  ancestors: string[];
   selected: boolean;
   onSelect: (id: string) => void;
   spouseNames: string[];
-  trunkTop: readonly [number, number];
 }) {
-  const words = mark.name.split(' ');
   const [x, y] = mark.position;
+  const [first, ...rest] = mark.name.split(' ');
+  const r = 66;
+  const forefathers = ancestors.slice(0, -1);
+  const family = ancestors.at(-1);
+  const top = y + r + 54;
+  const bottom = -86;
+  const step = forefathers.length
+    ? Math.min(64, (bottom - 60 - top) / Math.max(1, forefathers.length - 1))
+    : 0;
   return (
-    <g
-      className={`lt-trunk-name${selected ? ' lt-selected' : ''}`}
-      role="treeitem"
-      tabIndex={0}
-      aria-label={`الجذع ${mark.name}`}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(mark.personId);
-      }}
-    >
-      {words.map((w, i) => (
-        <text key={i} x={x} y={y + (i - (words.length - 1) / 2) * 30} className="lt-root-name">
-          {w}
+    <g>
+      <g
+        className={`lt-root${selected ? ' lt-selected' : ''}`}
+        role="treeitem"
+        tabIndex={0}
+        aria-label={`الجذع ${mark.name}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(mark.personId);
+        }}
+        onKeyDown={(e) => e.key === 'Enter' && onSelect(mark.personId)}
+      >
+        {Array.from({ length: 16 }, (_, i) => {
+          const a = (i / 16) * Math.PI * 2;
+          return (
+            <circle
+              key={i}
+              cx={x + Math.cos(a) * (r + 7)}
+              cy={y + Math.sin(a) * (r + 7)}
+              r={7}
+              fill="url(#lt-gold)"
+            />
+          );
+        })}
+        <circle cx={x} cy={y} r={r + 2} fill="url(#lt-gold)" />
+        <circle cx={x} cy={y} r={r - 8} className="lt-root-face" />
+        <text x={x} y={y + (rest.length ? 2 : 12)} className="lt-root-name">
+          {first}
         </text>
-      ))}
-      {spouseNames.filter(Boolean).map((n, i) => (
-        <Spouse key={n} x={trunkTop[0] + 112 + i * 70} y={trunkTop[1] + 22} name={n} />
-      ))}
+        {rest.length > 0 && (
+          <text x={x} y={y + 30} className="lt-root-sub">
+            {rest.join(' ')}
+          </text>
+        )}
+        {spouseNames.filter(Boolean).map((n, i) => (
+          <Spouse key={n} x={x - r - 26 - i * 74} y={y + 8} name={n} />
+        ))}
+      </g>
+      <g aria-hidden="true">
+        {forefathers.map((n, i) => (
+          <g key={n + i}>
+            <text x={x} y={top + i * step} className="lt-engraved">
+              {n}
+            </text>
+            <path d={`M${x - 26} ${top + i * step + 20}h52`} className="lt-engraved-rule" />
+          </g>
+        ))}
+        {family && (
+          <text x={x} y={bottom} className="lt-family">
+            {family}
+          </text>
+        )}
+      </g>
     </g>
   );
 }
@@ -416,108 +504,213 @@ function Twig({ branch, progress }: { branch: Branch2D; progress: number }) {
   );
 }
 
-/** Soft masses of foliage behind the branches give the tree a full, upright silhouette. */
-function Canopy({ marks, branches }: { marks: PersonMark[]; branches: Branch2D[] }) {
-  return (
-    <g aria-hidden="true" filter="url(#lt-soft)">
-      {branches
-        .filter((b) => b.kind === 'limb')
-        .map((b) => {
-          const [x, y] = bezierPoint(b.curve, 0.62);
-          return (
-            <circle key={`mid-${b.personId}`} cx={x} cy={y} r={120} fill="url(#lt-canopy-b)" />
-          );
-        })}
-      {marks
-        .filter((m) => m.kind !== 'root')
-        .map((m) => {
-          const k = hashIndex(m.personId, 5);
-          return (
-            <circle
-              key={m.personId}
-              cx={m.position[0] + Math.sin(m.angle) * 34}
-              cy={m.position[1] - Math.cos(m.angle) * 34}
-              r={m.kind === 'leaf' ? 82 + k * 8 : 110 + k * 10}
-              fill={k % 2 ? 'url(#lt-canopy-a)' : 'url(#lt-canopy-b)'}
-            />
-          );
-        })}
-    </g>
+/** The trunk flares into roots at the ground and narrows as it climbs into the crown. */
+function Trunk({ trunk }: { trunk: Branch2D }) {
+  const d = useMemo(() => trunkOutline(trunk), [trunk]);
+  const grooves = useMemo(() => {
+    const rand = seededRandom(`bark-${trunk.personId}`);
+    return [-0.3, -0.12, 0.08, 0.26].map((k) => {
+      const s = 0.08 + rand() * 0.2;
+      const e = 0.6 + rand() * 0.3;
+      const pts = [s, (s + e) / 2, e].map((t) => {
+        const [px, py] = bezierPoint(trunk.curve, t);
+        const w = trunk.widthStart + (trunk.widthEnd - trunk.widthStart) * t;
+        return [px + k * w + (rand() - 0.5) * 8, py] as const;
+      });
+      return `M${pts[0]![0]} ${pts[0]![1]}Q${pts[1]![0]} ${pts[1]![1]} ${pts[2]![0]} ${pts[2]![1]}`;
+    });
+  }, [trunk]);
+  const roots = useMemo(
+    () =>
+      [-1, 1, -0.55, 0.6, -0.2].map((s, i) =>
+        branchOutline({
+          ...trunk,
+          curve: [
+            [s * trunk.widthStart * 0.45, -30],
+            [s * trunk.widthStart * 0.7, -4],
+            [s * trunk.widthStart * 1.1, 8],
+            [s * trunk.widthStart * (1.5 + (i % 2) * 0.3), 20 + i * 3],
+          ],
+          widthStart: 30 - i * 4,
+          widthEnd: 2,
+        }),
+      ),
+    [trunk],
   );
-}
-
-function Roots({ trunk }: { trunk: Branch2D }) {
-  const roots: Branch2D[] = [-1, 1, -0.45, 0.5].map((s, i) => ({
-    ...trunk,
-    personId: `root-${i}`,
-    curve: [
-      [s * 22, -40],
-      [s * 40, -6],
-      [s * 110, 6],
-      [s * (150 + i * 30), 22 + i * 4],
-    ],
-    widthStart: 34 - i * 5,
-    widthEnd: 3,
-  }));
   return (
     <g aria-hidden="true">
-      {roots.map((r) => (
-        <path key={r.personId} d={branchOutline(r)} fill="url(#lt-bark)" opacity={0.9} />
+      {roots.map((r, i) => (
+        <path key={i} d={r} fill={T.barkDark} />
+      ))}
+      <path d={d} fill="url(#lt-bark)" />
+      {grooves.map((g, i) => (
+        <path key={i} d={g} className="lt-groove" />
       ))}
     </g>
   );
 }
+
+function trunkOutline(trunk: Branch2D, samples = 26): string {
+  const left: Vec2[] = [];
+  const right: Vec2[] = [];
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const p = bezierPoint(trunk.curve, t);
+    const flare = 1 + 0.85 * Math.pow(Math.max(0, 1 - t / 0.16), 2);
+    const w = ((trunk.widthStart + (trunk.widthEnd - trunk.widthStart) * t) * flare) / 2;
+    left.push([p[0] - w, p[1]]);
+    right.push([p[0] + w, p[1]]);
+  }
+  const f = (v: Vec2) => `${v[0].toFixed(1)} ${v[1].toFixed(1)}`;
+  return `M${left.map(f).join('L')}L${right.reverse().map(f).join('L')}Z`;
+}
+
+function Ground({ width }: { width: number }) {
+  const blades = useMemo(() => {
+    const rand = seededRandom('grass');
+    return Array.from({ length: 90 }, () => {
+      const x = (rand() * 2 - 1) * width * 0.78;
+      const hgt = 14 + rand() * 22;
+      const lean = (rand() - 0.5) * 14;
+      const y = 26 + Math.abs(x / width) * 14 - rand() * 6;
+      return {
+        d: `M${x - 3} ${y}Q${x + lean * 0.4} ${y - hgt * 0.6} ${x + lean} ${y - hgt}Q${x + 1} ${y - hgt * 0.4} ${x + 3} ${y}Z`,
+        k: rand() < 0.5 ? 0 : 1,
+      };
+    });
+  }, [width]);
+  return (
+    <g aria-hidden="true" pointerEvents="none">
+      <ellipse cx={0} cy={34} rx={width * 0.9} ry={40} fill="url(#lt-grass)" />
+      {blades.map((b, i) => (
+        <path key={i} d={b.d} fill={T.grass[b.k]} />
+      ))}
+    </g>
+  );
+}
+
+interface FillerLeaf {
+  x: number;
+  y: number;
+  deg: number;
+  scale: number;
+  tone: number;
+}
+
+/** Unnamed leaves along the wood, so even a young family reads as a full, healthy tree. */
+function fillerLeaves(layout: TreeLayout2D): FillerLeaf[] {
+  const out: FillerLeaf[] = [];
+  for (const b of layout.branches) {
+    if (b.kind === 'trunk') continue;
+    const rand = seededRandom(`leafy-${b.personId}`);
+    const len = Math.hypot(b.curve[3][0] - b.curve[0][0], b.curve[3][1] - b.curve[0][1]);
+    const fromRoot = b.depth === 1;
+    if (b.kind === 'twig') {
+      // Two small leaves tucked behind each named one thicken the cluster.
+      const [x, y] = b.curve[3];
+      const heading = Math.atan2(x - b.curve[0][0], -(y - b.curve[0][1]));
+      for (const side of [-1, 1]) {
+        const a = heading + side * (0.32 + rand() * 0.2);
+        out.push({
+          x: x + Math.sin(a) * 18,
+          y: y - Math.cos(a) * 18,
+          deg: (a * 180) / Math.PI,
+          scale: 0.5 + rand() * 0.15,
+          tone: Math.floor(rand() * 3),
+        });
+      }
+      continue;
+    }
+    const count = Math.floor(len / 30);
+    for (let i = 0; i < count; i++) {
+      const t = (i + 0.5 + (rand() - 0.5) * 0.5) / count;
+      if (t < (fromRoot ? 0.45 : 0.2) || t > 0.85) continue;
+      const p = bezierPoint(b.curve, t);
+      const q = bezierPoint(b.curve, Math.min(1, t + 0.02));
+      const heading = Math.atan2(q[0] - p[0], -(q[1] - p[1]));
+      const side = i % 2 === 0 ? 1 : -1;
+      const w = (b.widthStart + (b.widthEnd - b.widthStart) * t) / 2;
+      const a = heading + side * (0.7 + rand() * 0.4);
+      out.push({
+        x: p[0] + Math.sin(heading + (side * Math.PI) / 2) * w,
+        y: p[1] - Math.cos(heading + (side * Math.PI) / 2) * w,
+        deg: (a * 180) / Math.PI,
+        scale: 0.42 + rand() * 0.18,
+        tone: Math.floor(rand() * 3),
+      });
+    }
+  }
+  return out;
+}
+
+const Filler = memo(function Filler({ leaves, visible }: { leaves: FillerLeaf[]; visible: Cull }) {
+  return (
+    <g aria-hidden="true" className="lt-filler">
+      {leaves
+        .filter((l) => inView(visible, [l.x, l.y]))
+        .map((l, i) => (
+          <path
+            key={i}
+            d={LEAF_PATH}
+            fill={T.filler[l.tone]}
+            transform={`translate(${l.x.toFixed(1)} ${l.y.toFixed(1)}) rotate(${l.deg.toFixed(0)}) scale(${l.scale.toFixed(2)})`}
+          />
+        ))}
+    </g>
+  );
+});
 
 function Defs() {
   return (
     <defs>
-      <radialGradient id="lt-glow">
-        <stop offset="0%" stopColor={T.glow} stopOpacity={0.55} />
-        <stop offset="100%" stopColor={T.glow} stopOpacity={0} />
+      <radialGradient id="lt-crown">
+        <stop offset="0%" stopColor="#CFE3A8" stopOpacity={0.5} />
+        <stop offset="75%" stopColor="#DCE7B6" stopOpacity={0.28} />
+        <stop offset="100%" stopColor="#E8E6C2" stopOpacity={0} />
       </radialGradient>
-      <filter id="lt-soft" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="26" />
-      </filter>
-      <radialGradient id="lt-canopy-a">
-        <stop offset="0%" stopColor="#3F7A4B" stopOpacity={0.95} />
-        <stop offset="100%" stopColor="#2A5A3A" stopOpacity={0} />
-      </radialGradient>
-      <radialGradient id="lt-canopy-b">
-        <stop offset="0%" stopColor="#557F42" stopOpacity={0.8} />
-        <stop offset="100%" stopColor="#2F5E3B" stopOpacity={0} />
-      </radialGradient>
-      <radialGradient id="lt-ground">
-        <stop offset="0%" stopColor="#2C5A3E" stopOpacity={0.9} />
-        <stop offset="100%" stopColor="#2C5A3E" stopOpacity={0} />
+      <radialGradient id="lt-grass" cy="35%">
+        <stop offset="0%" stopColor={T.grass[0]} stopOpacity={0.95} />
+        <stop offset="70%" stopColor={T.grass[1]} stopOpacity={0.55} />
+        <stop offset="100%" stopColor={T.grass[1]} stopOpacity={0} />
       </radialGradient>
       <linearGradient id="lt-bark" x1="0" x2="1" y1="0" y2="0">
         <stop offset="0%" stopColor={T.barkDark} />
-        <stop offset="55%" stopColor={T.barkLight} />
+        <stop offset="45%" stopColor={T.barkLight} />
+        <stop offset="62%" stopColor={T.bark} />
         <stop offset="100%" stopColor={T.barkDark} />
       </linearGradient>
-      <linearGradient id="lt-sprout-wood" x1="0" x2="1">
-        <stop offset="0%" stopColor="#9DBA5C" />
-        <stop offset="100%" stopColor="#D8EE95" />
+      <linearGradient id="lt-gold" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0%" stopColor={T.goldLight} />
+        <stop offset="55%" stopColor={T.gold} />
+        <stop offset="100%" stopColor="#9A7228" />
       </linearGradient>
-      {T.leaves.map(([a, b], i) => (
-        <linearGradient key={i} id={`lt-leaf-${i}`} x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor={a} />
-          <stop offset="100%" stopColor={b} />
+      <linearGradient id="lt-sprout-wood" x1="0" x2="1">
+        <stop offset="0%" stopColor="#B9A57A" />
+        <stop offset="100%" stopColor="#E6D6A8" />
+      </linearGradient>
+      {(
+        [
+          ['male', T.male],
+          ['female', T.female],
+          ['sprout', T.sprout],
+          ['withered', T.withered],
+        ] as const
+      ).map(([id, [a, b]]) => (
+        <linearGradient key={id} id={`lt-${id}`} x1="0" x2="0" y1="1" y2="0">
+          <stop offset="0%" stopColor={b} />
+          <stop offset="100%" stopColor={a} />
         </linearGradient>
       ))}
-      <linearGradient id="lt-sprout" x1="0" x2="1" y1="0" y2="1">
-        <stop offset="0%" stopColor={T.sprout[0]} />
-        <stop offset="100%" stopColor={T.sprout[1]} />
-      </linearGradient>
-      <linearGradient id="lt-withered" x1="0" x2="1" y1="0" y2="1">
-        <stop offset="0%" stopColor={T.withered[0]} />
-        <stop offset="100%" stopColor={T.withered[1]} />
-      </linearGradient>
     </defs>
   );
 }
 
-const LEAF_PATH = `M0 0C${LEAF_W * 0.62} ${-LEAF_L * 0.18} ${LEAF_W * 0.55} ${-LEAF_L * 0.78} 0 ${-LEAF_L}C${-LEAF_W * 0.5} ${-LEAF_L * 0.8} ${-LEAF_W * 0.64} ${-LEAF_L * 0.2} 0 0Z`;
+const LEAF_PATH = `M0 0C${LEAF_W * 0.64} ${-LEAF_L * 0.16} ${LEAF_W * 0.58} ${-LEAF_L * 0.74} 0 ${-LEAF_L}C${-LEAF_W * 0.56} ${-LEAF_L * 0.76} ${-LEAF_W * 0.66} ${-LEAF_L * 0.18} 0 0Z`;
+
+// Faint eight-point stars, the geometric ground of a framed nasab poster.
+const PATTERN = `url("data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72'><g fill='none' stroke='${T.pattern}' stroke-width='1' opacity='.55'><rect x='24' y='24' width='24' height='24'/><rect x='24' y='24' width='24' height='24' transform='rotate(45 36 36)'/><path d='M0 36h12M60 36h12M36 0v12M36 60v12'/></g></svg>`,
+)}")`;
 
 function hashIndex(id: string, n: number): number {
   let h = 0;
@@ -531,33 +724,47 @@ function easeOutBack(t: number): number {
   return t <= 0 ? 0 : t >= 1 ? 1 : 1 + (c1 + 1) * u * u * u + c1 * u * u;
 }
 
+const font = `var(--tree-font, 'Alexandria', 'IBM Plex Sans Arabic', sans-serif)`;
 const css = `
 .lt-svg { direction: rtl; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .lt-svg:active { cursor: grabbing; }
 .lt-wood { cursor: pointer; transition: filter .4s; }
-.lt-wood:hover, .lt-on-path { filter: brightness(1.25) drop-shadow(0 0 6px rgba(227,194,122,.45)); }
-.lt-twig { fill: none; stroke: #6E4A2E; stroke-width: 2.4; stroke-linecap: round; }
+.lt-wood:hover, .lt-on-path { filter: brightness(1.18) drop-shadow(0 0 5px rgba(194,150,58,.55)); }
+.lt-twig { fill: none; stroke: ${T.bark}; stroke-width: 2.6; stroke-linecap: round; }
+.lt-groove { fill: none; stroke: ${T.barkDark}; stroke-width: 2.5; stroke-linecap: round; opacity: .45; }
+.lt-filler path { opacity: .92; }
 .lt-leaf { cursor: pointer; outline: none; }
-.lt-leaf path:first-child { filter: drop-shadow(0 3px 4px rgba(0,0,0,.28)); transition: filter .3s; }
-.lt-leaf:hover path:first-child, .lt-leaf:focus-visible path:first-child { filter: brightness(1.15) drop-shadow(0 0 8px rgba(227,194,122,.6)); }
-.lt-selected path:first-child { filter: brightness(1.2) drop-shadow(0 0 10px ${T.gold}); }
-.lt-rib { fill: none; stroke: rgba(255,255,255,.28); stroke-width: 1.4; stroke-linecap: round; pointer-events: none; }
+.lt-blade { stroke: rgba(40,60,20,.28); stroke-width: 1; filter: drop-shadow(0 2px 2px rgba(60,40,10,.22)); transition: filter .3s; }
+.lt-leaf:hover .lt-blade, .lt-leaf:focus-visible .lt-blade { filter: brightness(1.08) drop-shadow(0 0 7px rgba(194,150,58,.8)); }
+.lt-leaf.lt-selected .lt-blade { stroke: ${T.gold}; stroke-width: 2.5; filter: drop-shadow(0 0 9px ${T.gold}); }
+.lt-rib { fill: none; stroke: rgba(255,255,255,.45); stroke-width: 1.3; stroke-linecap: round; pointer-events: none; }
 .lt-proposed { stroke: ${T.gold}; stroke-width: 2; stroke-dasharray: 5 4; animation: lt-pulse 2.4s ease-in-out infinite; }
-.lt-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: lt-sway 5.5s ease-in-out infinite; }
-.lt-leaf-name { fill: ${T.inkOnLeaf}; font-family: var(--tree-font, 'Alexandria', 'IBM Plex Sans Arabic', sans-serif); font-weight: 600; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: rgba(20,50,30,.35); stroke-width: 2px; }
-.lt-leaf-name.lt-dark { fill: #3A2A18; stroke: rgba(255,255,255,.25); }
-.lt-tag { fill: ${T.gold}; font-family: var(--tree-font, 'IBM Plex Sans Arabic', sans-serif); text-anchor: middle; pointer-events: none; }
-.lt-fork { cursor: pointer; outline: none; }
-.lt-knot { fill: ${T.barkLight}; stroke: ${T.gold}; stroke-width: 2; }
-.lt-badge { fill: ${T.badge}; stroke: rgba(227,194,122,.55); stroke-width: 1.2; }
-.lt-badge-proposed { stroke: ${T.gold}; stroke-dasharray: 4 3; }
-.lt-fork:hover .lt-badge, .lt-fork:focus-visible .lt-badge, .lt-fork.lt-selected .lt-badge { stroke: ${T.gold}; stroke-width: 2; }
-.lt-fork-name { fill: ${T.ink}; font: 600 15px var(--tree-font, 'Alexandria', 'IBM Plex Sans Arabic', sans-serif); text-anchor: middle; pointer-events: none; }
-.lt-root-name { fill: ${T.ink}; font: 600 26px var(--tree-font, 'Alexandria', 'IBM Plex Sans Arabic', sans-serif); text-anchor: middle; cursor: pointer; paint-order: stroke; stroke: rgba(40,24,12,.45); stroke-width: 3px; }
-.lt-spouse ellipse { fill: #F2B8A8; opacity: .9; }
+.lt-sway { transform-box: fill-box; transform-origin: 50% 100%; animation: lt-sway 6s ease-in-out infinite; }
+.lt-leaf-name { fill: ${T.inkOnMale}; font-family: ${font}; font-weight: 700; text-anchor: middle; pointer-events: none; }
+.lt-leaf-name.lt-on-female { fill: ${T.inkOnFemale}; }
+.lt-tag { fill: #8A6420; font-family: ${font}; font-weight: 600; text-anchor: middle; pointer-events: none; paint-order: stroke; stroke: ${T.paper}; stroke-width: 3px; }
+.lt-medal { cursor: pointer; outline: none; }
+.lt-medal-face { fill: ${T.medal}; stroke: ${T.gold}; stroke-width: 3; filter: drop-shadow(0 2px 3px rgba(60,40,10,.3)); transition: filter .3s; }
+.lt-medal-ring { fill: none; stroke: ${T.goldLight}; stroke-width: 1.2; }
+.lt-medal-deceased .lt-medal-face { fill: ${T.medalDeceased}; }
+.lt-medal-proposed .lt-medal-face { stroke-dasharray: 5 4; }
+.lt-medal:hover .lt-medal-face, .lt-medal:focus-visible .lt-medal-face, .lt-medal-path .lt-medal-face { filter: drop-shadow(0 0 8px rgba(194,150,58,.85)); }
+.lt-medal.lt-selected .lt-medal-face { stroke-width: 5; }
+.lt-medal-name { fill: ${T.ink}; font-family: ${font}; font-weight: 700; text-anchor: middle; pointer-events: none; }
+.lt-root { cursor: pointer; outline: none; }
+.lt-root-face { fill: ${T.medal}; stroke: #9A7228; stroke-width: 2; }
+.lt-root.lt-selected .lt-root-face { stroke: ${T.goldLight}; stroke-width: 5; }
+.lt-root-name { fill: ${T.ink}; font: 700 34px ${font}; text-anchor: middle; }
+.lt-root-sub { fill: #7A5A2E; font: 600 15px ${font}; text-anchor: middle; }
+.lt-engraved { fill: ${T.engraved}; font: 700 24px ${font}; text-anchor: middle; paint-order: stroke; stroke: rgba(40,22,10,.5); stroke-width: 3px; }
+.lt-engraved-rule { stroke: ${T.goldLight}; stroke-width: 1.5; opacity: .6; }
+.lt-family { fill: ${T.goldLight}; font: 700 36px ${font}; text-anchor: middle; paint-order: stroke; stroke: rgba(40,22,10,.6); stroke-width: 4px; }
+.lt-spouse ellipse { fill: ${T.female[0]}; stroke: ${T.female[1]}; stroke-width: .8; }
 .lt-spouse-heart { fill: ${T.gold}; }
-.lt-spouse-name { fill: #F6D9CF; font: 500 12px var(--tree-font, 'IBM Plex Sans Arabic', sans-serif); text-anchor: start; }
-@keyframes lt-sway { 0%,100% { transform: rotate(-2.2deg); } 50% { transform: rotate(2.2deg); } }
+.lt-spouse-name { fill: ${T.inkOnFemale}; font: 600 13px ${font}; text-anchor: start; paint-order: stroke; stroke: ${T.paper}; stroke-width: 3px; }
+.lt-title text { fill: #5A3A14; font: 700 84px var(--tree-title-font, 'Aref Ruqaa', serif); text-anchor: middle; }
+.lt-title-rule { fill: none; stroke: ${T.gold}; stroke-width: 2; }
+@keyframes lt-sway { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
 @keyframes lt-pulse { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .lt-sway, .lt-proposed { animation: none; } }
 `;

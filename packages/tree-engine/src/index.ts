@@ -10,4 +10,4 @@ export {
 } from './layout2d';
 export { viewForBox, flyTo, easeInOutCubic, type View } from './camera2d';
 export { seededRandom, hashString } from './random';
-export { demoFamily, demoUnions, demoSpouses } from './demo';
+export { demoAncestors, demoFamily, demoUnions, demoSpouses } from './demo';

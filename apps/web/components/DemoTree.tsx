@@ -1,7 +1,7 @@
 'use client';
 
 import { LivingTree } from '@sulalah/tree-svg';
-import { demoFamily, demoSpouses, demoUnions } from '@sulalah/tree-engine';
+import { demoAncestors, demoFamily, demoSpouses, demoUnions } from '@sulalah/tree-engine';
 import { useState } from 'react';
 
 const people = [...demoFamily, ...demoSpouses];
@@ -15,6 +15,8 @@ export function DemoTree() {
         people={people}
         unions={demoUnions}
         rootId="mohammed"
+        ancestors={demoAncestors}
+        title="شجرة أسرة الراشد"
         selectedId={selected}
         onSelect={(id) => setSelected(id)}
       />

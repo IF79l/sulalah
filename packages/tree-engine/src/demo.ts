@@ -37,7 +37,39 @@ const rows: Row[] = [
   ['salman', 'سلمان', 'bandar'],
   ['ghala', 'غلا', 'bandar', 'f'],
   ['rakan', 'راكان', 'faisal'],
+  ['ibrahim', 'إبراهيم', 'abdullah'],
+  ['hamoud', 'حمود', 'abdullah'],
+  ['hanouf', 'الهنوف', 'abdullah', 'f'],
+  ['abdulrahman', 'عبدالرحمن', 'daifallah'],
+  ['amal', 'أمل', 'salem', 'f'],
+  ['arwa', 'أروى', 'turki', 'f'],
+  ['miteb', 'متعب', 'bandar'],
+  ['saad-s', 'سعد', 'sultan'],
+  ['sattam', 'سطام', 'faisal'],
+  ['waad', 'وعد', 'faisal', 'f'],
 ];
+
+// Younger generations, written compactly as father: sons | daughters.
+const grandchildren: [fatherId: string, sons: string, daughters: string][] = [
+  ['ziyad', 'فارس عبدالله', 'نوف رهف'],
+  ['majed', 'تميم سعود حمد', 'العنود'],
+  ['fahd-d', 'صالح عبدالمحسن ثامر', 'منيرة هيلة'],
+  ['nawaf', 'مساعد بدر', 'شهد'],
+  ['abdulaziz', 'سليمان فواز عبدالكريم', 'مضاوي لطيفة'],
+  ['mishal', 'وليد هشام', 'أسيل'],
+  ['omar', 'خالد ريان', 'جود'],
+  ['yousef', 'عادل', 'لمى مها'],
+  ['salman', 'عزام', 'ديم'],
+  ['rakan', 'نايف سيف', 'تالا'],
+  ['ibrahim', 'عبدالرحمن ماجد فيصل', 'بشاير'],
+  ['abdulrahman', 'مشاري طلال صقر', 'ريما غادة'],
+  ['hamoud', 'منصور', 'نجلاء'],
+  ['miteb', 'فهد', 'جمانة'],
+];
+for (const [father, sons, daughters] of grandchildren) {
+  sons.split(' ').forEach((n, i) => rows.push([`${father}-s${i}`, n, father]));
+  daughters.split(' ').forEach((n, i) => rows.push([`${father}-d${i}`, n, father, 'f']));
+}
 
 export const demoFamily: LineagePerson[] = rows.map(([id, name, fatherId, g, deceased]) => ({
   id,
@@ -47,6 +79,9 @@ export const demoFamily: LineagePerson[] = rows.map(([id, name, fatherId, g, dec
   status: 'approved',
   deceased: deceased ?? false,
 }));
+
+/** Forefathers above the root, written on the trunk under his name; the last is the family name. */
+export const demoAncestors = ['سليمان', 'حمد', 'الراشد'];
 
 export const demoUnions: LineageUnion[] = [
   { aId: 'mohammed', bId: 'w-moudi' },
