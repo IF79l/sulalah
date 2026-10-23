@@ -1,13 +1,28 @@
 import type { Metadata } from 'next';
-import { DemoExplorer } from '@/components/DemoTree';
+import { notFound } from 'next/navigation';
+import { NoAccess } from '@/components/States';
+import { TreeScreen, type TreeMode } from '@/components/tree/TreeScreen';
 
 export const metadata: Metadata = { title: 'الشجرة | سُلالة', robots: { index: false } };
 
-// Until trees are stored (batch 2), every tree opens the demo family.
-export default function TreePage() {
+const modes: TreeMode[] = ['owner', 'contribute', 'visitor', 'reviewer'];
+
+// Until trees are stored, every tree opens the sample family; `?as=` previews the other roles.
+export default async function TreePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ treeId: string }>;
+  searchParams: Promise<{ as?: string; review?: string; focus?: string }>;
+}) {
+  const { treeId } = await params;
+  if (treeId === 'private') return <NoAccess />;
+  if (treeId !== 'al-sahli' && treeId !== 'bani-khalid') notFound();
+  const { as, review, focus } = await searchParams;
+  const mode = modes.includes(as as TreeMode) ? (as as TreeMode) : 'owner';
   return (
     <main className="h-dvh overflow-hidden">
-      <DemoExplorer back={{ href: '/trees', label: 'أشجاري' }} />
+      <TreeScreen key={`${mode}-${review ?? ''}-${focus ?? ''}`} mode={mode} reviewId={review} focusId={focus} />
     </main>
   );
 }

@@ -183,7 +183,7 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
                 className="grid gap-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (name.first.trim()) router.push(invite ? '/demo' : '/trees');
+                  if (name.first.trim()) router.push(invite ? '/trees/al-sahli/join' : '/trees');
                 }}
               >
                 <div className="grid gap-1 text-center">

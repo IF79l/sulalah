@@ -1,4 +1,4 @@
-import { Chip, Icon, IconButton, Logo, Medallion, buttonClass, cn } from '@sulalah/ui';
+import { Chip, Icon, Logo, Medallion, buttonClass, cn } from '@sulalah/ui';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
@@ -56,10 +56,10 @@ const num = (n: number) => n.toLocaleString('en-US');
 
 const nav = [
   { icon: 'account_tree', label: 'أشجاري', href: '/trees', active: true },
-  { icon: 'person_add', label: 'طلبات الإضافة', badge: 5 },
-  { icon: 'verified_user', label: 'المدققون' },
-  { icon: 'link', label: 'روابط الدعوة' },
-  { icon: 'settings', label: 'الإعدادات' },
+  { icon: 'fact_check', label: 'الإضافات الواردة', badge: 3, href: '/trees/al-sahli/review' },
+  { icon: 'verified_user', label: 'المدققون', href: '/trees/al-sahli/reviewers' },
+  { icon: 'link', label: 'روابط الدعوة', href: '/trees/al-sahli/invites' },
+  { icon: 'settings', label: 'إعدادات الشجرة', href: '/trees/al-sahli/settings' },
 ];
 
 export default function MyTreesPage() {
@@ -73,15 +73,15 @@ export default function MyTreesPage() {
             <Logo />
           </Link>
           <div className="flex items-center gap-1">
-            <IconButton label="الإشعارات">
+            <Link href="/notifications" aria-label="الإشعارات" className="relative flex size-10 items-center justify-center rounded-full text-forest hover:bg-surface">
               <Icon name="notifications" />
               <span className="absolute top-2 right-2 size-2.5 rounded-full bg-danger ring-2 ring-ivory" />
-            </IconButton>
+            </Link>
             <span className="mx-2 h-6 w-px bg-line/40" />
-            <span className="flex items-center gap-2">
+            <Link href="/account" className="flex items-center gap-2 rounded-full p-0.5 pe-3 hover:bg-surface">
               <Medallion name="فيصل" />
               <span className="hidden text-caption font-semibold text-forest sm:block">فيصل</span>
-            </span>
+            </Link>
           </div>
         </div>
       </header>
@@ -106,7 +106,7 @@ export default function MyTreesPage() {
                   : 'text-ink-soft hover:bg-surface-high',
               );
               return n.href ? (
-                <Link key={n.label} href={n.href} className={cls} aria-current="page">
+                <Link key={n.label} href={n.href} className={cls} aria-current={n.active ? 'page' : undefined}>
                   {inner}
                 </Link>
               ) : (

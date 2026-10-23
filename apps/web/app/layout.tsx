@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Aref_Ruqaa, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import type { ReactNode } from 'react';
 import './globals.css';
+import { OfflineBar } from '@/components/States';
 
 const plex = IBM_Plex_Sans_Arabic({
   subsets: ['arabic'],
@@ -36,7 +37,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block"
         />
       </head>
-      <body className="min-h-dvh bg-ivory font-sans text-ink antialiased">{children}</body>
+      <body className="min-h-dvh bg-ivory font-sans text-ink antialiased">
+        <OfflineBar />
+        {children}
+      </body>
     </html>
   );
 }

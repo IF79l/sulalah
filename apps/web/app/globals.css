@@ -135,3 +135,35 @@ details.faq > summary::-webkit-details-marker {
 details.faq[open] .faq-mark {
   transform: rotate(45deg);
 }
+
+/* The loading sprout. */
+@keyframes sprout-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes sprout-open {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.sprout-stem {
+  fill: none;
+  stroke: #7a5a3a;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: sprout-draw 0.9s var(--ease-cinematic) forwards infinite alternate;
+  animation-duration: 1.6s;
+}
+.sprout-leaf {
+  fill: #6fa65e;
+  transform-box: fill-box;
+  transform-origin: 100% 50%;
+  transform: scale(0);
+  animation: sprout-open 1.6s var(--ease-cinematic) forwards infinite alternate;
+}

@@ -33,6 +33,23 @@ export interface TreeExplorerProps {
   headerEnd?: ReactNode;
   /** A one-line note under the top bar, e.g. for the demo. */
   notice?: ReactNode;
+  /** Who may be added under; defaults to every man when `onAdd` is given. */
+  canAdd?: (person: LineagePerson) => boolean;
+  /** Shown in the person card when adding under this person is not allowed. */
+  addBlockedNote?: ReactNode;
+  /** Extra actions in the person card (profile, edit). */
+  personActions?: (person: LineagePerson) => ReactNode;
+  /** Replaces the person card, e.g. the add form or a review. */
+  panel?: ReactNode;
+  /** Bump `n` to choose someone from outside, e.g. to start on a branch. */
+  selectRequest?: { id: string | null; n: number };
+  onSelectionChange?: (person: LineagePerson | null) => void;
+  /** Replaces the default share action (copy the link). */
+  onShare?: () => void;
+  /** Where the pending pill goes; without it the pill picks the first pending person. */
+  pendingHref?: string;
+  /** Toast text set from outside; bump `n` to show it again. */
+  flash?: { text: string; n: number };
 }
 
 const num = (n: number) => n.toLocaleString('en-US');
@@ -76,6 +93,15 @@ export function TreeExplorer({
   back,
   headerEnd,
   notice,
+  canAdd,
+  addBlockedNote,
+  personActions,
+  panel,
+  selectRequest,
+  onSelectionChange,
+  onShare,
+  pendingHref,
+  flash,
 }: TreeExplorerProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [path, setPath] = useState<LineagePerson[]>([]);
@@ -89,6 +115,10 @@ export function TreeExplorer({
     const t = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    if (flash) setToast(flash.text);
+  }, [flash?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const byId = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const childrenOf = (id: string) => people.filter((p) => p.fatherId === id);
@@ -109,12 +139,19 @@ export function TreeExplorer({
     setSelected(id);
     setPath(id ? pathOf(id) : []);
   };
+  useEffect(() => {
+    if (selectRequest) choose(selectRequest.id);
+  }, [selectRequest?.n]); // eslint-disable-line react-hooks/exhaustive-deps
   const showAll = () => {
     choose(null);
     setFit((f) => f + 1);
   };
 
   const person = path.at(-1);
+  useEffect(() => {
+    onSelectionChange?.(person ?? null);
+  }, [person?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const addable = !!person && !!onAdd && person.gender === 'male' && (canAdd?.(person) ?? true);
   const kids = person ? childrenOf(person.id) : [];
   const spouses = person
     ? unions
@@ -192,21 +229,31 @@ export function TreeExplorer({
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {pending.length > 0 && onAdd ? (
-            <button
-              type="button"
-              onClick={() => choose(pending[0]!.id)}
-              className="hidden items-center gap-2 rounded-full border border-pending/30 bg-pending-soft px-3 py-1.5 text-body font-medium text-pending transition hover:bg-pending/10 md:inline-flex"
-            >
-              <Icon name="assignment_late" />
-              {num(pending.length)} بانتظار الاعتماد
-            </button>
+            pendingHref ? (
+              <Link
+                href={pendingHref}
+                className="hidden items-center gap-2 rounded-full border border-pending/30 bg-pending-soft px-3 py-1.5 text-body font-medium text-pending transition hover:bg-pending/10 md:inline-flex"
+              >
+                <Icon name="assignment_late" />
+                {num(pending.length)} بانتظار الاعتماد
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => choose(pending[0]!.id)}
+                className="hidden items-center gap-2 rounded-full border border-pending/30 bg-pending-soft px-3 py-1.5 text-body font-medium text-pending transition hover:bg-pending/10 md:inline-flex"
+              >
+                <Icon name="assignment_late" />
+                {num(pending.length)} بانتظار الاعتماد
+              </button>
+            )
           ) : null}
           <IconButton label="بحث في الشجرة" onClick={() => setSearching(true)}>
             <Icon name="search" />
           </IconButton>
           <IconButton
             label="انسخ رابط الشجرة"
-            onClick={() => copy(window.location.href, 'نسخنا رابط الشجرة')}
+            onClick={() => (onShare ? onShare() : copy(window.location.href, 'نسخنا رابط الشجرة'))}
           >
             <Icon name="share" />
           </IconButton>
@@ -217,7 +264,7 @@ export function TreeExplorer({
                 <Button
                   size="sm"
                   className="rounded-xl"
-                  onClick={() => choose(person?.id ?? rootId)}
+                  onClick={() => choose(person?.id ?? selectRequest?.id ?? rootId)}
                 >
                   <Icon name="person_add" />
                   <span className="hidden sm:inline">إضافة فرد</span>
@@ -248,7 +295,9 @@ export function TreeExplorer({
         </div>
       ) : null}
 
-      {person ? (
+      {panel ? (
+        panel
+      ) : person ? (
         <Sheet label={person.name}>
           <div className="flex items-center justify-between border-b border-line/25 bg-surface-low/60 px-4 py-2.5">
             <span className="flex items-center gap-2 text-caption font-semibold text-muted">
@@ -287,7 +336,7 @@ export function TreeExplorer({
               </div>
             </div>
 
-            {onAdd && person.gender === 'male' ? (
+            {addable ? (
               <div className="grid grid-cols-2 gap-2">
                 <Button className="rounded-xl" onClick={() => onAdd(person, 'male')}>
                   <Icon name="add" />
@@ -302,7 +351,14 @@ export function TreeExplorer({
                   إضافة ابنة
                 </Button>
               </div>
+            ) : onAdd && person.gender === 'male' && addBlockedNote ? (
+              <p className="flex items-start gap-2 rounded-xl border border-line/40 bg-surface-low p-3 text-caption leading-relaxed text-ink-soft">
+                <Icon name="lock" className="mt-0.5 text-muted" />
+                {addBlockedNote}
+              </p>
             ) : null}
+
+            {personActions ? personActions(person) : null}
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-y border-line/30 py-2.5 text-caption font-medium text-olive">
               <button
@@ -392,7 +448,7 @@ export function TreeExplorer({
       <div
         className={cn(
           'fixed bottom-[calc(24px+env(safe-area-inset-bottom,0px))] left-[max(16px,env(safe-area-inset-left,0px))] z-20 flex-col gap-2 md:left-6',
-          person ? 'hidden md:flex' : 'flex max-md:bottom-[calc(76px+env(safe-area-inset-bottom,0px))]',
+          person || panel ? 'hidden md:flex' : 'flex max-md:bottom-[calc(76px+env(safe-area-inset-bottom,0px))]',
         )}
       >
         <div className={cn(floating, 'flex flex-col overflow-hidden rounded-2xl shadow-float')}>
@@ -425,7 +481,7 @@ export function TreeExplorer({
         </button>
       </div>
 
-      <TreeLegend className={person ? 'max-md:hidden md:start-[424px]' : undefined} />
+      <TreeLegend className={person || panel ? 'max-md:hidden md:start-[424px]' : undefined} />
 
       {searching ? (
         <SearchOverlay
