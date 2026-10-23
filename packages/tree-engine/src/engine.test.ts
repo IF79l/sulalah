@@ -10,6 +10,7 @@ import {
   wouldCreateCycle,
   type LineagePerson,
   type TreeLayout2D,
+  type Vec2,
 } from './index';
 
 const sprout = (id: string, fatherId: string): LineagePerson => ({
@@ -74,6 +75,25 @@ function closestLeaves(layout: TreeLayout2D): number {
   return closest;
 }
 
+/** Pairs of twigs from different fathers whose lines cross: one family reaching into another. */
+function crossingTwigs(layout: TreeLayout2D): string[] {
+  const twigs = layout.branches.filter((b) => b.kind === 'twig');
+  const cross = (a: Vec2, b: Vec2, c: Vec2, d: Vec2) => {
+    const side = (p: Vec2, q: Vec2, r: Vec2) =>
+      Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+  };
+  const out: string[] = [];
+  for (let i = 0; i < twigs.length; i++)
+    for (let j = i + 1; j < twigs.length; j++) {
+      const [s, t] = [twigs[i]!, twigs[j]!];
+      if (s.parentId === t.parentId) continue;
+      if (cross(s.curve[0], s.curve[3], t.curve[0], t.curve[3]))
+        out.push(`${s.personId}/${t.personId}`);
+    }
+  return out;
+}
+
 describe('2D layout', () => {
   const layout = layoutTree2D(buildLineage(demoFamily, 'mohammed'));
 
@@ -116,6 +136,7 @@ describe('2D layout', () => {
     ];
     const next = layoutTree2D(buildLineage([...demoFamily, ...many], 'mohammed'));
     expect(closestLeaves(next)).toBeGreaterThan(40);
+    expect(crossingTwigs(next)).toEqual([]);
   });
 
   it('makes room for new generations under a leaf without medallions colliding', () => {

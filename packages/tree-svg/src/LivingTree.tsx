@@ -1,5 +1,6 @@
 import {
   bezierPoint,
+  boxOf,
   branchOutline,
   buildLineage,
   layoutTree2D,
@@ -83,8 +84,7 @@ export function LivingTree({
     const t = performance.now();
     setBorn((prev) => new Map([...prev, ...fresh.map((p) => [p.id, t] as const)]));
     const father = fresh[0]?.fatherId;
-    const box = father ? layout.subtreeBox.get(father) : undefined;
-    if (box) cam.fly(viewForBox(box, aspect, 1.5));
+    if (father && layout.markById.has(father)) cam.fly(shotFor(layout, fullBox, father, aspect));
   }, [people]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -260,7 +260,14 @@ function shotFor(layout: TreeLayout2D, full: Box, id: string | null, aspect: num
     const [x, y] = mark.position;
     return viewForBox({ minX: x - 220, maxX: x + 220, minY: y - 240, maxY: y + 200 }, aspect);
   }
-  return viewForBox(layout.subtreeBox.get(mark.personId)!, aspect, 1.12);
+  // A father's close-up: him, his children's leaves and his sons' medallions, readable at a glance.
+  // The rest of his line stays in view at the edges, one tap away.
+  const family = layout.branches.filter((b) => b.parentId === mark.personId).map((b) => b.curve[3]);
+  const box = boxOf([mark.position, ...family]);
+  return viewForBox(
+    { minX: box.minX - 140, maxX: box.maxX + 140, minY: box.minY - 150, maxY: box.maxY + 110 },
+    aspect,
+  );
 }
 
 type Cull = { minX: number; maxX: number; minY: number; maxY: number };
