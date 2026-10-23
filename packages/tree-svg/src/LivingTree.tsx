@@ -27,12 +27,14 @@ export interface LivingTreeProps {
   unions?: LineageUnion[];
   /** Forefathers above the root, nearest first, written down the trunk; the last is the family name. */
   ancestors?: string[];
-  /** Heading over the crown, e.g. "شجرة أسرة الراشد". */
+  /** Heading over the crown, e.g. "شجرة أسرة السهلي". */
   title?: string;
   selectedId?: string | null;
   onSelect?: (personId: string | null, path: LineagePerson[]) => void;
   /** Bumped by the host to fly back to the whole tree. */
   fitSignal?: number;
+  /** Bumped by the host's zoom buttons; factor < 1 zooms in. */
+  zoomSignal?: { n: number; factor: number };
   className?: string;
 }
 
@@ -45,7 +47,15 @@ const GROW_MS = 1300;
  * written down it, each father a branch with his name on a medallion, each of his children
  * a named leaf (green for sons, pink for daughters). Tap to fly in; new people grow in.
  */
-export function LivingTree({
+export function LivingTree(props: LivingTreeProps) {
+  // The layout's trigonometry differs in its last digits between the server and the browser,
+  // so the scene is drawn only in the browser; the server sends an empty, sized frame.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? <LivingTreeScene {...props} /> : <div className={props.className} />;
+}
+
+function LivingTreeScene({
   people,
   rootId,
   unions = [],
@@ -54,6 +64,7 @@ export function LivingTree({
   selectedId = null,
   onSelect,
   fitSignal = 0,
+  zoomSignal,
   className,
 }: LivingTreeProps) {
   const lineage = useMemo(() => buildLineage(people, rootId, unions), [people, rootId, unions]);
@@ -109,6 +120,10 @@ export function LivingTree({
     if (cam.size.w <= 1) return;
     cam.fly(shotFor(layout, fullBox, selectedId, aspect));
   }, [selectedId, fitSignal, cam.size.w > 1]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (zoomSignal) cam.zoomBy(zoomSignal.factor);
+  }, [zoomSignal?.n]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const select = (id: string | null) => {
     if (cam.wasDrag()) return;
@@ -250,6 +265,12 @@ export function LivingTree({
 }
 
 function shotFor(layout: TreeLayout2D, full: Box, id: string | null, aspect: number): View {
+  const v = closeUp(layout, full, id, aspect);
+  // On wide screens a close-up is limited by height; keep enough of the crown around it.
+  return id ? { ...v, width: Math.max(v.width, 760 * Math.max(1, aspect)) } : v;
+}
+
+function closeUp(layout: TreeLayout2D, full: Box, id: string | null, aspect: number): View {
   const mark = id ? layout.markById.get(id) : undefined;
   if (!mark) return viewForBox(full, aspect, 1.02);
   if (mark.kind === 'root') {

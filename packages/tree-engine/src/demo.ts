@@ -81,7 +81,7 @@ export const demoFamily: LineagePerson[] = rows.map(([id, name, fatherId, g, dec
 }));
 
 /** Forefathers above the root, written on the trunk under his name; the last is the family name. */
-export const demoAncestors = ['سليمان', 'حمد', 'الراشد'];
+export const demoAncestors = ['سليمان', 'حمد', 'السهلي'];
 
 export const demoUnions: LineageUnion[] = [
   { aId: 'mohammed', bId: 'w-moudi' },

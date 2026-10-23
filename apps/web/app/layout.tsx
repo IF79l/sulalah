@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from 'next';
-import { Alexandria, Aref_Ruqaa, IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { Aref_Ruqaa, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import type { ReactNode } from 'react';
 import './globals.css';
+import { OfflineBar } from '@/components/States';
 
 const plex = IBM_Plex_Sans_Arabic({
   subsets: ['arabic'],
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-plex-arabic',
 });
-const alexandria = Alexandria({ subsets: ['arabic'], variable: '--font-alexandria' });
 // Calligraphic heading over the tree's crown, as on a printed nasab poster.
 const ruqaa = Aref_Ruqaa({
   subsets: ['arabic'],
@@ -21,16 +21,26 @@ export const metadata: Metadata = {
   description: 'أنشئ شجرة عائلتك، وشاركها مع أفرادها، ودع أغصانكم تنمو جيلًا بعد جيل.',
 };
 
-export const viewport: Viewport = { themeColor: '#F6F2E8', width: 'device-width', initialScale: 1 };
+export const viewport: Viewport = { themeColor: '#F8F5EE', width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="ar"
       dir="rtl"
-      className={`${plex.variable} ${alexandria.variable} ${ruqaa.variable}`}
+      className={`${plex.variable} ${ruqaa.variable}`}
     >
-      <body className="min-h-dvh font-sans antialiased">{children}</body>
+      <head>
+        {/* Icon glyphs; "block" keeps their ligature names from flashing as words. */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block"
+        />
+      </head>
+      <body className="min-h-dvh bg-ivory font-sans text-ink antialiased">
+        <OfflineBar />
+        {children}
+      </body>
     </html>
   );
 }
