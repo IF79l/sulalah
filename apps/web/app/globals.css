@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@import '@sulalah/ui/tokens.css';
+@source '../../../packages/ui/src';
+
+html {
+  background: var(--color-ivory);
+  color: var(--color-bark);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

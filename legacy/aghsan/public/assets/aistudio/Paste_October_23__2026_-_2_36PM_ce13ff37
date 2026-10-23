@@ -1,0 +1,2539 @@
+# MASTER BUILD PROMPT
+
+## AGHSAN — أغصان
+
+### Premium Interactive Family Tree SaaS Platform
+
+You are an expert full-stack software engineer, senior SaaS architect, product designer, UX strategist, database architect, and motion design specialist.
+
+Your mission is to **design, develop, and implement a complete, production-oriented, Arabic-first Family Tree SaaS platform called "أغصان" (Aghsan).**
+
+This is NOT a landing-page-only project.
+
+This is a real subscription-based web application with authentication, payments, family tree creation, interactive genealogy visualization, collaborative branch contributions, approval workflows, reviewer permissions, and administrative dashboards.
+
+Build the actual working product, including frontend, backend, database, authentication, authorization, payment architecture, and interactive functionality.
+
+Do not deliver a static mockup or a collection of disconnected pages.
+
+Every primary button, form, interaction, navigation element, and workflow must work.
+
+---
+
+# 1. PRODUCT VISION
+
+## Project Name
+
+أغصان — Aghsan
+
+## Arabic Tagline
+
+"جذور تجمعنا، وأغصان تحكي حكايتنا."
+
+## Product Description
+
+أغصان هي منصة إلكترونية متخصصة في إنشاء شجرات العائلات والقبائل وإدارتها وتوثيقها بطريقة تفاعلية وتشاركية.
+
+تتيح المنصة لأي شخص الاشتراك في إحدى الباقات وإنشاء شجرة عائلته، ليصبح تلقائيًا مالك الشجرة والمدقق الرئيسي لها.
+
+يمكن لمالك الشجرة مشاركة رابطها مع أفراد العائلة، بحيث يستطيع كل مستفيد استعراض الشجرة واختيار الغصن الذي ينتمي إليه، ثم إضافة أفراد عائلته تحت المكان الصحيح.
+
+لا يتم اعتماد الإضافات تلقائيًا، بل تُرسل إلى مالك الشجرة أو أحد المدققين المساعدين لمراجعتها والموافقة عليها أو رفضها.
+
+يمكن للمالك دعوة مدققين مساعدين، ويختلف عدد المدققين المسموح بهم حسب الباقة.
+
+### Core Product Promise
+
+"أنشئ شجرة عائلتك، وشاركها مع أقاربك، ودع كل فرد يساهم في بناء غصنه، مع الحفاظ على دقة المعلومات من خلال نظام مراجعة واعتماد متكامل."
+
+### Target Audience
+
+* العائلات السعودية.
+* العائلات الممتدة.
+* القبائل.
+* المهتمون بتوثيق الأنساب والتاريخ العائلي.
+* كبار العائلة المسؤولون عن جمع بيانات أفرادها.
+* الأشخاص الذين يريدون حفظ تاريخ عائلاتهم رقميًا.
+
+The platform must feel premium, trustworthy, modern, elegant, and culturally relevant.
+
+---
+
+# 2. CRITICAL IMPLEMENTATION INSTRUCTIONS
+
+Build this as a real full-stack application.
+
+Use a maintainable, modular architecture.
+
+## Preferred Technology Stack
+
+* Next.js with App Router
+* TypeScript
+* React
+* Tailwind CSS
+* shadcn/ui
+* Motion for React (Framer Motion-compatible animation system)
+* PostgreSQL
+* Prisma ORM
+* Auth.js or an equivalent secure authentication solution
+* React Flow / @xyflow/react for interactive tree visualization
+* ELK.js or another appropriate layout engine
+* Zod for input validation
+* Secure object storage for profile images
+* Payment provider abstraction supporting Saudi payment gateways
+* Server-side authorization
+* Accessible and responsive UI components
+
+Use current stable compatible versions.
+
+If a particular library is unsuitable for large genealogical trees, replace it with a better solution and explain the architectural choice in the project documentation.
+
+Do not sacrifice functionality for visual appearance.
+
+The completed application must include:
+
+1. Working authentication.
+2. Persistent database.
+3. Actual family tree CRUD operations.
+4. Interactive tree visualization.
+5. Real contribution submission workflow.
+6. Real approval and rejection workflow.
+7. Role-based permissions.
+8. Package limits.
+9. Invitation management.
+10. Profile management.
+11. Payment integration architecture.
+12. Real dashboard data.
+13. Responsive Arabic interface.
+14. Functional navigation.
+15. Proper error handling.
+16. Database migrations.
+17. Demo data.
+18. Automated tests for critical workflows.
+
+If a payment provider or external service requires API keys, create a clean integration interface and a clearly labeled sandbox mode.
+
+Never pretend that a payment succeeded in production without verification from the payment provider.
+
+---
+
+# 3. DESIGN DIRECTION
+
+## IMPORTANT: VISUAL EXPERIENCE
+
+The entire platform must use premium modern motion design.
+
+Take inspiration from immersive animated landing pages with:
+
+* Cinematic entrance sequences.
+* Smooth staggered animations.
+* Organic movement.
+* Layered compositions.
+* Animated typography.
+* Scroll-triggered reveals.
+* Interactive elements.
+* Fluid transitions.
+* Beautiful hover states.
+* Smooth navigation.
+* Natural movement responding to user interaction.
+
+However, DO NOT replicate a children's farming website.
+
+DO NOT use cartoon children, farms, agricultural illustrations, or childish visual styles.
+
+Instead, create an original visual identity inspired by:
+
+**Roots, family connections, ancestry, branches, heritage, history, and the passage of generations.**
+
+The final result should resemble a premium technology product combined with the elegance and emotional significance of family heritage.
+
+Think:
+
+Modern SaaS + Digital Heritage + Interactive Generative Art + Premium Arabic Typography.
+
+The website must feel memorable without becoming visually overwhelming.
+
+---
+
+# 4. BRAND IDENTITY
+
+## Color Palette
+
+Use a sophisticated nature-inspired color system.
+
+### Primary
+
+Deep Forest Green:
+`#102B24`
+
+### Secondary
+
+Heritage Green:
+`#244B3D`
+
+### Accent
+
+Sage Green:
+`#8BA58B`
+
+### Premium Accent
+
+Muted Gold:
+`#C9A66B`
+
+### Background
+
+Warm Ivory:
+`#F7F5EF`
+
+### Secondary Background
+
+Soft Sand:
+`#EAE6DC`
+
+### Main Text
+
+Dark Charcoal:
+`#1C2923`
+
+### White
+
+`#FFFFFF`
+
+These colors may be refined slightly to achieve excellent contrast, balance, and visual quality.
+
+## Typography
+
+The application must be Arabic-first.
+
+Use elegant Arabic fonts such as:
+
+* IBM Plex Sans Arabic
+* Tajawal
+* Alexandria
+
+Choose a refined pairing for headings and body text.
+
+The Arabic typography must be exceptional.
+
+Avoid generic dashboard typography.
+
+## Layout
+
+* Full RTL support.
+* Arabic content by default.
+* Responsive layouts.
+* Generous spacing.
+* Elegant rounded cards.
+* Subtle borders.
+* Soft shadows.
+* Refined glassmorphism where appropriate.
+* Large editorial headings.
+* High-quality iconography.
+* Clean, uncluttered interfaces.
+
+Use CSS variables or a consistent design token system for colors, spacing, typography, shadows, borders, and animation timing.
+
+---
+
+# 5. LANDING PAGE — CINEMATIC HERO
+
+Create an impressive animated homepage.
+
+The first impression should communicate:
+
+**"هذه ليست مجرد شجرة عائلة، إنها تجربة رقمية لحفظ تاريخ الأجيال."**
+
+## Header
+
+Create a premium floating navigation bar.
+
+The navbar includes:
+
+Logo:
+أغصان
+
+Navigation:
+
+* الرئيسية
+* كيف تعمل المنصة
+* المميزات
+* الباقات
+* الأسئلة الشائعة
+
+Actions:
+
+* تسجيل الدخول
+* ابدأ شجرتك
+
+On desktop, display the complete navigation.
+
+On mobile, use an accessible animated menu.
+
+The navbar should have subtle transparency and blur when appropriate.
+
+## Main Hero
+
+### Main Headline
+
+"كل عائلة لها جذور...
+وكل غصن يحمل حكاية."
+
+Animate the headline using carefully staggered text reveals.
+
+### Subtitle
+
+"أنشئ شجرة عائلتك، وشاركها مع أفرادها، واجمع أجيالكم في مكان واحد. ابنوا تاريخ عائلتكم معًا، اسمًا بعد اسم، وغصنًا بعد غصن."
+
+### Primary CTA
+
+"ابدأ بناء شجرتك"
+
+### Secondary CTA
+
+"اكتشف كيف تعمل"
+
+## Hero Visual Concept
+
+The centerpiece of the homepage must be a beautiful animated family tree visualization.
+
+Do not use a random stock photograph as the primary hero.
+
+Create an original SVG, Canvas, or DOM-based composition representing a family tree.
+
+### Animation Sequence
+
+1. A subtle glowing root appears.
+2. The main trunk grows organically.
+3. Branches extend smoothly.
+4. Connection lines draw themselves.
+5. Family member cards appear.
+6. Additional generations gradually become visible.
+7. A soft background atmosphere enhances depth.
+8. The final composition settles into a gentle idle state.
+
+Use sample Arabic names.
+
+Example:
+
+الجد محمد
+
+Children:
+
+* متروك
+* ضيف الله
+* عبدالله
+
+Under متروك:
+
+* سالم
+* أحمد
+
+Under سالم:
+
+* فهد
+* خالد
+* نورة
+
+The visual should clearly resemble an actual genealogical tree, not a decorative plant illustration alone.
+
+Use elegant lines and modern person cards.
+
+## Interactive Hero
+
+Allow visitors to interact with a limited sample tree.
+
+When a visitor clicks a family member:
+
+* Highlight the selected person.
+* Highlight the relevant connecting branch.
+* Reveal a small elegant information card.
+* Show the person's name and relationship.
+* Animate the information card into view.
+
+This interaction must work without requiring registration.
+
+The demonstration must use fictional sample data.
+
+## Background
+
+Create a premium layered background using:
+
+* Soft gradients.
+* Subtle noise texture.
+* Animated connection lines.
+* Very subtle particles or light.
+* Abstract heritage-inspired patterns.
+* Organic shapes.
+
+Keep the experience elegant and performant.
+
+Avoid excessive effects.
+
+---
+
+# 6. MOTION DESIGN SYSTEM
+
+Motion is a central part of this product.
+
+Build reusable animation components and establish consistent animation rules.
+
+## Page Entrance
+
+* Navigation enters smoothly from above.
+* Headline reveals progressively.
+* Supporting text fades upward.
+* Buttons enter with staggered timing.
+* Hero tree branches grow progressively.
+* Decorative elements settle naturally.
+
+## Scroll Animation
+
+As users scroll:
+
+* Content reveals with gentle fade and upward movement.
+* Section headings reveal in sequence.
+* Cards appear with staggered timing.
+* Feature demonstrations animate into view.
+* Tree connection illustrations draw progressively.
+
+Use Intersection Observer or an equivalent efficient mechanism.
+
+Do not trigger expensive animations continuously.
+
+## Buttons
+
+Buttons should have:
+
+* Subtle hover lift.
+* Smooth color transitions.
+* Refined shadow transitions.
+* Responsive pressed states.
+* Clear loading states.
+
+## Cards
+
+Cards should have:
+
+* Small hover elevation.
+* Smooth transition.
+* Optional subtle border highlight.
+* No exaggerated movement.
+
+## Tree Motion
+
+Family tree interactions must feel exceptionally polished.
+
+When expanding a branch:
+
+* Connection lines extend.
+* Child nodes enter with staggered motion.
+* The surrounding layout adjusts smoothly.
+
+When collapsing a branch:
+
+* Descendant nodes fade out.
+* Connecting lines retract.
+* The layout reflows smoothly.
+
+When selecting a person:
+
+* The selected node receives a subtle highlight.
+* Connected relationships become visually emphasized.
+* The profile panel opens smoothly.
+
+When adding new family members:
+
+* New nodes appear in their proposed location.
+* Pending nodes have a distinct visual treatment.
+* Their connecting lines are animated.
+
+When an addition is approved:
+
+* The proposed node transitions into the normal approved visual state.
+
+## Animation Timing
+
+Prefer subtle durations around 200–500ms for normal UI interactions.
+
+Use longer sequences only for cinematic landing-page moments.
+
+Respect:
+
+`prefers-reduced-motion`
+
+When reduced motion is enabled:
+
+* Disable decorative movement.
+* Remove non-essential transitions.
+* Keep the interface fully functional.
+
+Performance and accessibility must take priority over decoration.
+
+---
+
+# 7. MAIN PUBLIC WEBSITE SECTIONS
+
+Implement the following landing-page sections.
+
+## Section 1 — Hero
+
+Animated family tree.
+
+Headline, description, CTAs.
+
+## Section 2 — How It Works
+
+Title:
+
+"شجرة عائلتك تبدأ بخطوة"
+
+Explain the process in four steps.
+
+### Step 1
+
+اختر الباقة المناسبة.
+
+### Step 2
+
+أنشئ شجرتك وأضف الجد الأساسي.
+
+### Step 3
+
+شارك رابط الشجرة مع أفراد عائلتك.
+
+### Step 4
+
+راجع الإضافات واعتمدها لتكبر شجرتكم معًا.
+
+Use animated connecting lines between the steps.
+
+## Section 3 — Platform Features
+
+Feature cards:
+
+* بناء شجرة تفاعلية.
+* مشاركة الشجرة مع أفراد العائلة.
+* إضافة الأغصان والأجيال.
+* مراجعة واعتماد الإضافات.
+* ملفات تعريفية للأفراد.
+* إدارة المدققين والصلاحيات.
+* البحث عن أفراد العائلة.
+* حفظ تاريخ التعديلات.
+* خصوصية وحماية المعلومات.
+
+## Section 4 — Interactive Product Showcase
+
+Demonstrate the actual tree-building experience.
+
+Show a miniature interactive tree.
+
+Allow the visitor to select a sample branch and preview how adding family members works.
+
+Use demo-only state; never write anonymous demo interactions into real family data.
+
+## Section 5 — Packages
+
+Display the three subscription packages.
+
+## Section 6 — FAQ
+
+Include questions about:
+
+* كيفية إنشاء الشجرة.
+* كيفية إضافة أفراد العائلة.
+* إمكانية مشاركة الشجرة.
+* صلاحيات المدققين.
+* حماية الخصوصية.
+* كيفية تجديد الاشتراك.
+* ماذا يحدث عند انتهاء الاشتراك.
+* إمكانية تصدير بيانات الشجرة.
+
+## Section 7 — Final CTA
+
+Headline:
+
+"تاريخ عائلتك يستحق أن يبقى."
+
+Button:
+
+"أنشئ شجرتك الآن"
+
+## Footer
+
+Include:
+
+* عن أغصان
+* الباقات
+* سياسة الخصوصية
+* الشروط والأحكام
+* تواصل معنا
+
+---
+
+# 8. AUTHENTICATION SYSTEM
+
+Build a complete secure authentication system.
+
+## Required Pages
+
+* إنشاء حساب.
+* تسجيل الدخول.
+* التحقق من البريد الإلكتروني.
+* نسيت كلمة المرور.
+* إعادة تعيين كلمة المرور.
+* إعداد الحساب.
+* تسجيل الخروج.
+
+## Registration Fields
+
+* الاسم الكامل.
+* البريد الإلكتروني.
+* كلمة المرور.
+* تأكيد كلمة المرور.
+* الموافقة على الشروط وسياسة الخصوصية.
+
+Use secure password hashing.
+
+Validate all inputs.
+
+Prevent duplicate email registrations.
+
+Use secure sessions.
+
+Implement rate limiting on sensitive authentication endpoints.
+
+Never expose passwords or authentication tokens.
+
+## Authentication UI
+
+Registration and login pages should follow the premium visual identity.
+
+Use a split layout on desktop:
+
+One side contains the form.
+
+The other side contains a subtle animated family tree illustration.
+
+On mobile, prioritize the form.
+
+Do not let animations interfere with form completion.
+
+---
+
+# 9. USER ONBOARDING
+
+After successful registration, guide the user through creating their first family tree.
+
+Use an elegant multi-step onboarding experience.
+
+## Step 1 — Welcome
+
+Display:
+
+"أهلًا بك في أغصان"
+
+Description:
+
+"لنبدأ رحلتك في توثيق شجرة عائلتك."
+
+## Step 2 — Select Package
+
+Display the available subscription packages.
+
+## Step 3 — Tree Information
+
+Ask for:
+
+* اسم الشجرة.
+* وصف اختياري.
+* اسم الجد الأساسي.
+* معلومات الجد الاختيارية.
+* خصوصية الشجرة.
+
+Example:
+
+اسم الشجرة:
+شجرة عائلة محمد بن عبدالله
+
+الجد الأساسي:
+محمد بن عبدالله
+
+## Step 4 — Payment
+
+Complete the subscription purchase or activate a clearly labeled sandbox plan.
+
+## Step 5 — Create Tree
+
+Create the tree with its root ancestor.
+
+The purchaser must automatically become:
+
+1. Tree owner.
+2. Primary reviewer.
+
+Do not create these as two separate accounts or require the owner to invite themselves as a reviewer.
+
+## Step 6 — Success
+
+Display:
+
+"مبارك! تم إنشاء شجرتك بنجاح."
+
+Actions:
+
+* الانتقال إلى الشجرة.
+* إضافة أول غصن.
+* مشاركة الشجرة.
+
+Use a tasteful success animation.
+
+---
+
+# 10. SUBSCRIPTION PACKAGES
+
+The platform offers three paid subscription tiers.
+
+These values are initial configuration examples and must be editable through the platform administration system.
+
+Do not hard-code prices.
+
+## Package 1 — العائلة
+
+Designed for a small family.
+
+Suggested initial limits:
+
+* Up to 50 people.
+* One family tree.
+* One owner.
+* One additional reviewer.
+* Interactive family tree.
+* Contribution invitations.
+* Approval workflow.
+* Basic individual profiles.
+* Basic search.
+
+## Package 2 — العائلة الممتدة
+
+Designed for larger families.
+
+Suggested initial limits:
+
+* Up to 500 people.
+* One family tree.
+* One owner.
+* Five additional reviewers.
+* Branch-scoped reviewer permissions.
+* Advanced profiles.
+* Search.
+* Change history.
+* Tree export.
+
+## Package 3 — القبيلة
+
+Designed for large genealogical trees.
+
+Suggested initial limits:
+
+* Up to 10,000 people.
+* One large family tree.
+* One owner.
+* Twenty additional reviewers.
+* Advanced branch management.
+* Reviewer permissions.
+* Advanced search.
+* Full audit history.
+* Export.
+* Large-tree performance optimizations.
+
+Make these limits configurable.
+
+The number of additional reviewers must not include the tree owner.
+
+## Subscription System
+
+Implement:
+
+* Plan selection.
+* Payment initiation.
+* Verified payment completion.
+* Subscription activation.
+* Expiration date.
+* Renewal.
+* Plan upgrade.
+* Plan downgrade rules.
+* Subscription cancellation.
+* Payment history.
+* Invoices or payment receipts where supported.
+* Usage counters.
+* Plan limit enforcement.
+
+All payment amounts and currencies must be controlled through secure server-side configuration.
+
+Never trust pricing sent by the client.
+
+## Expired Subscription Behavior
+
+Do not delete family tree data when a subscription expires.
+
+Switch to an appropriate restricted mode:
+
+* Existing family data remains stored.
+* The owner can access billing and renewal information.
+* Editing and new contributions may be paused.
+* Renewal restores eligible functionality.
+
+Provide a clear message explaining the restrictions.
+
+## Reviewer Seat Management
+
+The owner can:
+
+* View reviewer usage.
+* Invite additional reviewers.
+* Revoke reviewer access.
+* Replace existing reviewers.
+
+Enforce the package limit server-side.
+
+Prevent race conditions that allow more reviewer invitations than the package permits.
+
+Design the billing architecture so additional reviewer seats can be sold in a future release.
+
+---
+
+# 11. MAIN USER DASHBOARD
+
+Create a premium authenticated dashboard.
+
+## Dashboard Navigation
+
+* الرئيسية
+* شجراتي
+* طلبات الإضافة
+* المدققون
+* الدعوات
+* الإشعارات
+* الاشتراك والفواتير
+* الإعدادات
+
+## Dashboard Overview
+
+Show:
+
+* اسم الشجرة.
+* عدد الأفراد المعتمدين.
+* عدد الأغصان.
+* عدد الأجيال.
+* عدد الطلبات المعلقة.
+* عدد المدققين.
+* استهلاك الباقة.
+* حالة الاشتراك.
+
+## Dashboard Actions
+
+* عرض الشجرة.
+* إضافة فرد.
+* إضافة غصن.
+* مشاركة الشجرة.
+* إدارة المدققين.
+* مراجعة الطلبات.
+
+Use real database-backed statistics.
+
+No fake static dashboard numbers outside demo mode.
+
+Use tasteful motion and meaningful micro-interactions.
+
+---
+
+# 12. INTERACTIVE FAMILY TREE BUILDER
+
+This is the core feature of the entire platform.
+
+Treat it as the most important engineering and user-experience component.
+
+## Main Requirements
+
+Build a beautiful, interactive, responsive genealogical tree.
+
+The tree must support:
+
+* Multiple generations.
+* Parent-child relationships.
+* Male and female family members.
+* Spouses.
+* Multiple valid marriage relationships.
+* Descendants.
+* Expanding branches.
+* Collapsing branches.
+* Searching.
+* Selecting individuals.
+* Navigating to ancestors.
+* Navigating to descendants.
+* Zooming.
+* Panning.
+* Fitting the tree to the viewport.
+* Centering on a specific individual.
+* Opening individual profiles.
+* Adding new individuals.
+* Proposing new branches.
+* Displaying pending additions in the contribution workspace.
+
+## Tree Visualization
+
+Use elegantly styled individual nodes.
+
+Each node should display:
+
+* Full name or context-appropriate short name.
+* Optional avatar.
+* Optional small relationship indicator.
+* Expand/collapse control where applicable.
+
+The tree should use clear relationship connectors.
+
+Do not represent the entire family as an arbitrary list of cards.
+
+The interface must visually communicate actual genealogical relationships.
+
+## Important Data Architecture
+
+Family genealogy is not always a strict single-parent hierarchy.
+
+Do not build the data model using only a single `parentId`.
+
+Use a proper relationship model capable of representing:
+
+* Father-child.
+* Mother-child.
+* Spouse relationships.
+* Marriage-related metadata.
+* Optional or unknown parents.
+* Multiple generations.
+* Complex family structures.
+
+The visual tree may use hierarchical layouts, but the underlying data must preserve accurate relationships.
+
+Do not automatically assume that every spouse is a biological parent of every child.
+
+Support unknown or incomplete relationship information without inventing details.
+
+Prevent circular parent-child relationships.
+
+Prevent linking someone as their own ancestor.
+
+## Large Tree Performance
+
+Large family trees may contain thousands of individuals.
+
+Avoid rendering all 10,000 nodes simultaneously.
+
+Use:
+
+* Branch-based loading.
+* Progressive expansion.
+* Viewport-based rendering where possible.
+* Efficient graph layout.
+* Caching.
+* Memoization.
+* Server-side pagination where appropriate.
+* Optimized database queries.
+
+The tree must remain usable on mobile devices.
+
+---
+
+# 13. MOST IMPORTANT FEATURE: COLLABORATIVE BRANCH CONTRIBUTIONS
+
+Implement this workflow exactly.
+
+## Core Concept
+
+A family member receives a tree invitation link from the owner.
+
+They open the family tree.
+
+They select the branch that their family belongs to.
+
+They navigate inside that branch.
+
+They select the correct person or insertion point.
+
+They add their family members directly underneath the correct person.
+
+They can build an entire multi-generation family branch.
+
+They submit the complete contribution for review.
+
+The contribution does not become part of the approved family tree until an authorized reviewer approves it.
+
+## User Journey
+
+### Step 1 — Receive Invitation
+
+The owner sends a family tree link through WhatsApp or another communication channel.
+
+The recipient opens the invitation page.
+
+Show:
+
+* Family tree name.
+* A short introduction.
+* Available contribution access.
+* A button labeled "استعراض الشجرة".
+
+Support secure invitation links with expiration and revocation controls.
+
+For private trees, require appropriate invitation verification before exposing protected data.
+
+### Step 2 — Browse the Family Tree
+
+The contributor can navigate the accessible portions of the tree.
+
+Display the branches clearly.
+
+Example:
+
+الجد محمد
+
+Branches:
+
+* متروك بن محمد
+* ضيف الله بن محمد
+* عبدالله بن محمد
+
+### Step 3 — Select Branch
+
+The contributor chooses the branch to which their family belongs.
+
+Example:
+
+"فرع متروك بن محمد"
+
+Animate the selected branch into focus.
+
+Provide a breadcrumb showing the current genealogical path.
+
+Example:
+
+محمد ← متروك ← سالم
+
+### Step 4 — Select Correct Parent or Relative
+
+Inside the branch, the contributor selects the correct person to whom the new individuals will be linked.
+
+Example:
+
+سالم بن متروك
+
+Display contextual actions:
+
+* إضافة ابن.
+* إضافة ابنة.
+* إضافة زوج / زوجة.
+* إضافة فرد مرتبط، حسب الصلاحيات والعلاقة المتاحة.
+* عرض الملف التعريفي.
+
+The system must understand the relationship type selected.
+
+### Step 5 — Add Family Members
+
+Open an interactive branch-building workspace.
+
+The contributor can create new family members directly inside a temporary representation of the tree.
+
+Example:
+
+Existing approved node:
+
+سالم بن متروك
+
+New proposed children:
+
+* فهد بن سالم
+* خالد بن سالم
+* نورة بنت سالم
+
+Then allow the contributor to select فهد and add his children:
+
+* محمد بن فهد
+* عبدالله بن فهد
+
+The contributor must be able to build several generations in one session.
+
+Do not force a separate submission for every individual.
+
+## Individual Form
+
+Suggested fields:
+
+Required:
+
+* الاسم.
+* نوع العلاقة بالشخص المحدد.
+
+Optional:
+
+* الاسم الكامل.
+* الجنس، إن كان مطلوبًا لتمثيل العلاقة.
+* تاريخ الميلاد.
+* تاريخ الوفاة.
+* نبذة تعريفية.
+* صورة شخصية.
+* ملاحظات.
+* بيانات إضافية مناسبة.
+
+Use Arabic labels.
+
+Minimize mandatory fields.
+
+Never infer or fabricate personal information.
+
+### Personal Profile
+
+Each person can have a dedicated profile containing:
+
+* Name.
+* Optional photo.
+* Optional short biography.
+* Parent relationships.
+* Spouse relationships, when recorded.
+* Children.
+* Birth and death details if provided.
+* Relevant family branch.
+
+Implement privacy controls for this information.
+
+### Contributor Workspace
+
+Use distinct visual styling:
+
+Approved members:
+Normal tree nodes.
+
+Proposed members:
+Soft gold outlines or another accessible visual indicator.
+
+Pending relationship lines:
+Dashed or subtly highlighted connections.
+
+Show an always-visible explanation:
+
+"الإضافات الجديدة لن تظهر في الشجرة المعتمدة حتى تتم مراجعتها."
+
+### Editing Before Submission
+
+Allow contributors to:
+
+* Add another person.
+* Edit proposed information.
+* Remove a proposed person.
+* Reassign a proposed person to a correct parent.
+* Navigate between proposed generations.
+* Review the full proposed branch.
+
+Removing a proposed parent must not silently discard descendants.
+
+Show a confirmation and provide safe options for handling dependent nodes.
+
+### Step 6 — Preview
+
+Before submission, show:
+
+* Target branch.
+* Attachment person.
+* Total new individuals.
+* New relationship links.
+* Any edited existing information.
+* Possible duplicates or validation warnings.
+
+Display a complete preview of the proposed changes.
+
+### Step 7 — Submit
+
+Button:
+
+"إرسال الإضافات للمراجعة"
+
+Create a real contribution request in the database.
+
+Status:
+
+`PENDING`
+
+The request must include a structured set of proposed people and relationships.
+
+Do not modify the approved family tree immediately.
+
+### Step 8 — Confirmation
+
+Show:
+
+"تم إرسال إضافاتك بنجاح، وهي الآن بانتظار مراجعة المدقق."
+
+Display the contribution request reference and status.
+
+Allow the contributor to return later and check the request status using an appropriately authenticated or verified flow.
+
+---
+
+# 14. APPROVAL AND REVIEW SYSTEM
+
+The tree owner is automatically the primary reviewer.
+
+The owner may appoint additional reviewers according to the subscription package.
+
+## Reviewer Dashboard
+
+Create a dedicated review area.
+
+Display request cards with:
+
+* Contributor name or verified identifier.
+* Target branch.
+* Number of proposed people.
+* Submission date.
+* Request status.
+* Assigned reviewer, if applicable.
+
+## Request Detail Screen
+
+Show:
+
+1. Existing approved branch.
+2. Proposed new members.
+3. Proposed new relationships.
+4. Modified information.
+5. Possible duplicates.
+6. Submission notes.
+7. Contributor details permitted by privacy settings.
+
+## Tree Difference View
+
+Create a side-by-side or overlay comparison.
+
+The reviewer should clearly understand exactly what the submitted request will change.
+
+Use animated, highlighted proposed branches.
+
+## Review Actions
+
+* قبول الطلب كاملًا.
+* رفض الطلب.
+* طلب تعديل.
+* اعتماد أفراد محددين، عند توفر صلاحية الاعتماد الجزئي.
+* عرض التفاصيل.
+
+## Partial Approval
+
+Support reviewing individual proposed nodes or sub-branches.
+
+Important:
+
+A reviewer cannot approve a descendant while leaving its required new ancestor unresolved.
+
+The system must validate relationship dependencies.
+
+When approving part of a contribution, clearly show what remains pending and why.
+
+## Approval Rules
+
+On approval:
+
+* Validate permissions.
+* Validate plan limits.
+* Validate relationships.
+* Check for cycles.
+* Check for potential duplicates.
+* Recheck that referenced people still exist and remain valid.
+* Apply approved changes inside a database transaction.
+* Update the family tree.
+* Create audit records.
+* Notify the contributor.
+
+## Rejection
+
+Require an optional or configurable rejection reason.
+
+Notify the contributor.
+
+Do not delete the original request history.
+
+## Revision Requests
+
+Allow reviewers to request specific changes.
+
+Example:
+
+"يرجى التأكد من اسم الجد وإضافة الاسم الكامل."
+
+Contributor can edit and resubmit.
+
+## Conflicting Requests
+
+Handle situations where:
+
+* Two contributors propose the same person.
+* A target parent was modified.
+* A node was removed.
+* Two reviewers attempt to approve the same request simultaneously.
+
+Prevent duplicate execution.
+
+Use database transactions, locking or equivalent concurrency controls, and idempotent operations.
+
+---
+
+# 15. REVIEWER MANAGEMENT
+
+The owner may invite assistant reviewers.
+
+## Reviewer Invitations
+
+The owner enters:
+
+* Reviewer email address.
+* Optional name.
+* Review scope.
+
+Send an invitation with a secure token.
+
+The invited reviewer accepts the invitation after verification.
+
+## Reviewer Scopes
+
+Support:
+
+1. Entire family tree.
+2. One selected branch.
+3. Multiple selected branches.
+
+For branch permissions, determine access using the selected ancestor and its descendants.
+
+## Reviewer Permissions
+
+Reviewer assistants can:
+
+* View assigned branches.
+* Review eligible requests.
+* Approve eligible submissions.
+* Reject eligible submissions.
+* Request corrections.
+
+They cannot:
+
+* Delete the family tree.
+* Transfer tree ownership.
+* Manage billing.
+* Invite other reviewers.
+* Change the subscription.
+* Modify ownership.
+* Review unauthorized branches.
+
+The owner can manage all reviewers.
+
+The owner can revoke access immediately.
+
+Reviewer invitations and active reviewer seats must respect package limits.
+
+---
+
+# 16. ROLES AND PERMISSIONS
+
+Implement proper role-based access control.
+
+## Role 1 — Tree Owner
+
+Full administrative authority over their own tree.
+
+## Role 2 — Assistant Reviewer
+
+Limited review access according to assigned scope.
+
+## Role 3 — Contributor
+
+Can browse only authorized tree content and submit proposed family additions.
+
+Cannot directly alter approved data.
+
+## Role 4 — Platform Administrator
+
+Manages the SaaS platform itself.
+
+Can manage:
+
+* Packages.
+* Platform configuration.
+* Subscription support.
+* Platform usage metrics.
+* User account administration.
+
+Platform administrators must not automatically receive unrestricted access to private family biographies, images, or genealogical records.
+
+Any exceptional support access must be strictly controlled, justified, and audited.
+
+## Security Requirements
+
+Permissions must be enforced on the server.
+
+Never rely on hiding buttons alone.
+
+Every API endpoint and database operation must verify:
+
+* Authentication status.
+* Tree access.
+* Role.
+* Branch scope.
+* Subscription entitlement.
+* Action permission.
+
+---
+
+# 17. FAMILY TREE SHARING
+
+Owners can share trees with contributors.
+
+## Share Modal
+
+Button:
+
+"مشاركة الشجرة"
+
+Display:
+
+* Shareable invitation link.
+* Copy button.
+* WhatsApp share button.
+* Invitation settings.
+* Expiration settings.
+* Disable/revoke link action.
+
+## Privacy Modes
+
+Support:
+
+### Private
+
+Only authorized users can view.
+
+### Invitation Only
+
+Users with an authorized invitation can access permitted information.
+
+### Public Preview
+
+Optional limited public tree preview.
+
+Personal biographies, photos, minors' information, and sensitive profile details must not become public automatically.
+
+## Contributor Access
+
+Make the contributor journey simple.
+
+A contributor should not need to buy a subscription.
+
+Only the owner pays for the tree.
+
+However, require appropriate identity or invitation verification before allowing submissions.
+
+Use short, understandable onboarding steps.
+
+---
+
+# 18. INDIVIDUAL PROFILE PAGE
+
+When clicking a person in the tree, display an elegant profile panel.
+
+Use a smooth side panel or modal.
+
+## Profile Content
+
+* Profile photo.
+* Full name.
+* Position in the family tree.
+* Father, if recorded.
+* Mother, if recorded.
+* Spouses, if recorded.
+* Children, if recorded.
+* Birth and death information, if recorded.
+* Short biography.
+* Related family branch.
+
+## Interactions
+
+* عرض موقعه في الشجرة.
+* استعراض الأبناء.
+* استعراض الأجداد.
+* اقتراح تعديل المعلومات.
+* إضافة أفراد مرتبطين، if permitted.
+
+Distinguish between:
+
+* Approved information.
+* Pending corrections.
+* Information not provided.
+
+Never display invented dates, biographies, or relationships.
+
+---
+
+# 19. SEARCH SYSTEM
+
+Implement a practical search experience.
+
+## Search Features
+
+Search by:
+
+* Full name.
+* Partial name.
+* Branch.
+* Ancestor.
+* Descendant name.
+
+Support Arabic text normalization for searching.
+
+Handle:
+
+* Diacritics.
+* Tatweel.
+* Common Arabic letter variations.
+
+Preserve the original spelling of stored names.
+
+## Search Results
+
+Show:
+
+* Person name.
+* Branch path.
+* Optional profile photo.
+* Button to locate the person in the tree.
+
+When selected:
+
+* Expand required ancestor branches.
+* Pan to the person.
+* Highlight the node.
+* Open the appropriate profile panel if requested.
+
+Search must respect privacy permissions.
+
+---
+
+# 20. NOTIFICATION SYSTEM
+
+Implement internal notifications.
+
+Optional email notifications should be supported through a configurable provider.
+
+## Events
+
+Notify when:
+
+* A new contribution is submitted.
+* A contribution is approved.
+* A contribution is rejected.
+* A revision is requested.
+* A reviewer invitation is received.
+* Reviewer access is revoked.
+* Subscription expiration approaches.
+* Subscription renewal succeeds or fails.
+
+Use a real notification database model.
+
+Notifications should have:
+
+* Read/unread state.
+* Timestamp.
+* Related entity.
+* Appropriate destination link.
+
+---
+
+# 21. AUDIT HISTORY
+
+Every important change must be recorded.
+
+Examples:
+
+* Person added.
+* Person updated.
+* Relationship changed.
+* Contribution approved.
+* Contribution rejected.
+* Reviewer invited.
+* Reviewer removed.
+* Tree settings changed.
+
+Store:
+
+* Actor.
+* Action.
+* Tree.
+* Affected entity.
+* Timestamp.
+* Relevant before/after information where appropriate.
+
+Keep private personal information protected.
+
+Provide an audit history view to the tree owner.
+
+Support safe administrative correction or rollback workflows where feasible.
+
+Do not silently overwrite historical information.
+
+---
+
+# 22. DATABASE DESIGN
+
+Create a normalized relational database.
+
+At minimum, design appropriate models for:
+
+* User
+* Account / Session
+* FamilyTree
+* TreeMembership
+* Person
+* PersonRelationship
+* Branch or BranchReference
+* ContributionRequest
+* ProposedPerson
+* ProposedRelationship
+* ReviewDecision
+* ReviewerInvitation
+* TreeInvitation
+* SubscriptionPlan
+* Subscription
+* Payment
+* PaymentEvent
+* Notification
+* AuditLog
+* MediaAsset
+* TreeSettings
+
+Use the final schema that best supports the real application.
+
+## Data Integrity
+
+Ensure:
+
+* Unique identifiers.
+* Foreign key constraints.
+* Appropriate indexes.
+* Safe deletion behavior.
+* Transactional updates.
+* No orphaned approved relationships.
+* No circular genealogy.
+* No duplicate approval execution.
+* No unauthorized cross-tree connections.
+
+People must be scoped to the correct family tree.
+
+The same real-world person appearing in two independent trees must not be automatically merged.
+
+Cross-tree matching or merging is outside the initial product scope.
+
+## Contribution Data
+
+Proposed data must remain separated from approved tree data until authorized approval.
+
+Prefer a clear transaction-based promotion workflow.
+
+Do not simulate the approval system through client-side state alone.
+
+---
+
+# 23. PAYMENT INTEGRATION
+
+Prepare a secure payment system suitable for a Saudi-focused SaaS.
+
+Use a payment abstraction that can support a regional provider such as Moyasar or another suitable gateway.
+
+Payment integration must be configurable through environment variables.
+
+## Required Functionality
+
+* Checkout creation.
+* Payment status verification.
+* Payment callback handling.
+* Verified webhooks.
+* Subscription activation.
+* Failed payment handling.
+* Duplicate webhook protection.
+* Payment record creation.
+* Renewal handling.
+
+Never store raw card information.
+
+Never trust client-reported payment success.
+
+If real gateway credentials are unavailable, implement a clearly labeled development sandbox checkout.
+
+Ensure sandbox payments cannot masquerade as real production transactions.
+
+---
+
+# 24. PLATFORM ADMIN PANEL
+
+Create a protected platform administration area.
+
+## Admin Capabilities
+
+* View total registered users.
+* View active subscriptions.
+* View number of created trees.
+* View platform-level aggregate usage statistics.
+* Create and edit subscription plans.
+* Set package prices.
+* Configure person limits.
+* Configure reviewer limits.
+* Enable or disable packages.
+* Review payment statuses.
+* Manage support-related account actions.
+
+Do not expose private genealogical data unnecessarily.
+
+Use a dedicated platform administrator role and strict authorization.
+
+---
+
+# 25. PRIVACY AND SECURITY
+
+This platform processes personal and family information.
+
+Privacy and security are essential requirements, not optional enhancements.
+
+Design with Saudi privacy compliance considerations, including applicable requirements under the Saudi Personal Data Protection Law.
+
+Do not claim legal compliance is complete without actual legal review.
+
+## Requirements
+
+* Private trees by default.
+* Verified access to protected trees.
+* Consent-aware profile publishing.
+* Appropriate handling of minors' information.
+* Secure upload validation.
+* Private media storage.
+* Signed media access where necessary.
+* File size limits.
+* Input sanitization.
+* Protection against XSS.
+* Protection against CSRF where applicable.
+* Protection against unauthorized data access.
+* Rate limiting.
+* Secure authentication.
+* Secure environment variables.
+* Audit records.
+* Data correction requests.
+* Appropriate deletion and retention procedures.
+* Configurable access controls.
+
+## Genealogical Accuracy
+
+Display a suitable disclaimer explaining that family records are based on information submitted and reviewed by authorized family representatives.
+
+Approval within the platform is not official government verification or legal proof of lineage.
+
+---
+
+# 26. RESPONSIVE EXPERIENCE
+
+The platform must work beautifully across:
+
+* Desktop.
+* Laptop.
+* Tablet.
+* Smartphone.
+
+## Mobile Family Tree
+
+The tree is especially important on mobile.
+
+Implement:
+
+* Touch-friendly controls.
+* Pinch-to-zoom.
+* Drag-to-pan.
+* Fit-to-screen.
+* Expand/collapse.
+* Search.
+* Branch navigation.
+* Bottom sheet for individual profiles.
+* Clear contribution actions.
+
+Do not simply shrink a desktop canvas until it becomes unreadable.
+
+Provide an accessible alternative branch navigator for smaller screens.
+
+Use appropriately sized touch targets.
+
+Ensure no accidental horizontal page overflow.
+
+---
+
+# 27. ARABIC UX COPY
+
+Use polished Saudi-friendly Arabic throughout the platform.
+
+Avoid unnatural literal translations.
+
+Examples:
+
+Instead of:
+"Create Node"
+
+Use:
+"إضافة فرد"
+
+Instead of:
+"Pending Changes"
+
+Use:
+"إضافات بانتظار المراجعة"
+
+Instead of:
+"Submit Graph"
+
+Use:
+"إرسال الإضافات للمراجعة"
+
+Instead of:
+"Branch Selector"
+
+Use:
+"اختر الغصن"
+
+Use short, clear interface language.
+
+Examples of key actions:
+
+* إنشاء شجرة جديدة
+* عرض الشجرة
+* إضافة فرد
+* إضافة غصن
+* مشاركة الشجرة
+* اختر الغصن
+* إضافة أبناء
+* إضافة زوج / زوجة
+* حفظ التغييرات
+* إرسال للمراجعة
+* اعتماد الطلب
+* رفض الطلب
+* طلب تعديل
+* دعوة مدقق
+* إدارة الصلاحيات
+* عرض الملف التعريفي
+* العودة للشجرة
+
+All forms must have proper Arabic labels and helpful validation messages.
+
+---
+
+# 28. REQUIRED APPLICATION ROUTES
+
+Create real pages and connect them.
+
+Suggested routing structure:
+
+## Public
+
+`/`
+Landing page
+
+`/pricing`
+Subscription packages
+
+`/how-it-works`
+Platform explanation
+
+`/login`
+Login
+
+`/register`
+Registration
+
+`/forgot-password`
+Password recovery
+
+`/privacy`
+Privacy policy
+
+`/terms`
+Terms and conditions
+
+## Authenticated
+
+`/onboarding`
+Account and tree setup
+
+`/dashboard`
+Overview
+
+`/dashboard/trees`
+Tree list
+
+`/dashboard/trees/new`
+Create tree
+
+`/tree/[treeId]`
+Interactive family tree
+
+`/tree/[treeId]/reviews`
+Review requests
+
+`/tree/[treeId]/reviews/[requestId]`
+Review detail
+
+`/tree/[treeId]/reviewers`
+Reviewer management
+
+`/tree/[treeId]/invitations`
+Tree invitation management
+
+`/tree/[treeId]/settings`
+Tree settings
+
+`/tree/[treeId]/history`
+Audit history
+
+`/contribute/[inviteToken]`
+Contributor entry
+
+`/contribute/[inviteToken]/builder`
+Contributor branch builder
+
+`/contributions/[requestId]`
+Contribution status
+
+`/dashboard/billing`
+Subscription and billing
+
+`/dashboard/settings`
+User settings
+
+`/dashboard/notifications`
+Notifications
+
+## Admin
+
+`/admin`
+Platform administration
+
+`/admin/plans`
+Package management
+
+`/admin/subscriptions`
+Subscription management
+
+`/admin/users`
+Account management
+
+Route names may be improved when necessary, but every major workflow must remain implemented.
+
+---
+
+# 29. EMPTY STATES AND ERROR STATES
+
+Do not ignore product states.
+
+Design polished experiences for:
+
+* No family tree created.
+* Empty branch.
+* No pending contributions.
+* No reviewers invited.
+* No notifications.
+* No search results.
+* Subscription expired.
+* Package limit reached.
+* Invalid invitation.
+* Expired invitation.
+* Revoked invitation.
+* Unauthorized access.
+* Payment failed.
+* Duplicate person warning.
+* Network failure.
+* Save failure.
+* Concurrent edit conflict.
+
+Provide helpful Arabic messages and clear next actions.
+
+Use skeleton loading where appropriate.
+
+Never leave users staring at an unexplained blank page.
+
+---
+
+# 30. DEMO DATA
+
+Seed the project with fictional Arabic family data.
+
+Example:
+
+الجد محمد بن عبدالله
+
+Children:
+
+* متروك بن محمد
+* ضيف الله بن محمد
+* عبدالله بن محمد
+
+Under متروك:
+
+* سالم بن متروك
+* أحمد بن متروك
+
+Under سالم:
+
+* فهد بن سالم
+* خالد بن سالم
+* نورة بنت سالم
+
+Under ضيف الله:
+
+* سعد بن ضيف الله
+* ماجد بن ضيف الله
+
+Under عبدالله:
+
+* إبراهيم بن عبدالله
+* يوسف بن عبدالله
+
+Create additional fictional members to demonstrate multiple generations.
+
+Seed demo examples of:
+
+* Approved people.
+* Pending contributions.
+* Review requests.
+* Reviewer accounts.
+* Reviewer branch permissions.
+* Notifications.
+* Subscription plans.
+
+Make development demo data clearly distinguishable from production records.
+
+Provide a safe demo setup procedure in the README.
+
+---
+
+# 31. KEY UX SCENARIOS
+
+All of the following scenarios must work from beginning to end.
+
+## Scenario A — Owner Creates Tree
+
+1. User registers.
+2. User selects subscription package.
+3. User completes checkout.
+4. Subscription is activated.
+5. User enters tree details.
+6. Root ancestor is created.
+7. User becomes owner and primary reviewer.
+8. User enters their tree.
+9. User adds initial branches.
+10. User generates a contribution invitation.
+
+## Scenario B — Contributor Builds Family Branch
+
+1. Contributor receives invitation.
+2. Contributor opens the tree.
+3. Contributor completes required verification.
+4. Contributor selects their family branch.
+5. Contributor navigates to the correct person.
+6. Contributor adds family members.
+7. Contributor adds additional generations.
+8. Contributor previews all proposed additions.
+9. Contributor submits one complete contribution request.
+10. Request status becomes pending.
+11. Approved tree remains unchanged until approval.
+
+## Scenario C — Owner Reviews Submission
+
+1. Owner receives notification.
+2. Owner opens the review request.
+3. Owner sees all proposed individuals.
+4. Owner sees proposed relationships.
+5. Owner checks the correct attachment point.
+6. Owner approves the request.
+7. Approved people are saved transactionally.
+8. The tree visualization updates.
+9. The contributor receives confirmation.
+10. Audit records are stored.
+
+## Scenario D — Assistant Reviewer
+
+1. Owner opens reviewer management.
+2. Owner invites assistant reviewer.
+3. Owner assigns branch scope.
+4. Reviewer accepts invitation.
+5. Reviewer opens assigned requests.
+6. Reviewer approves or rejects eligible submissions.
+7. Reviewer cannot access unauthorized branches.
+8. Owner can revoke reviewer access.
+
+## Scenario E — Package Limit
+
+1. Owner reaches the person or reviewer limit.
+2. The system detects the limit server-side.
+3. New operations that exceed the limit are blocked safely.
+4. Existing approved data is preserved.
+5. The UI explains the restriction.
+6. The owner can upgrade or manage usage.
+
+---
+
+# 32. QUALITY ASSURANCE
+
+Write tests for critical business rules.
+
+At minimum:
+
+* User registration and login.
+* Tree ownership.
+* Contributor permissions.
+* Reviewer permissions.
+* Branch-scoped authorization.
+* Invitation expiration.
+* Invitation revocation.
+* Submission persistence.
+* Approval workflow.
+* Rejection workflow.
+* Preventing duplicate approvals.
+* Circular relationship prevention.
+* Valid parent-child links.
+* Partial approval dependencies.
+* Package limits.
+* Concurrent review operations.
+* Payment webhook verification.
+* Expired subscription restrictions.
+* Private profile access.
+
+Include end-to-end tests for the main scenarios.
+
+Check desktop and mobile layouts.
+
+Check RTL alignment.
+
+Check accessibility and keyboard navigation.
+
+Check reduced-motion behavior.
+
+No primary navigation element should lead to a missing or unfinished page.
+
+---
+
+# 33. PERFORMANCE REQUIREMENTS
+
+Optimize the application for production use.
+
+Requirements:
+
+* Efficient database indexing.
+* Server-side pagination.
+* Controlled data fetching.
+* Lazy-loaded heavy components.
+* Optimized media.
+* Responsive animation.
+* Efficient rendering of large trees.
+* Good loading states.
+* Avoid unnecessary React re-renders.
+* Avoid layout thrashing.
+* Avoid excessively expensive visual effects.
+
+Do not download or render all family members for every tree interaction.
+
+Use progressive loading where appropriate.
+
+---
+
+# 34. SOFTWARE ARCHITECTURE AND PROJECT STRUCTURE
+
+Use clean project organization.
+
+Separate:
+
+* UI components.
+* Design system.
+* Authentication.
+* Authorization.
+* Subscription logic.
+* Payment integration.
+* Family tree domain logic.
+* Genealogy validation.
+* Contribution management.
+* Approval workflows.
+* Notifications.
+* Database access.
+* API handlers.
+* Shared utilities.
+* Tests.
+
+Avoid putting the entire application in one giant component.
+
+Use reusable components and clear interfaces.
+
+Create helpful documentation.
+
+Provide:
+
+* README.
+* Environment variable example.
+* Database setup instructions.
+* Migration commands.
+* Seed commands.
+* Local development instructions.
+* Test commands.
+* Production deployment guidance.
+
+---
+
+# 35. VISUAL COMPONENTS TO DESIGN
+
+Create a consistent custom component system.
+
+Important components:
+
+* Premium navigation bar.
+* Animated hero.
+* Animated sample family tree.
+* Subscription cards.
+* Dashboard sidebar.
+* Statistic cards.
+* Family tree person card.
+* Family tree connectors.
+* Expand/collapse controls.
+* Person profile drawer.
+* Branch selector.
+* Contributor workspace.
+* Proposed person card.
+* Approval request card.
+* Tree difference viewer.
+* Reviewer management dialog.
+* Invitation sharing dialog.
+* Notification center.
+* Billing panel.
+* Empty state.
+* Loading skeleton.
+* Confirmation dialog.
+* Success animation.
+
+All components should share the same visual language.
+
+---
+
+# 36. IMPORTANT PRODUCT RULES
+
+These rules are mandatory.
+
+### Rule 1
+
+The purchaser of a tree is its owner and primary reviewer automatically.
+
+### Rule 2
+
+Assistant reviewers are optional and limited by the purchased package.
+
+### Rule 3
+
+Contributors do not need to purchase a subscription.
+
+### Rule 4
+
+A contributor must select the correct branch before adding family members.
+
+### Rule 5
+
+A contributor must specify the correct relationship or attachment person.
+
+### Rule 6
+
+Contributors can build multiple generations in one request.
+
+### Rule 7
+
+Submitted changes remain pending until approved.
+
+### Rule 8
+
+An assistant reviewer can only approve requests within their authorized scope.
+
+### Rule 9
+
+The owner retains full review authority over their tree.
+
+### Rule 10
+
+All approved changes must preserve genealogical data integrity.
+
+### Rule 11
+
+Every approved change must be auditable.
+
+### Rule 12
+
+Private family information must not be publicly exposed by default.
+
+### Rule 13
+
+Plan limits must be enforced on the backend.
+
+### Rule 14
+
+Payments must be verified server-side.
+
+### Rule 15
+
+The tree must remain responsive and usable on mobile.
+
+### Rule 16
+
+Motion must improve the experience without sacrificing usability.
+
+### Rule 17
+
+Never invent genealogy or biographical information.
+
+### Rule 18
+
+No frontend-only simulation may be presented as a completed backend feature.
+
+---
+
+# 37. IMPLEMENTATION WORKFLOW
+
+Follow this implementation order.
+
+## Phase 1 — Foundation
+
+* Initialize the project.
+* Configure the design system.
+* Configure database.
+* Implement database schema.
+* Set up authentication.
+* Implement authorization utilities.
+* Add seed data.
+
+## Phase 2 — Public Experience
+
+* Build landing page.
+* Create cinematic hero.
+* Implement motion system.
+* Build pricing page.
+* Build authentication pages.
+
+## Phase 3 — Subscription and Onboarding
+
+* Build onboarding.
+* Build subscription models.
+* Build checkout architecture.
+* Create tree ownership automatically.
+* Implement package enforcement.
+
+## Phase 4 — Family Tree
+
+* Build family tree models.
+* Implement relationship validation.
+* Build interactive tree visualization.
+* Implement branch navigation.
+* Implement person profiles.
+* Implement search.
+
+## Phase 5 — Collaborative Contributions
+
+* Build invitation flows.
+* Build branch selection.
+* Build contributor workspace.
+* Implement multi-person additions.
+* Implement proposed relationship storage.
+* Implement contribution submission.
+
+## Phase 6 — Review Workflow
+
+* Build pending requests.
+* Build diff preview.
+* Implement approvals.
+* Implement rejections.
+* Implement revision requests.
+* Implement notifications.
+* Implement audit logs.
+
+## Phase 7 — Reviewers
+
+* Implement assistant reviewer invitations.
+* Implement branch-scoped permissions.
+* Implement seat limits.
+* Implement reviewer management.
+
+## Phase 8 — Business Features
+
+* Complete billing views.
+* Complete platform administration.
+* Add export functionality where supported.
+* Complete settings and privacy controls.
+
+## Phase 9 — Quality Assurance
+
+* Test core scenarios.
+* Fix broken flows.
+* Optimize large tree rendering.
+* Improve mobile responsiveness.
+* Verify RTL.
+* Verify accessibility.
+* Test security permissions.
+* Review motion performance.
+
+Continue implementing each phase rather than stopping after the visual design.
+
+---
+
+# 38. ACCEPTANCE CRITERIA
+
+The project is considered functionally complete only if the following demonstration works:
+
+A new user opens the landing page.
+
+They experience an elegant animated hero showing a family tree growing organically.
+
+They click:
+
+"ابدأ بناء شجرتك"
+
+They register and choose a package.
+
+They complete an actual verified checkout or explicitly labeled development sandbox checkout.
+
+They create a new family tree.
+
+They enter the name of the main ancestor.
+
+The application opens a functional interactive tree.
+
+The owner adds the first family branches.
+
+The owner generates a contributor invitation.
+
+A second user opens the invitation.
+
+The contributor selects a branch.
+
+The contributor navigates to the correct family member.
+
+The contributor adds several people and multiple generations.
+
+The contributor previews the new branch.
+
+The contributor submits it for review.
+
+The owner receives a notification.
+
+The owner opens the pending request.
+
+The owner previews the proposed genealogical changes.
+
+The owner approves the request.
+
+The newly approved people appear in the correct locations in the family tree.
+
+The owner invites an assistant reviewer.
+
+The reviewer accepts and can approve requests only within their assigned branch.
+
+The system correctly enforces subscription limits.
+
+All information survives page refresh and logout because it is stored in the database.
+
+The entire experience works in Arabic on desktop and mobile.
+
+No fake buttons.
+
+No disconnected pages.
+
+No temporary browser-only data standing in for the database.
+
+No placeholder authentication.
+
+No simulated review status.
+
+No mock payment success presented as a real production transaction.
+
+---
+
+# 39. FINAL DESIGN EXPECTATIONS
+
+The final platform must be:
+
+* Visually stunning.
+* Premium.
+* Arabic-first.
+* Culturally appropriate.
+* Emotionally meaningful.
+* Modern.
+* Motion-rich.
+* Clean.
+* Intuitive.
+* Mobile-friendly.
+* Secure by design.
+* Database-driven.
+* Scalable.
+* Maintainable.
+* Suitable for real families.
+
+The homepage should create an immediate emotional connection.
+
+The dashboard should feel professional and easy to use.
+
+The family tree must feel alive through thoughtful motion.
+
+The contributor builder must be exceptionally intuitive.
+
+The review system must inspire trust.
+
+The platform should make complicated genealogy management feel simple.
+
+---
+
+# 40. FINAL EXECUTION INSTRUCTION
+
+Start building the complete project now.
+
+Do not respond with only a plan, pseudocode, wireframe, or project outline.
+
+Implement the actual application.
+
+Make reasonable engineering and design decisions without repeatedly asking for clarification.
+
+Prioritize complete working business flows over superficial feature quantity.
+
+Use real backend logic and persistent data.
+
+If external credentials are unavailable, implement safe development adapters while keeping the application ready for real integration.
+
+If an advanced secondary feature cannot be completed, clearly document its status. Do not misrepresent unfinished features as working.
+
+Do not stop after implementing the landing page.
+
+Do not stop after implementing the dashboard.
+
+The family tree editor, collaborative contributions, approvals, reviewer management, and package rules are essential.
+
+After implementation, provide:
+
+1. A summary of implemented features.
+2. Project structure.
+3. Database setup instructions.
+4. Environment variables required.
+5. How to run the application.
+6. Demo account instructions.
+7. How to test the complete owner → contributor → reviewer workflow.
+8. External integrations requiring credentials.
+9. Any genuinely unfinished features.
+
+The goal is to deliver a cohesive, working SaaS product called:
+
+**أغصان — جذور تجمعنا، وأغصان تحكي حكايتنا.**

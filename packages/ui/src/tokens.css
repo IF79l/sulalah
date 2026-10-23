@@ -1,0 +1,15 @@
+/* SULALAH design tokens. Placeholder values from the report; the design pass replaces them. */
+@theme {
+  --color-bark: #42382c;
+  --color-forest: #2f5039;
+  --color-olive: #748a5a;
+  --color-leaf: #a7bb80;
+  --color-ivory: #f6f2e8;
+  --color-sand: #e7dcc9;
+  --color-gold: #b9a070;
+
+  --font-sans: var(--font-plex-arabic), system-ui, sans-serif;
+  --font-display: var(--font-alexandria), var(--font-plex-arabic), sans-serif;
+
+  --ease-cinematic: cubic-bezier(0.22, 1, 0.36, 1);
+}

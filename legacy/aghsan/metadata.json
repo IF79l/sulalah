@@ -1,0 +1,6 @@
+{
+  "name": "أغصان — منصة شجرة العائلة التفاعلية",
+  "description": "منصة سحابية متقدمة لتوثيق وإدارة شجرات العائلات والقبائل بطريقة تفاعلية وتشاركية مع نظام تدقيق واعتماد متكامل.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

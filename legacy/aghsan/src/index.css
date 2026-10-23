@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-evergreen: #16382F;
+    --color-olive: #687C58;
+    --color-sage: #A5B39A;
+    --color-sand: #E8DCC8;
+    --color-cream: #F8F5EE;
+    --color-ink: #202B26;
+    --color-bronze: #B59A6B;
+    --color-bronze-dark: #8C734B;
+    --color-white: #FFFFFF;
+  }
+
+  * {
+    border-color: #E8DCC8;
+  }
+
+  body {
+    background-color: #F8F5EE;
+    color: #202B26;
+    font-family: 'IBM Plex Sans Arabic', 'Tajawal', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  h1, h2, h3, .font-editorial {
+    font-family: 'Alexandria', 'Tajawal', sans-serif;
+  }
+}
+
+/* Subtle Film Grain Texture Overlay */
+.noise-overlay {
+  background-image: radial-gradient(rgba(32, 43, 38, 0.04) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Gentle Cinematic Animations */
+@keyframes atmosphericDrift {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate(-15px, -8px) scale(1.02);
+    opacity: 0.9;
+  }
+}
+
+@keyframes leafSwayGentle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(1.2deg);
+  }
+}
+
+@keyframes sunrayPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.04) rotate(0.8deg);
+  }
+}
+
+@keyframes floatMote {
+  0% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.65;
+  }
+  70% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translateY(-80px) translateX(25px);
+    opacity: 0;
+  }
+}
+
+.animate-atmospheric {
+  animation: atmosphericDrift 18s ease-in-out infinite;
+}
+
+.animate-leaf-sway {
+  transform-origin: bottom center;
+  animation: leafSwayGentle 7s ease-in-out infinite;
+}
+
+.animate-sunray {
+  transform-origin: top right;
+  animation: sunrayPulse 12s ease-in-out infinite;
+}
+
+/* Branch Growth Reveal Animation */
+@keyframes branchGrowSprout {
+  0% {
+    stroke-dashoffset: 450;
+    opacity: 0.2;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.animate-dash-grow {
+  stroke-dasharray: 450;
+  stroke-dashoffset: 450;
+  animation: branchGrowSprout 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Elegant Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F8F5EE;
+}
+::-webkit-scrollbar-thumb {
+  background: #B59A6B;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8C734B;
+}

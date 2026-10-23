@@ -1,0 +1,1083 @@
+# AGHSAN — THE LIVING FAMILY TREE
+
+## A Revolutionary Interactive 3D-Like Botanical Genealogy Experience
+
+You are an elite creative technologist, interactive experience architect, senior frontend engineer, motion designer, and generative graphics specialist.
+
+You are working on my existing project:
+
+**AGHSAN — أغصان**
+
+This is an Arabic-first collaborative family tree platform.
+
+# CRITICAL: READ THIS FIRST
+
+The previous design does not match my vision.
+
+I DO NOT WANT a traditional genealogy chart.
+
+I DO NOT WANT rectangular person cards connected by straight lines.
+
+I DO NOT WANT a beautiful tree image on the landing page followed by a normal family tree diagram inside the application.
+
+**I WANT THE ACTUAL FAMILY TREE TO BE A REALISTIC, ORGANIC, INTERACTIVE BOTANICAL TREE.**
+
+The physical tree itself must serve as the primary interface for navigating the family, selecting branches, adding relatives, and reviewing contributions.
+
+The user should interact with branches, twigs, and leaves instead of a conventional node diagram.
+
+This is the defining feature of the entire product.
+
+---
+
+# 1. THE CORE VISION
+
+## "A Family Tree You Can Actually Explore"
+
+Imagine a beautiful, majestic Arabian sidr tree.
+
+The tree has:
+
+* A detailed organic trunk.
+* Large primary branches.
+* Smaller secondary branches.
+* Delicate twigs.
+* Thousands of beautiful leaves.
+* Natural bark textures.
+* Soft sunlight.
+* Subtle shadows.
+* Gentle wind movement.
+
+But this is not a decorative illustration.
+
+**Every meaningful branch is connected to actual genealogy data.**
+
+The tree is an interactive visual representation of the family.
+
+### Genealogy Mapping
+
+The trunk represents the founding ancestor.
+
+Major branches represent the ancestor's children and their family branches.
+
+Secondary branches represent later generations.
+
+Smaller twigs represent descendants.
+
+Leaves or small botanical name markers represent individual family members.
+
+Names must be integrated elegantly with the botanical structure.
+
+The tree must be explorable using smooth cinematic zoom transitions.
+
+The physical artwork and the genealogy model must be connected.
+
+Do not randomly assign family names to decorative branches.
+
+---
+
+# 2. THE MOST IMPORTANT EXPERIENCE: CINEMATIC BRANCH ZOOM
+
+This is the central interaction.
+
+When the user clicks a branch, the application should feel as though a virtual camera is physically moving closer to that branch.
+
+Do not immediately replace the screen with another page.
+
+Do not display a normal list of descendants.
+
+Do not open a generic branch dashboard.
+
+Instead:
+
+1. Identify the selected branch.
+2. Highlight the corresponding botanical structure.
+3. Smoothly move the camera toward the branch.
+4. Zoom into the selected area.
+5. Allow surrounding branches to move naturally outside the viewport.
+6. Reveal finer twigs and smaller leaves as the camera approaches.
+7. Display the names of the people belonging to that branch.
+8. Allow the user to continue exploring deeper generations.
+
+The transition should feel like a continuous camera journey.
+
+## Camera Animation
+
+Use smooth camera transformations with carefully tuned easing.
+
+Suggested duration:
+
+700–1200 milliseconds depending on zoom distance.
+
+The camera should feel cinematic but responsive.
+
+Do not use sudden jumps.
+
+Do not use basic browser anchor scrolling.
+
+The visual experience should feel like exploring a detailed interactive world.
+
+## Zoom Levels
+
+Implement semantic zoom.
+
+### Level 0 — Entire Family Tree
+
+Display the complete botanical tree.
+
+Show:
+
+* The founding ancestor.
+* Main family branches.
+* A small number of prominent branch labels.
+
+Do not show every individual name.
+
+### Level 1 — Main Family Branch
+
+When clicking a major branch:
+
+* Zoom toward that branch.
+* Increase branch detail.
+* Display the second generation.
+* Reveal descendant branch labels.
+* Preserve visual continuity.
+
+### Level 2 — Sub-Branch
+
+When selecting another branch:
+
+* Zoom further.
+* Reveal smaller twigs.
+* Display additional family members.
+* Reveal more detailed individual markers.
+
+### Level 3 — Individual Family Members
+
+At close range:
+
+* Show individual names clearly.
+* Make leaves or person markers interactive.
+* Enable profile viewing.
+* Enable adding children or spouses.
+* Enable navigating to descendants.
+
+### Level 4 — Branch Editing
+
+When editing:
+
+* Focus on the selected person.
+* Display their connected family structure.
+* Show clear relationship insertion points.
+* Allow the user to grow new branches interactively.
+
+Semantic zoom is mandatory.
+
+Do not scale all text and details uniformly.
+
+As the camera approaches, reveal additional meaningful details.
+
+---
+
+# 3. ACTUAL USER JOURNEY
+
+Implement the following interaction exactly.
+
+## Scenario: A Family Member Receives an Invitation
+
+A contributor receives a link from the tree owner.
+
+They open the link.
+
+The family tree appears as a complete living botanical tree.
+
+### Example Tree
+
+Founding ancestor:
+
+محمد بن عبدالله
+
+Main branches:
+
+* متروك بن محمد
+* ضيف الله بن محمد
+* عبدالله بن محمد
+
+The tree appears with these major branches clearly identifiable.
+
+## Step 1 — Select Branch
+
+The contributor clicks:
+
+"متروك بن محمد"
+
+The selected branch subtly brightens.
+
+The camera smoothly moves closer.
+
+The selected branch becomes the main focus.
+
+Smaller connected branches become visible.
+
+## Step 2 — Explore Descendants
+
+The contributor sees:
+
+* سالم بن متروك
+* أحمد بن متروك
+
+They select:
+
+"سالم بن متروك"
+
+The camera zooms further.
+
+The botanical structure now focuses on Salem's descendants.
+
+## Step 3 — Select the Correct Person
+
+The contributor clicks Salem's interactive name marker or the associated twig.
+
+A small elegant contextual interface appears.
+
+Actions:
+
+"عرض الملف"
+
+"إضافة ابن"
+
+"إضافة ابنة"
+
+"إضافة زوج / زوجة"
+
+"استعراض الأبناء"
+
+The interface should feel naturally attached to the selected botanical element.
+
+Do not open an overwhelming dashboard.
+
+## Step 4 — Add a Person
+
+The contributor selects:
+
+"إضافة ابن"
+
+A beautifully animated side panel appears.
+
+The family tree must remain visible.
+
+The panel contains:
+
+* الاسم
+* الاسم الكامل
+* تاريخ الميلاد، اختياري
+* نبذة تعريفية، اختياري
+* صورة، اختيارية
+
+Button:
+
+"إضافة إلى الغصن"
+
+## Step 5 — Watch the Branch Grow
+
+This is a mandatory interaction.
+
+When the user confirms the new person:
+
+**A NEW BOTANICAL TWIG MUST VISIBLY GROW FROM THE CORRECT EXISTING BRANCH.**
+
+The animation sequence:
+
+1. A small growth point appears.
+2. A thin organic branch extends.
+3. The branch curves naturally.
+4. A small leaf emerges.
+5. The leaf unfolds.
+6. The new person's name fades into view.
+7. The camera subtly adjusts to keep the new growth visible.
+
+The user must visually understand where the new family member belongs.
+
+This must not be simulated by simply inserting a rectangular card.
+
+## Step 6 — Add Another Generation
+
+After adding:
+
+فهد بن سالم
+
+The contributor clicks Fahd's leaf.
+
+They choose:
+
+"إضافة ابن"
+
+They enter:
+
+محمد بن فهد
+
+Another smaller twig grows from Fahd's branch.
+
+The genealogy structure must remain accurate.
+
+The contributor should be able to build several generations within one session.
+
+## Step 7 — Submit
+
+Newly proposed branches must have a visually distinct appearance.
+
+For example:
+
+* Approved branches: natural brown and olive green.
+* Proposed branches: subtle warm bronze or golden-green.
+* Pending leaves: elegant outline or small pending indicator.
+
+Show:
+
+"الإضافات الجديدة بانتظار الاعتماد"
+
+The contributor clicks:
+
+"إرسال الغصن للمراجعة"
+
+Submit the complete contribution using the existing application workflow.
+
+Do not directly modify approved genealogy records.
+
+---
+
+# 4. OWNER APPROVAL EXPERIENCE
+
+The owner is the main reviewer.
+
+The owner receives a new contribution request.
+
+Example:
+
+"تم اقتراح إضافة 8 أفراد إلى غصن سالم بن متروك."
+
+The owner opens the request.
+
+Instead of displaying only a static list:
+
+**The actual botanical tree automatically navigates to the affected branch.**
+
+The camera zooms into the location.
+
+The existing approved branch is displayed normally.
+
+The newly proposed botanical growth is highlighted.
+
+The reviewer can click individual proposed leaves to inspect information.
+
+Display actions:
+
+* اعتماد الإضافات
+* رفض الطلب
+* طلب تعديل
+
+## Approval Animation
+
+When approved:
+
+1. The new botanical branches receive a subtle highlight.
+2. Their pending appearance transitions smoothly.
+3. Their leaves become part of the approved tree.
+4. A tasteful visual confirmation appears.
+
+The animation must correspond to an actual successful approval operation.
+
+Do not play a success animation before the backend confirms approval.
+
+---
+
+# 5. BOTANICAL VISUAL DESIGN
+
+I want a sophisticated organic tree inspired by the Arabian sidr tree.
+
+## Visual Style
+
+A hybrid of:
+
+* High-end botanical illustration.
+* Subtle cinematic realism.
+* Contemporary interactive digital art.
+* Premium editorial design.
+* Elegant generative graphics.
+
+The tree should feel natural and rich in detail.
+
+However, do not sacrifice interactivity for photorealism.
+
+It is more important that the user can clearly distinguish branches and understand genealogical connections.
+
+## Trunk
+
+Create a substantial, organic trunk.
+
+Use:
+
+* Natural curvature.
+* Variable-width shapes.
+* Bark-inspired textures.
+* Subtle shadows.
+* Layered details.
+
+The founding ancestor's identity should appear elegantly near the trunk.
+
+## Major Branches
+
+Major branches should:
+
+* Have natural curved shapes.
+* Vary in thickness.
+* Visually originate from their parent branch.
+* Have separate interaction targets.
+* Support selection.
+* Support camera focusing.
+* Support descendants.
+
+## Smaller Twigs
+
+Twigs should be generated based on actual genealogical relationships.
+
+They must connect to the correct parent.
+
+Their geometry should be natural but deterministic.
+
+Do not randomly rearrange family relationships every time the page reloads.
+
+## Leaves
+
+Leaves should look organic.
+
+At close zoom levels, individual name markers may be integrated into elegant leaf-shaped elements.
+
+Use sufficient contrast.
+
+Do not make Arabic names unreadably small.
+
+At a close zoom level, a leaf may reveal a refined person label next to it.
+
+Use a consistent visual system.
+
+## Spouse Relationships
+
+Spouses must not be incorrectly represented as descendants.
+
+Use a distinct botanical relationship treatment:
+
+For example, a nearby paired leaf or connected marker that represents marriage without implying parent-child descent.
+
+Preserve correct genealogy semantics.
+
+---
+
+# 6. THE TREE MUST BE DATA-DRIVEN
+
+This is extremely important.
+
+The botanical tree must NOT be one static image.
+
+A static image cannot support dynamic genealogy editing.
+
+Build the tree as a data-driven interactive visual structure.
+
+Every meaningful branch should be linked to:
+
+* Person ID.
+* Parent relationship.
+* Descendants.
+* Generation.
+* Branch identifier.
+* Approval state.
+* Display geometry.
+* Interaction state.
+
+The tree geometry must respond to actual data changes.
+
+When a new person is added, the visual structure must update.
+
+When a new generation is added, the branch must extend naturally.
+
+When a branch is collapsed, the camera and artwork must respond appropriately.
+
+When the user searches for someone, the camera must navigate to the correct botanical location.
+
+---
+
+# 7. GRAPHICS ENGINE
+
+Choose an implementation that delivers excellent visual results without compromising functionality.
+
+The existing application uses React and TypeScript.
+
+Preserve the existing architecture where possible.
+
+Recommended approach:
+
+## Main Rendering
+
+Use a scalable SVG-based botanical rendering engine with carefully designed organic paths.
+
+Use Bézier curves and variable-width branch silhouettes.
+
+Use deterministic procedural layouts based on genealogical relationships.
+
+Consider a Canvas or WebGL layer for decorative leaves and atmospheric effects if necessary.
+
+Use separate rendering layers:
+
+### Layer A — Atmosphere
+
+Background, sunlight, distant foliage, subtle environment.
+
+### Layer B — Botanical Structure
+
+Main trunk, major branches, secondary branches, twigs.
+
+### Layer C — Leaves
+
+Decorative foliage and meaningful individual markers.
+
+### Layer D — Interactive Labels
+
+Arabic names and accessible interactive targets.
+
+### Layer E — Interaction
+
+Selection indicators, editing controls, contextual menus, profile panels.
+
+### Layer F — Camera
+
+Zoom, pan, focus, and animated navigation.
+
+## Important
+
+Do not simply transform the existing rectangular node diagram into green boxes.
+
+Do not draw a standard flowchart and place a tree image behind it.
+
+The actual genealogical structure must generate the visible botanical branches.
+
+## Animation Technology
+
+Use appropriate tools such as:
+
+* Motion for React
+* SVG path animation
+* CSS transforms
+* requestAnimationFrame
+* D3 zoom utilities, if appropriate
+* Canvas rendering for dense decorative details
+
+Do not introduce a full 3D engine unless it materially improves the experience and performs reliably on mobile.
+
+A polished 2.5D botanical experience is preferable to an unstable or slow 3D implementation.
+
+---
+
+# 8. ORGANIC GROWTH ANIMATIONS
+
+Create a reusable branch growth animation system.
+
+## Branch Growth
+
+New branches should visually extend from their existing parent branch.
+
+Use path reveal animations or equivalent geometry-based techniques.
+
+## Leaf Appearance
+
+Leaves should:
+
+* Start small.
+* Unfold smoothly.
+* Reach their final shape.
+* Settle naturally.
+
+## Name Appearance
+
+Names should:
+
+* Fade into view.
+* Shift subtly into place.
+* Remain readable.
+* Never overlap excessively.
+
+## Approved Branches
+
+When approved, proposed growth transitions into the permanent tree appearance.
+
+## Wind Movement
+
+Add subtle ambient motion to decorative foliage.
+
+Do not continuously move name labels so much that they become difficult to read.
+
+The actual interaction targets should remain stable.
+
+## Reduced Motion
+
+Respect reduced-motion preferences.
+
+Disable non-essential animations while keeping the tree fully navigable and editable.
+
+---
+
+# 9. CAMERA NAVIGATION
+
+Create a dedicated animated camera controller.
+
+Required functions:
+
+* Focus on the entire tree.
+* Focus on a major branch.
+* Focus on a person.
+* Focus on a proposed addition.
+* Zoom in.
+* Zoom out.
+* Reset camera.
+* Return to parent branch.
+* Navigate to a searched person.
+
+The camera should maintain continuity between movements.
+
+Use smooth interpolation.
+
+Avoid disorienting rotations or exaggerated perspective.
+
+## Navigation Breadcrumbs
+
+Display a small elegant navigation trail.
+
+Example:
+
+محمد ← متروك ← سالم ← فهد
+
+Clicking an ancestor should move the camera back toward that location.
+
+## Return to Full Tree
+
+Include:
+
+"عرض الشجرة كاملة"
+
+When clicked, the camera smoothly pulls back to reveal the entire tree.
+
+Do not abruptly replace the screen.
+
+---
+
+# 10. LANDING PAGE EXPERIENCE
+
+The landing page should use the same living botanical engine.
+
+When visitors open AGHSAN:
+
+A beautiful, immersive, full-screen living tree appears.
+
+The tree is the dominant visual element.
+
+The headline is integrated with the scene.
+
+## Hero Headline
+
+"كل عائلة لها جذور...
+وكل غصن يحمل حكاية."
+
+## Supporting Text
+
+"أنشئ شجرة عائلتك، وشاركها مع أفرادها، ودع أغصانكم تنمو جيلًا بعد جيل."
+
+## Buttons
+
+"ابدأ شجرة عائلتك"
+
+"جرّب الشجرة التفاعلية"
+
+## Interactive Demo
+
+The public homepage must contain an actual interactive demonstration.
+
+Visitors can:
+
+* Click a major branch.
+* Watch the camera zoom.
+* Explore a sample family.
+* Click a person.
+* Preview how a new branch grows.
+
+This demo must use fictional data and must not modify real family records.
+
+The hero tree and the authenticated tree editor should share the same foundational visualization technology.
+
+Do not build a cinematic tree only for marketing while leaving the actual application as a rectangular graph.
+
+---
+
+# 11. VISUAL COMPOSITION
+
+The overall design should feel artistic and premium.
+
+## Main Tree Experience
+
+Use the majority of the screen for the tree.
+
+Avoid surrounding the botanical canvas with large dashboard cards.
+
+Minimal floating controls are allowed.
+
+Recommended composition:
+
+* Full-screen tree canvas.
+* Minimal floating top navigation.
+* Elegant search control.
+* Small zoom controls.
+* Breadcrumb navigation.
+* Contextual profile panel.
+* Floating contribution actions when appropriate.
+
+The application must feel immersive.
+
+## Colors
+
+Use a refined natural palette:
+
+Deep Bark: #42382C
+
+Forest Green: #2F5039
+
+Olive Leaves: #748A5A
+
+Fresh Leaf: #A7BB80
+
+Warm Ivory: #F6F2E8
+
+Sand: #E7DCC9
+
+Soft Gold: #B9A070
+
+Dark Text: #263127
+
+Use realistic shading and thoughtful contrast.
+
+Avoid a dark-green dashboard background.
+
+Let the tree artwork define the experience.
+
+---
+
+# 12. MOBILE INTERACTION
+
+The botanical experience must work on smartphones.
+
+Support:
+
+* Single-tap branch selection.
+* Pinch-to-zoom.
+* Drag-to-pan.
+* Double-tap to focus where appropriate.
+* Back to previous branch.
+* Full-tree overview.
+* Bottom-sheet person profiles.
+* Touch-friendly add-person controls.
+
+Do not make branches impossible to tap.
+
+Use invisible enlarged SVG interaction regions where necessary.
+
+Maintain accessibility through an alternative navigable list or hierarchy.
+
+The interactive experience must remain understandable to older users.
+
+---
+
+# 13. SCALABILITY
+
+Family trees may contain hundreds or thousands of people.
+
+The visualization must not attempt to show thousands of readable names at the same time.
+
+Implement progressive detail.
+
+At distant zoom levels:
+
+Show the trunk and major branches.
+
+At medium zoom levels:
+
+Show branch structures and selected names.
+
+At close zoom levels:
+
+Show individual people and interactive leaves.
+
+Load branch details when needed.
+
+Use efficient rendering.
+
+Keep the camera responsive.
+
+Large trees must remain explorable without excessive lag.
+
+Maintain deterministic branch placement as the tree grows.
+
+Do not reposition unrelated branches unpredictably after an addition.
+
+---
+
+# 14. EXISTING PROJECT FILES
+
+Inspect and modify the current project rather than creating a disconnected application.
+
+Important existing files include:
+
+`src/components/tree/TreeCanvas.tsx`
+
+This currently manages tree navigation and rendering.
+
+Transform it into the main living botanical tree canvas.
+
+`src/components/tree/PersonNode.tsx`
+
+Replace the traditional rectangular person-node presentation with botanical person markers and interactive leaves.
+
+`src/lib/layout-engine.ts`
+
+Extend or redesign the geometry layout system to generate organic branches from actual genealogical relationships.
+
+`src/components/contribute/BranchSelector.tsx`
+
+Replace the traditional branch selection interface with direct branch selection inside the living tree.
+
+`src/components/contribute/BranchBuilderWorkspace.tsx`
+
+Integrate the contributor builder directly with the botanical visualization.
+
+When a contributor adds someone, the corresponding branch should visibly grow.
+
+`src/components/landing/HeroSection.tsx`
+
+Replace the current standard SaaS hero with the immersive living tree experience.
+
+`src/components/reviews/ReviewDetailModal.tsx`
+
+Integrate review requests with a botanical preview of the proposed changes.
+
+Preserve existing data types, contribution callbacks, approval logic, user permissions, and relevant state management wherever possible.
+
+Do not remove functional workflows.
+
+Do not silently discard existing features.
+
+---
+
+# 15. DESIGN RESTRICTIONS
+
+STRICTLY AVOID:
+
+* Traditional family tree diagrams.
+* Rectangular person nodes.
+* Flowchart-style connectors.
+* A tree image used only as decoration.
+* Static botanical backgrounds pretending to be interactive.
+* Generic SaaS hero layouts.
+* Card grids as the primary experience.
+* Randomly positioned family names.
+* Heavy green dashboards.
+* Simplistic zoom transitions.
+* Separate static pages for every branch.
+* Non-functional cinematic effects.
+* Using decorative leaves as substitutes for real genealogical connections.
+
+THE TREE ITSELF MUST BE THE INTERACTIVE PRODUCT.
+
+---
+
+# 16. REQUIRED FUNCTIONAL DEMONSTRATION
+
+Use the existing fictional sample family data.
+
+The following experience must work:
+
+### Stage 1
+
+The application displays a complete organic tree.
+
+The trunk represents:
+
+محمد بن عبدالله
+
+Three main branches are visible:
+
+متروك
+
+ضيف الله
+
+عبدالله
+
+### Stage 2
+
+I click the branch:
+
+متروك
+
+The camera smoothly zooms in.
+
+I see smaller branches belonging to his descendants.
+
+### Stage 3
+
+I select:
+
+سالم بن متروك
+
+The camera moves closer.
+
+I can inspect Salem's descendants.
+
+### Stage 4
+
+I select:
+
+"إضافة ابن"
+
+I enter:
+
+فهد بن سالم
+
+### Stage 5
+
+I click:
+
+"إضافة إلى الغصن"
+
+An actual botanical twig visibly grows from Salem's branch.
+
+A new leaf emerges.
+
+The leaf displays:
+
+فهد بن سالم
+
+### Stage 6
+
+I click Fahd's leaf.
+
+I add:
+
+محمد بن فهد
+
+A new twig grows from Fahd's branch.
+
+The tree now represents another generation.
+
+### Stage 7
+
+I submit the changes for approval.
+
+The new branches retain a pending state.
+
+### Stage 8
+
+The owner opens the review request.
+
+The camera navigates to the proposed branch.
+
+The owner approves the request.
+
+The branches transition into the approved visual state.
+
+This sequence must be functional, not merely a video or prerecorded animation.
+
+---
+
+# 17. PRIORITY OF IMPLEMENTATION
+
+Do not redesign everything at once.
+
+First focus on making the central living tree interaction exceptional.
+
+Implementation order:
+
+1. Inspect the existing genealogy models and tree components.
+2. Build a data-driven organic botanical layout.
+3. Render the trunk and major branches.
+4. Map actual family relationships to botanical branches.
+5. Implement accurate branch selection.
+6. Implement cinematic camera zoom.
+7. Reveal descendants through semantic zoom.
+8. Implement interactive person leaves.
+9. Implement the animated add-person flow.
+10. Connect additions to existing contribution state.
+11. Implement proposed versus approved branch appearance.
+12. Integrate owner approval and review previews.
+13. Integrate the same visual language into the landing page.
+14. Refine visuals and performance on mobile and desktop.
+
+## IMPORTANT ENGINEERING RULE
+
+Prioritize a functional botanical interaction engine before adding expensive visual decoration.
+
+The visual representation must be generated from real genealogy data.
+
+A simple but genuinely interactive organic tree is a better foundation than a photorealistic image that cannot be edited.
+
+After the interaction engine works, enrich it with:
+
+* Organic textures.
+* Beautiful leaves.
+* Cinematic lighting.
+* Ambient motion.
+* Atmospheric depth.
+* Refined typography.
+* Smooth transitions.
+
+---
+
+# 18. ACCEPTANCE CRITERIA
+
+The redesign is NOT complete unless:
+
+* The main tree looks like an actual botanical tree.
+* The trunk and branches are visibly connected.
+* The branches correspond to real family relationships.
+* I can click a physical branch.
+* The camera smoothly zooms toward that branch.
+* I can navigate through generations.
+* I can click an individual leaf or name marker.
+* I can open a person's profile.
+* I can add a person beneath the correct parent.
+* A new botanical twig visibly grows after adding that person.
+* I can add multiple generations.
+* Proposed additions remain distinct from approved data.
+* Review and approval workflows remain functional.
+* The tree works on smartphones.
+* Names remain readable at the appropriate zoom level.
+* The application remains responsive with large genealogies.
+* Existing product functionality is preserved.
+
+## FINAL INSTRUCTION
+
+I am not asking for a redesigned family tree chart.
+
+I am asking for a new category of interactive genealogy experience.
+
+The user should feel like they are exploring a living tree that contains their entire family history.
+
+Every branch should lead to another generation.
+
+Every leaf should represent a person.
+
+Every newly added family member should cause the tree to grow.
+
+Every camera movement should make the experience feel immersive and extraordinary.
+
+**Build a living family tree, not a diagram of one.**
+
+Start by implementing the actual interactive botanical engine in the existing project.
+
+Do not respond with just explanations, plans, or concept descriptions.
+
+Implement the changes in the application and demonstrate the complete branch selection → zoom → add person → branch growth workflow.
