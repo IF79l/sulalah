@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   description: 'أنشئ شجرة عائلتك، وشاركها مع أفرادها، ودع أغصانكم تنمو جيلًا بعد جيل.',
 };
 
-export const viewport: Viewport = { themeColor: '#F6F2E8', width: 'device-width', initialScale: 1 };
+export const viewport: Viewport = { themeColor: '#F6EFDD', width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

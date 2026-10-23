@@ -3,8 +3,8 @@
 @source '../../../packages/ui/src';
 
 html {
-  background: var(--color-ivory);
-  color: var(--color-bark);
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {

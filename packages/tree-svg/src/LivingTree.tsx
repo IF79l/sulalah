@@ -250,6 +250,12 @@ export function LivingTree({
 }
 
 function shotFor(layout: TreeLayout2D, full: Box, id: string | null, aspect: number): View {
+  const v = closeUp(layout, full, id, aspect);
+  // On wide screens a close-up is limited by height; keep enough of the crown around it.
+  return id ? { ...v, width: Math.max(v.width, 760 * Math.max(1, aspect)) } : v;
+}
+
+function closeUp(layout: TreeLayout2D, full: Box, id: string | null, aspect: number): View {
   const mark = id ? layout.markById.get(id) : undefined;
   if (!mark) return viewForBox(full, aspect, 1.02);
   if (mark.kind === 'root') {

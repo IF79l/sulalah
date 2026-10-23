@@ -1,15 +1,59 @@
-/* SULALAH design tokens. Placeholder values from the report; the design pass replaces them. */
+/*
+ * SULALAH design tokens: a printed nasab poster brought to life. Ivory paper, bark ink,
+ * quiet gold for actions, green leaves for sons and blossom pink for daughters.
+ * One deliberate light look, the same as the tree itself.
+ */
 @theme {
-  --color-bark: #42382c;
-  --color-forest: #2f5039;
-  --color-olive: #748a5a;
-  --color-leaf: #a7bb80;
-  --color-ivory: #f6f2e8;
-  --color-sand: #e7dcc9;
-  --color-gold: #b9a070;
+  --color-paper: #f6efdd;
+  --color-paper-deep: #e8dcbd;
+  --color-card: #fbf5e2;
+  --color-glass: rgb(251 245 226 / 0.86);
+  --color-ink: #3a2716;
+  --color-ink-soft: rgb(58 39 22 / 0.68);
+  --color-ink-faint: rgb(58 39 22 / 0.45);
+  --color-bark: #6b4329;
+  --color-gold: #a87c26;
+  --color-gold-deep: #8a6418;
+  --color-gold-soft: rgb(168 124 38 / 0.1);
+  --color-line: rgb(168 124 38 / 0.35);
+  --color-on-gold: #fff8e6;
+  --color-leaf: #6fa65e;
+  --color-blossom: #e68db7;
+  --color-sprout: #fff9e6;
+  --color-withered: #d9be84;
+  --color-danger: #a8402c;
+  --color-danger-soft: rgb(168 64 44 / 0.1);
+  --color-ok: #4f7f3a;
+  --color-ok-soft: rgb(79 127 58 / 0.12);
 
   --font-sans: var(--font-plex-arabic), system-ui, sans-serif;
   --font-display: var(--font-alexandria), var(--font-plex-arabic), sans-serif;
+  --font-title: var(--tree-title-font), var(--font-alexandria), serif;
+
+  --radius-control: 14px;
+  --radius-sheet: 22px;
 
   --ease-cinematic: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-rise: rise 0.45s var(--ease-cinematic);
+  --animate-fade: fade 0.6s var(--ease-cinematic);
+
+  @keyframes rise {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 }
