@@ -11,7 +11,6 @@
  * this device, and sent ones travel as submission files (lib/collab-cloud.ts).
  */
 import {
-  defaultPlanLimits,
   mergeTreeFiles,
   openText,
   sealText,
@@ -27,24 +26,32 @@ import {
   publishView,
 } from '@/lib/collab-cloud';
 import {
+  canReview,
   getState,
   liveTree,
+  planLimits,
   subscribe,
   toTreeFile,
   update,
   type DemoState,
   type Person,
 } from '@/lib/demo-store';
-import { SaveConflict, loadTreeFile, saveTreeFile } from '@/lib/tree-cloud';
+import { SaveConflict, SaveRefused, loadTreeFile, saveTreeFile } from '@/lib/tree-cloud';
 
-export type SaveStatus = 'saved' | 'saving' | 'offline' | 'failed' | 'readonly';
+export type SaveStatus = 'saved' | 'saving' | 'offline' | 'failed' | 'refused' | 'readonly';
 
 let status: SaveStatus = 'saved';
+/** Why the server turned the last change down, while the status is 'refused'. */
+let refusal = '';
 const watchers = new Set<() => void>();
-const setStatus = (s: SaveStatus) => {
+const setStatus = (s: SaveStatus, why = '') => {
   status = s;
+  refusal = why;
   watchers.forEach((w) => w());
 };
+
+/** The server's reason for the last refused change. */
+export const refusalText = () => refusal;
 
 export function useSaveStatus() {
   return useSyncExternalStore(
@@ -71,6 +78,8 @@ interface Session {
 }
 
 let session: Session | null = null;
+/** Set while the store is put back to the server's copy, which is not a change to save. */
+let quiet = false;
 
 const parts = () => {
   const s = getState();
@@ -95,7 +104,7 @@ export function startSaving(treeId: string, key: string, version: number, file: 
   setStatus('saved');
   s.stops.push(
     subscribe(() => {
-      if (session !== s || !changed(parts(), s.seen)) return;
+      if (quiet || session !== s || !changed(parts(), s.seen)) return;
       clearTimeout(s.timer);
       setStatus('saving');
       s.timer = setTimeout(() => void flush(s), 1200);
@@ -142,6 +151,23 @@ async function flush(s: Session) {
         s.seen = now;
         break;
       } catch (e) {
+        if (e instanceof SaveRefused) {
+          // The change is not allowed: go back to the tree as the server has it.
+          const remote = await loadTreeFile(s.treeId, s.key);
+          if (remote) {
+            s.base = remote.file;
+            s.version = remote.version;
+            quiet = true;
+            try {
+              update((st) => fromFile(st, remote.file));
+            } finally {
+              quiet = false;
+            }
+            s.seen = parts();
+          }
+          if (session === s) setStatus('refused', e.message);
+          return;
+        }
         if (!(e instanceof SaveConflict) || attempt === 2) throw e;
         const remote = await loadTreeFile(s.treeId, s.key);
         if (!remote) throw e;
@@ -223,12 +249,15 @@ export async function syncIncoming(s: Session | null = session): Promise<number>
     update((st) => {
       const start = toTreeFile(st);
       let file = start;
-      for (const { by, sub } of incoming) {
+      // A paused tree takes nothing in; a reviewer takes in only what hangs in their branch,
+      // and leaves the rest for the owner. The server refuses anything else.
+      const mine = (fatherId: string) => canReview(st, fatherId);
+      for (const { by, sub } of st.paused ? [] : incoming) {
         const m = members.find((x) => x.userId === by);
-        if (!m) continue;
+        if (!m || !mine(sub.fatherId)) continue;
         const r = takeIn(file, sub, by, {
           branch: m.role === 'contributor' ? m.branch : undefined,
-          limit: defaultPlanLimits[st.plan].maxPersons,
+          limit: planLimits(st).maxPersons,
         });
         if (r.file) {
           file = r.file;
@@ -237,7 +266,8 @@ export async function syncIncoming(s: Session | null = session): Promise<number>
       }
       // Ones the contributor took back before anyone reviewed them.
       for (const x of file.submissions)
-        if (x.status === 'pending' && x.by && !present.has(x.id)) file = takeOut(file, x.id);
+        if (x.status === 'pending' && x.by && !present.has(x.id) && mine(x.fatherId))
+          file = takeOut(file, x.id);
       // Only touch the tree when something came in, so a quiet look saves nothing.
       const next = file === start ? st : withFile(st, file);
       return {

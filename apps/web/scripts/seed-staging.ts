@@ -4,7 +4,7 @@
  * file.
  * Refuses to run anywhere but staging. Running it again leaves an existing demo tree alone.
  *
- *   SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... APP_ENV=staging \
+ *   SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... APP_URL=https://<staging site> APP_ENV=staging \
  *   DEMO_PHONE=966500000001 DEMO_OTP=123456 [DEMO_TREE_KEY=...] pnpm seed:staging
  */
 import { createClient } from '@supabase/supabase-js';
@@ -70,13 +70,15 @@ async function main() {
     submissions: [],
     updatedAt: new Date().toISOString(),
   };
-  const path = `${treeId}/tree/v1.json`;
-  const { error: e2 } = await db.storage
-    .from('tree-files')
-    .upload(path, JSON.stringify(await sealTree(file, key)), { contentType: 'application/json' });
-  if (e2) throw e2;
-  const { error: e3 } = await db.rpc('save_tree_file', { tree: treeId, from_version: 0, path });
-  if (e3) throw e3;
+  // Saves go through the app, which checks every change before storing it.
+  const session = data.session;
+  if (!session) throw new Error('no session');
+  const res = await fetch(`${env('APP_URL').replace(/\/$/, '')}/api/trees/${treeId}/file`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ from: 0, sealed: await sealTree(file, key) }),
+  });
+  if (!res.ok) throw new Error(`saving the tree failed: ${res.status} ${await res.text()}`);
 
   console.log(`planted ${file.people.length} people in tree ${treeId}`);
 }

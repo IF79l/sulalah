@@ -4,7 +4,7 @@
 \set QUIET 1
 
 create schema tests;
-grant usage on schema tests to anon, authenticated;
+grant usage on schema tests to anon, authenticated, service_role;
 
 create function tests.ok(cond boolean, what text) returns void language plpgsql as $$
 begin
@@ -36,10 +36,10 @@ create function tests.as_user(name text) returns void language sql as $$
     when 'dana' then '00000000-0000-4000-8000-00000000000d'
     else '' end, false)
 $$;
-grant execute on all functions in schema tests to anon, authenticated;
+grant execute on all functions in schema tests to anon, authenticated, service_role;
 
 create table tests.vars (k text primary key, v text);
-grant all on tests.vars to anon, authenticated;
+grant all on tests.vars to anon, authenticated, service_role;
 
 insert into auth.users (id, phone) values
   ('00000000-0000-4000-8000-00000000000a', '966500000001'),
@@ -67,19 +67,35 @@ select tests.ok(public.my_role((select v from tests.vars where k = 'tree')::uuid
 
 -- ---------- Saving the file ----------
 
-insert into storage.objects (bucket_id, name, metadata)
-select 'tree-files', v || '/tree/v1.json', '{"size": 1200}' from tests.vars where k = 'tree';
-select tests.ok(public.save_tree_file(v::uuid, 0, v || '/tree/v1.json') = 1, 'the owner saves the first file')
+select tests.fails(format($$ insert into storage.objects (bucket_id, name) values ('tree-files', %L) $$,
+  v || '/tree/v1.json'), 'even the owner cannot write the tree file without the server''s check')
 from tests.vars where k = 'tree';
 select tests.fails(format($$ select public.save_tree_file(%L, 0, %L) $$, v, v || '/tree/v1.json'),
+  'the old save from the browser is closed', 'permission denied')
+from tests.vars where k = 'tree';
+select tests.fails(format($$ select public.commit_tree_file(%L, 0, %L) $$, v, v || '/tree/v1.json'),
+  'only the server moves the file pointer', 'permission denied')
+from tests.vars where k = 'tree';
+
+-- The server, with the secret key, after checking the change.
+reset role;
+set role service_role;
+insert into storage.objects (bucket_id, name, metadata)
+select 'tree-files', v || '/tree/v1.json', '{"size": 1200}' from tests.vars where k = 'tree';
+select tests.ok(public.commit_tree_file(v::uuid, 0, v || '/tree/v1.json') = 1, 'the server saves the first file')
+from tests.vars where k = 'tree';
+select tests.fails(format($$ select public.commit_tree_file(%L, 0, %L) $$, v, v || '/tree/v1.json'),
   'a save made from an old version is refused', 'conflict')
 from tests.vars where k = 'tree';
-select tests.fails(format($$ select public.save_tree_file(%L, 1, %L) $$, v, v || '/tree/v9.json'),
+select tests.fails(format($$ select public.commit_tree_file(%L, 1, %L) $$, v, v || '/tree/v9.json'),
   'the pointer must name the next version', 'bad path')
 from tests.vars where k = 'tree';
-select tests.fails(format($$ select public.save_tree_file(%L, 1, %L) $$, v, v || '/tree/v2.json'),
+select tests.fails(format($$ select public.commit_tree_file(%L, 1, %L) $$, v, v || '/tree/v2.json'),
   'the pointer cannot name a file that was never uploaded', 'file missing')
 from tests.vars where k = 'tree';
+reset role;
+set role authenticated;
+select tests.as_user('amal');
 select tests.ok((select file_size from public.trees) = 1200, 'the tree records the file size');
 
 -- Invites: one for a contributor under a branch, two for reviewers, one already expired.
@@ -109,7 +125,7 @@ select tests.fails(format($$ insert into storage.objects (bucket_id, name) value
   v || '/tree/v2.json'), 'a stranger cannot write the tree file')
 from tests.vars where k = 'tree';
 select tests.fails(format($$ select public.save_tree_file(%L, 1, %L) $$, v, v || '/tree/v2.json'),
-  'a stranger cannot move the file pointer', 'not allowed')
+  'a stranger cannot move the file pointer')
 from tests.vars where k = 'tree';
 select tests.fails(format($$ insert into storage.objects (bucket_id, name) values ('tree-files', %L) $$,
   v || '/submissions/00000000-0000-4000-8000-00000000000d/s1.json'),
@@ -149,7 +165,7 @@ select tests.fails(format($$ insert into storage.objects (bucket_id, name) value
   v || '/tree/v2.json'), 'a contributor cannot overwrite the tree')
 from tests.vars where k = 'tree';
 select tests.fails(format($$ select public.save_tree_file(%L, 1, %L) $$, v, v || '/tree/v2.json'),
-  'a contributor cannot move the file pointer', 'not allowed')
+  'a contributor cannot move the file pointer')
 from tests.vars where k = 'tree';
 insert into storage.objects (bucket_id, name)
 select 'tree-files', v || '/submissions/00000000-0000-4000-8000-00000000000c/s1.json' from tests.vars where k = 'tree';
@@ -164,9 +180,11 @@ select tests.ok(public.accept_invite('tok-review')::text = v, 'a reviewer joins 
 from tests.vars where k = 'tree';
 select tests.ok((select count(*) from storage.objects where name like '%/submissions/%') = 1,
   'a reviewer reads the additions waiting on review');
-insert into storage.objects (bucket_id, name, metadata)
-select 'tree-files', v || '/tree/v2.json', '{"size": 1300}' from tests.vars where k = 'tree';
-select tests.ok(public.save_tree_file(v::uuid, 1, v || '/tree/v2.json') = 2, 'a reviewer saves approvals')
+select tests.fails(format($$ insert into storage.objects (bucket_id, name) values ('tree-files', %L) $$,
+  v || '/tree/v2.json'), 'a reviewer saves only through the server, which checks their branch')
+from tests.vars where k = 'tree';
+select tests.fails(format($$ select public.save_tree_file(%L, 1, %L) $$, v, v || '/tree/v2.json'),
+  'a reviewer cannot move the file pointer')
 from tests.vars where k = 'tree';
 select tests.ok((select count(*) from public.invites) = 0, 'a reviewer does not see invite links');
 
@@ -187,7 +205,7 @@ select tests.ok((select count(*) from public.invites where revoked_at is not nul
 select tests.fails($$ insert into public.subscriptions (tree_id, plan, cycle, provider)
   select id, 'tribe', 'annual', 'me' from public.trees $$, 'nobody grants themselves a plan');
 select tests.fails($$ update public.trees set plan = 'tribe' $$, 'the plan only changes through payment');
-select tests.fails($$ update public.trees set file_version = 0 $$, 'the file pointer only moves through save_tree_file');
+select tests.fails($$ update public.trees set file_version = 0 $$, 'the file pointer only moves through the server');
 
 select tests.as_user('chadi');
 update public.tree_members set scope_person_ids = '{}' where role = 'reviewer';

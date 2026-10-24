@@ -175,12 +175,36 @@ select public.billing_payment_failed('00000000-0000-4000-8000-0000000000d4', 'pa
 select tests.ok(public.billing_expire() = 1, 'out of retries, the plan lapses');
 select tests.ok((select status from public.subscriptions) = 'expired', 'the subscription is expired');
 
+-- ---------- A lapsed plan stops new additions ----------
+
+select tests.ok(public.tree_paused(v::uuid), 'a lapsed plan pauses the tree') from tests.vars where k = 'btree';
+reset role;
+set role authenticated;
+select tests.as_id('00000000-0000-4000-8000-0000000000e1');
+select tests.ok(public.tree_paused(v::uuid), 'members can tell the tree is paused') from tests.vars where k = 'btree';
+select tests.fails(format($$ insert into storage.objects (bucket_id, name) values ('tree-files', %L) $$,
+  v || '/submissions/00000000-0000-4000-8000-0000000000e1/s1.json'),
+  'no additions are sent to a paused tree')
+from tests.vars where k = 'btree';
+reset role;
+set role service_role;
+
 -- ---------- Manual grants ----------
 
 select public.billing_grant_manual(v::uuid, 'tribe', null) from tests.vars where k = 'btree';
 select tests.ok((select status = 'active' and provider = 'manual' from public.subscriptions),
   'the admin grants a plan by hand');
 select tests.ok(public.billing_expire() = 0, 'an open ended grant does not lapse');
+select tests.ok(not public.tree_paused(v::uuid), 'a plan given again opens the tree')
+from tests.vars where k = 'btree';
+reset role;
+set role authenticated;
+select tests.as_id('00000000-0000-4000-8000-0000000000e1');
+insert into storage.objects (bucket_id, name)
+select 'tree-files', v || '/submissions/00000000-0000-4000-8000-0000000000e1/s1.json' from tests.vars where k = 'btree';
+select tests.ok(true, 'additions are sent again once the plan is back');
+reset role;
+set role service_role;
 
 -- ---------- Invoices outlive the tree ----------
 

@@ -14,6 +14,7 @@ import {
   type Action as PermissionAction,
   type Actor,
   type PlanId,
+  type PlanLimits,
   type TreeFile,
   type TreeFilePerson,
   type TreeRole,
@@ -147,6 +148,10 @@ export interface DemoState {
   log: LogEntry[];
   settings: Settings;
   plan: PlanId;
+  /** The plan's limits as the plans table has them; the sample tree uses the defaults. */
+  limits?: PlanLimits;
+  /** The plan expired or was canceled: the tree is read-only for additions and approvals. */
+  paused?: boolean;
   upgradeRequested?: PlanId;
   me: { first: string; father: string; phone: string; notify: 'app' | 'sms' };
   /** Invites to other trees the person chose to ignore. */
@@ -423,7 +428,14 @@ export const currentTreeId = () => live?.treeId ?? TREE_ID;
 
 /** Puts a real tree in the store, in place of the sample, with nothing of the sample left. */
 export function openLive(
-  info: LiveTree & { branch?: string; plan: PlanId; me: DemoState['me']; viewOpen: boolean },
+  info: LiveTree & {
+    branch?: string;
+    plan: PlanId;
+    limits?: PlanLimits;
+    paused?: boolean;
+    me: DemoState['me'];
+    viewOpen: boolean;
+  },
   file: TreeFile,
   key: string,
 ) {
@@ -441,6 +453,8 @@ export function openLive(
     log: (file.log ?? []) as LogEntry[],
     settings: { ...defaultTreeSettings, ...file.settings, viewers: info.viewOpen ? 'link' : 'members' },
     plan: info.plan,
+    limits: info.limits,
+    paused: info.paused,
     me: info.me,
     myBranch: info.branch,
     ignoredInvites: [],
@@ -562,7 +576,7 @@ export function generations(people: Person[], rootId: string) {
 export const fold = (s: string) =>
   s.replace(/[ً-ْ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
 
-export const planLimits = (s: DemoState) => defaultPlanLimits[s.plan];
+export const planLimits = (s: DemoState) => s.limits ?? defaultPlanLimits[s.plan];
 
 export const planName: Record<PlanId, string> = {
   family: 'العائلة',

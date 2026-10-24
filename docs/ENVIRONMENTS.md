@@ -38,7 +38,7 @@
 في **Settings > Secrets and variables > Actions**:
 
 - Repository secret: `SUPABASE_ACCESS_TOKEN` (من supabase.com > Account > Access Tokens).
-- Repository variables: `STAGING_PROJECT_REF` و `PRODUCTION_PROJECT_REF` (معرف كل مشروع)، و `STAGING_PUBLISHABLE_KEY`، و `STAGING_DEMO_PHONE` (رقم الاختبار).
+- Repository variables: `STAGING_PROJECT_REF` و `PRODUCTION_PROJECT_REF` (معرف كل مشروع)، و `STAGING_PUBLISHABLE_KEY`، و `STAGING_DEMO_PHONE` (رقم الاختبار)، و `STAGING_APP_URL` (رابط موقع staging، لأن زرع العائلة التجريبية يحفظ عن طريق التطبيق).
 - Environments: أنشئ `staging` و `production`، وفي كل منهما secret باسم `SUPABASE_DB_PASSWORD` (كلمة مرور قاعدة ذلك المشروع). في `production` فعّل **Required reviewers** وضع فيصل.
 - في `staging` أيضًا: `STAGING_DEMO_OTP` (رمز رقم الاختبار) واختياريًا `STAGING_DEMO_TREE_KEY`.
 
@@ -49,7 +49,7 @@
 1. استورد الريبو، و **Root Directory** = `apps/web`.
 2. اربط Supabase من **Integrations** (يضيف مفاتيحه لكل البيئات، ولا بأس).
 3. أضف `NEXT_PUBLIC_APP_ENV` = `staging` لبيئة **Preview** فقط. التطبيق لا يشغّل الحسابات والأشجار الحقيقية إلا إذا وجد هذا المتغير، فالإنتاج يبقى نسخة تجريبية في المتصفح حتى لو وصلته المفاتيح، إلى أن نضع له `production` بعد قرار الاستضافة.
-4. المفاتيح السرية (`SUPABASE_SERVICE_ROLE_KEY` و `SUPABASE_SECRET_KEY` و `POSTGRES_*`) لا يستخدمها التطبيق، ولا تصل للمتصفح لأن Next.js لا يكشف إلا ما يبدأ بـ `NEXT_PUBLIC_`.
+4. `SUPABASE_SECRET_KEY` يستخدمه السيرفر وحده: للدفع، ولحفظ الأشجار (كل حفظ يمر على السيرفر ليتأكد من حد الباقة وغصن المدقق قبل ما يُخزَّن). لازم يكون موجودًا، وإلا ما ينحفظ أي تعديل. المفاتيح السرية ما تصل للمتصفح لأن Next.js لا يكشف إلا ما يبدأ بـ `NEXT_PUBLIC_`.
 5. في Supabase: **Authentication > URL Configuration**، أضف رابط المعاينات `https://*-khuto.vercel.app`.
 
 ## محليًا
