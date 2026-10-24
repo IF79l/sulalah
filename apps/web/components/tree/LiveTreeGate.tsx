@@ -44,7 +44,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
         .eq('tree_id', treeId)
         .eq('user_id', user.id)
         .maybeSingle(),
-      db.from('trees').select('plan').eq('id', treeId).maybeSingle(),
+      db.from('trees').select('plan, view_slug').eq('id', treeId).maybeSingle(),
       db.from('profiles').select('first_name, father_name, notify').eq('id', user.id).maybeSingle(),
     ]);
     if (member.error || tree.error) return setPhase('failed');
@@ -59,10 +59,12 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       openLive(
         {
           treeId,
+          userId: user.id,
           role: member.data.role,
           scope: member.data.scope_person_ids,
           branch: member.data.branch_person_id ?? undefined,
           plan: tree.data.plan,
+          viewOpen: !!tree.data.view_slug,
           me: {
             first: profile.data?.first_name ?? '',
             father: profile.data?.father_name ?? '',
@@ -138,7 +140,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       <StatePage
         icon="key"
         title="افتح الشجرة على هذا الجهاز"
-        body="أسماء العائلة مشفّرة، ومفتاحها عند العائلة فقط. اكتب رمز الاسترجاع اللي حفظه مالك الشجرة، أو افتح رابط الدعوة اللي وصلك."
+        body="أسماء العائلة مشفّرة، ومفتاحها عند العائلة فقط. افتح رابط الدعوة اللي وصلك على هذا الجهاز، أو اكتب رمز الاسترجاع اللي حفظه مالك الشجرة."
         action={
           <form
             className="grid w-full max-w-sm gap-3 text-start"

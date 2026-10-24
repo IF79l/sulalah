@@ -19,12 +19,19 @@ import {
   canReview,
   childrenOf,
   demoReviewer,
+  fitsPlan,
+  isMine,
+  liveTree,
   newId,
   num,
+  planLimits,
+  stamp,
   update,
+  usedNames,
   useDemo,
   type Person,
 } from '@/lib/demo-store';
+import { sendDrafts as sendAll } from '@/lib/live-actions';
 import { AddPersonSheet, type PersonDraft } from './AddPersonSheet';
 import { ReviewPanel } from './ReviewPanel';
 import { ShareSheet } from './ShareSheet';
@@ -118,13 +125,17 @@ export function TreeScreen({
             action: 'edit',
             text: `عدّل بيانات ${d.name}`,
             personId: editing.id,
-            at: 'الآن',
+            at: stamp(),
           },
           ...st.log,
         ],
       }));
       say('حفظنا التعديل');
       setForm(null);
+      return;
+    }
+    if (!fitsPlan(s)) {
+      say(`وصلت الشجرة لحد باقتها: ${num(planLimits(s).maxPersons)} اسم. يرفعها المالك من صفحة الباقة`);
       return;
     }
     const id = newId('p');
@@ -139,7 +150,7 @@ export function TreeScreen({
           fatherId: father.id,
           status: pending ? 'proposed' : 'approved',
           addedBy: actor,
-          addedAt: 'الآن',
+          addedAt: stamp(),
           ...(pending ? {} : { approvedBy: actor }),
         },
       ],
@@ -153,7 +164,7 @@ export function TreeScreen({
               action: 'add',
               text: `أضاف ${d.name} تحت ${father.name}`,
               personId: father.id,
-              at: 'الآن',
+              at: stamp(),
             },
             ...st.log,
           ],
@@ -173,7 +184,7 @@ export function TreeScreen({
           action: 'delete',
           text: `حذف ${p.name}`,
           personId: p.fatherId ?? undefined,
-          at: 'الآن',
+          at: stamp(),
         },
         ...st.log,
       ],
@@ -183,48 +194,17 @@ export function TreeScreen({
   };
   const [undo, setUndo] = useState<{ text: string; run: () => void } | null>(null);
 
-  const sendDrafts = () => {
-    const fatherId = drafts[0]?.fatherId ?? branch ?? s.tree.rootId;
-    const sub = newId('sub');
-    update((st) => ({
-      ...st,
-      people: st.people.map((p) => (st.drafts.includes(p.id) ? { ...p, submissionId: sub } : p)),
-      submissions: [
-        {
-          id: sub,
-          contributor: actingName(st),
-          fatherId,
-          personIds: st.drafts,
-          at: 'الآن',
-          status: 'pending',
-        },
-        ...st.submissions,
-      ],
-      notices: [
-        {
-          id: newId('n'),
-          icon: 'person_add',
-          text: `أرسل ${actingName(st)} ${st.drafts.length} إضافات لغصن ${m.get(fatherId)?.name ?? ''}`,
-          at: 'الآن',
-          unread: true,
-          href: t('/review'),
-        },
-        ...st.notices,
-      ],
-      log: [
-        {
-          id: newId('l'),
-          who: actingName(st),
-          action: 'add',
-          text: `أرسل ${st.drafts.length} إضافات للاعتماد`,
-          personId: fatherId,
-          at: 'الآن',
-        },
-        ...st.log,
-      ],
-      drafts: [],
-    }));
-    say('أرسلناها للاعتماد. تظهر خضراء أول ما تُعتمد');
+  const [sending, setSending] = useState(false);
+  const sendDrafts = async () => {
+    setSending(true);
+    try {
+      const n = await sendAll();
+      if (n) say('أرسلناها للاعتماد. تظهر خضراء أول ما تُعتمد');
+    } catch {
+      say(navigator.onLine ? 'تعذّر الإرسال، حاول مرة ثانية' : 'ما فيه اتصال. إضافاتك محفوظة على جهازك');
+    } finally {
+      setSending(false);
+    }
   };
 
   // ---------- Top bar per mode ----------
@@ -247,7 +227,7 @@ export function TreeScreen({
           <Icon name="inventory_2" />
           <span className="max-sm:hidden">مساهماتي</span>
           <span className="rounded-full bg-surface-high px-1.5 text-caption">
-            {num(s.submissions.filter((x) => x.contributor === actingName(s)).length)}
+            {num(s.submissions.filter((x) => isMine(s, x)).length)}
           </span>
         </Link>
       </>
@@ -320,8 +300,24 @@ export function TreeScreen({
     />
   ) : undefined;
 
+  const limit = planLimits(s).maxPersons;
   const note =
-    contributing && !branch ? (
+    contributing && branch && !m.get(branch) ? (
+      <span>
+        غصنك ما عاد موجودًا في الشجرة.{' '}
+        <Link href={t('/join')} className="font-semibold text-forest underline">
+          اختر غصنك من جديد
+        </Link>
+      </span>
+    ) : owner && usedNames(s) >= limit * 0.9 ? (
+      <span>
+        {usedNames(s) >= limit ? 'وصلت الشجرة لحد باقتها' : 'اقتربت الشجرة من حد باقتها'}:{' '}
+        {num(usedNames(s))} من {num(limit)} اسم.{' '}
+        <Link href={t('/plan')} className="font-semibold text-forest underline">
+          الباقة
+        </Link>
+      </span>
+    ) : contributing && !branch ? (
       <span>
         ما اخترت غصنك بعد.{' '}
         <Link href={t('/join')} className="font-semibold text-forest underline">
@@ -330,10 +326,12 @@ export function TreeScreen({
       </span>
     ) : mode === 'reviewer' ? (
       (() => {
+        const live = liveTree();
         const r = demoReviewer(s);
-        return !r || r.scope === 'all'
+        const scope = live ? live.scope : !r || r.scope === 'all' ? [] : r.scope;
+        return !scope.length
           ? 'أنت مدقق للشجرة كاملة'
-          : `أنت مدقق لغصن ${r.scope.map((id) => m.get(id)?.name).join(' وغصن ')}. إضافاتك خارجه تنتظر المالك.`;
+          : `أنت مدقق لغصن ${scope.map((id) => m.get(id)?.name ?? '').join(' وغصن ')}. إضافاتك خارجه تنتظر المالك.`;
       })()
     ) : undefined;
 
@@ -431,8 +429,8 @@ export function TreeScreen({
             {num(drafts.length)}{' '}
             {drafts.length > 2 ? 'إضافات' : drafts.length === 2 ? 'إضافتان' : 'إضافة'} لم تُرسل
           </span>
-          <Button size="sm" className="rounded-xl" onClick={sendDrafts}>
-            أرسلها للاعتماد
+          <Button size="sm" className="rounded-xl" disabled={sending} onClick={sendDrafts}>
+            {sending ? 'نرسلها…' : 'أرسلها للاعتماد'}
           </Button>
         </div>
       ) : null}

@@ -9,6 +9,8 @@
 import {
   can,
   defaultPlanLimits,
+  defaultTreeSettings,
+  LOG_LIMIT,
   type Action as PermissionAction,
   type Actor,
   type PlanId,
@@ -51,6 +53,8 @@ export type SubmissionStatus = 'pending' | 'changes' | 'approved' | 'rejected';
 export interface Submission {
   id: string;
   contributor: string;
+  /** The sender's account id, on a real tree. */
+  by?: string;
   /** The father the additions hang from. */
   fatherId: string;
   personIds: string[];
@@ -58,6 +62,9 @@ export interface Submission {
   status: SubmissionStatus;
   note?: string;
   warnings?: string[];
+  /** The earlier submission this one corrects. */
+  replaces?: string;
+  reviewedBy?: string;
 }
 
 export interface Reviewer {
@@ -70,12 +77,23 @@ export interface Reviewer {
 
 export interface Invite {
   id: string;
-  kind: 'contribute' | 'view';
+  kind: 'contribute' | 'view' | 'review';
   scope: string | 'all';
   used: number;
   maxUses?: number;
   expiresInDays: number;
-  status: 'active' | 'expired' | 'stopped';
+  status: 'active' | 'expired' | 'stopped' | 'used-up';
+  /** The full link, on a real tree. */
+  url?: string;
+}
+
+/** Someone who joined a real tree, as the server lists them. */
+export interface Member {
+  userId: string;
+  name: string;
+  role: TreeRole;
+  branch: string | null;
+  scope: string[];
 }
 
 export interface Notice {
@@ -138,6 +156,10 @@ export interface DemoState {
   /** The contributor's own place, once picked on the join screen. */
   myBranch?: string;
   drafts: string[];
+  /** The submission the drafts correct, after a request for changes. */
+  draftReplaces?: string;
+  /** Who joined a real tree; the sample tree uses `joinedMembers`. */
+  members: Member[];
 }
 
 const pendingSeed: Record<string, { sub: string; by: string }> = {
@@ -335,6 +357,7 @@ function seed(): DemoState {
     plan: 'extended',
     me: { first: 'فيصل', father: 'خالد', phone: '551234567', notify: 'app' },
     drafts: [],
+    members: [],
   };
 }
 
@@ -383,6 +406,8 @@ export const getState = load;
 
 export interface LiveTree {
   treeId: string;
+  /** The signed in person's account id. */
+  userId: string;
   role: TreeRole;
   /** A reviewer's branches; empty means the whole tree. */
   scope: string[];
@@ -398,11 +423,11 @@ export const currentTreeId = () => live?.treeId ?? TREE_ID;
 
 /** Puts a real tree in the store, in place of the sample, with nothing of the sample left. */
 export function openLive(
-  info: LiveTree & { branch?: string; plan: PlanId; me: DemoState['me'] },
+  info: LiveTree & { branch?: string; plan: PlanId; me: DemoState['me']; viewOpen: boolean },
   file: TreeFile,
   key: string,
 ) {
-  live = { treeId: info.treeId, role: info.role, scope: info.scope };
+  live = { treeId: info.treeId, userId: info.userId, role: info.role, scope: info.scope };
   state = {
     ...seed(),
     tree: { ...file.tree, unions: file.unions },
@@ -413,15 +438,27 @@ export function openLive(
     reviewers: [],
     invites: [],
     notices: [],
-    log: [],
+    log: (file.log ?? []) as LogEntry[],
+    settings: { ...defaultTreeSettings, ...file.settings, viewers: info.viewOpen ? 'link' : 'members' },
     plan: info.plan,
     me: info.me,
     myBranch: info.branch,
     ignoredInvites: [],
     drafts: [],
+    members: [],
   };
   listeners.forEach((l) => l());
 }
+
+/** Changes the open real tree's membership facts after the server agreed. */
+export function setLive(patch: Partial<LiveTree>) {
+  if (!live) return;
+  live = { ...live, ...patch };
+  update((st) => ({ ...st, as: live!.role }));
+}
+
+/** When something happened: a real time on a real tree, a word on the sample. */
+export const stamp = () => (live ? new Date().toISOString() : 'الآن');
 
 /** Back to the sample tree, as it was left in this browser. */
 export function closeLive() {
@@ -449,6 +486,27 @@ export function useDemo(): DemoState {
 // ---------- Reading the tree ----------
 
 export const num = (n: number) => n.toLocaleString('en-US');
+
+const ago = new Intl.RelativeTimeFormat('ar-u-nu-latn', { numeric: 'auto' });
+/** "قبل ساعتين" from a real time; the sample's times are words already. */
+export function when(at: string) {
+  const t = Date.parse(at);
+  if (Number.isNaN(t)) return at;
+  const s = (t - Date.now()) / 1000;
+  const steps: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['minute', 60],
+    ['hour', 3600],
+    ['day', 86400],
+    ['week', 604800],
+    ['month', 2592000],
+  ];
+  if (Math.abs(s) < 60) return 'الآن';
+  let unit: Intl.RelativeTimeFormatUnit = 'second';
+  let size = 1;
+  for (const [u, n] of steps) if (Math.abs(s) >= n) [unit, size] = [u, n];
+  return ago.format(Math.round(s / size), unit);
+}
+
 
 /** "اسم واحد", "اسمان", "5 أسماء", "88 اسمًا": the counted noun as Arabic grammar wants it. */
 export const names = (n: number) =>
@@ -536,7 +594,9 @@ export function approve(submissionId: string, keep: string[], by: string) {
             : p,
         ),
       submissions: s.submissions.map((x) =>
-        x.id === submissionId ? { ...x, status: 'approved', personIds: keep } : x,
+        x.id === submissionId
+          ? { ...x, status: 'approved', personIds: keep, reviewedBy: by }
+          : x,
       ),
       log: [
         {
@@ -545,7 +605,7 @@ export function approve(submissionId: string, keep: string[], by: string) {
           action: 'approve',
           text: `اعتمد ${names.join(' و')}`,
           personId: sub.fatherId,
-          at: 'الآن',
+          at: stamp(),
         },
         ...s.log,
       ],
@@ -566,7 +626,9 @@ export function sendBack(
       ...s,
       // Rejected people leave the tree; ones sent back for changes wait off it.
       people: s.people.filter((p) => !sub.personIds.includes(p.id) || status === 'changes'),
-      submissions: s.submissions.map((x) => (x.id === submissionId ? { ...x, status, note } : x)),
+      submissions: s.submissions.map((x) =>
+        x.id === submissionId ? { ...x, status, note, reviewedBy: by } : x,
+      ),
       log: [
         {
           id: newId('l'),
@@ -577,7 +639,7 @@ export function sendBack(
               ? `رفض إضافة ${sub.contributor}: ${note}`
               : `طلب تعديلًا من ${sub.contributor}`,
           personId: sub.fatherId,
-          at: 'الآن',
+          at: stamp(),
         },
         ...s.log,
       ],
@@ -587,7 +649,20 @@ export function sendBack(
 
 // ---------- The tree file ----------
 
-/** The tree as the family's file holds it: names and relations only, no app settings. */
+/** Whether a submission is the acting person's own. */
+export const isMine = (s: DemoState, x: Submission) =>
+  live ? x.by === live.userId : x.contributor === actingName(s);
+
+/** How many names the tree holds against its plan, buds included. */
+export const usedNames = (s: DemoState) => lineage(s.people, s.tree.rootId).length;
+
+/** Whether `n` more names still fit the plan. */
+export const fitsPlan = (s: DemoState, n = 1) => usedNames(s) + n <= planLimits(s).maxPersons;
+
+/**
+ * The tree as the family's file holds it: names and relations only, no app settings. Unsent
+ * drafts stay on the device until they are sent.
+ */
 export function toTreeFile(s: DemoState): TreeFile {
   return {
     format: 'sulalah-tree',
@@ -599,9 +674,15 @@ export function toTreeFile(s: DemoState): TreeFile {
       rootId: s.tree.rootId,
       ancestors: s.tree.ancestors,
     },
-    people: s.people,
+    people: s.drafts.length ? s.people.filter((p) => !s.drafts.includes(p.id)) : s.people,
     unions: s.tree.unions,
     submissions: s.submissions,
+    settings: {
+      showDaughtersToVisitors: s.settings.showDaughtersToVisitors,
+      showDeceased: s.settings.showDeceased,
+      showBirthYears: s.settings.showBirthYears,
+    },
+    log: s.log.slice(0, LOG_LIMIT),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -634,8 +715,8 @@ export function replaceTree(tree: Omit<TreeInfo, 'unions'>, people: TreeFilePers
   }));
 }
 
-function logEntry(action: Action, text: string): LogEntry {
-  return { id: newId('log'), who: myName(load()), action, text, at: 'الآن' };
+export function logEntry(action: Action, text: string, personId?: string): LogEntry {
+  return { id: newId('log'), who: actingName(load()), action, text, personId, at: stamp() };
 }
 
 // ---------- Who is acting ----------

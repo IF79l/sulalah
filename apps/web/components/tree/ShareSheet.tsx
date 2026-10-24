@@ -3,56 +3,133 @@
 import { Button, Icon, IconButton, Segmented, Sheet, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useState } from 'react';
+import { makeLink } from '@/lib/collab-cloud';
 import {
   currentTreeId,
   childrenOf,
+  liveTree,
+  logEntry,
   newId,
   update,
   useDemo,
 } from '@/lib/demo-store';
+import { republishView } from '@/lib/live-tree';
 
-type Kind = 'contribute' | 'view';
+type Kind = 'contribute' | 'view' | 'review';
 const days = { day: 1, week: 7, month: 30 } as const;
 
-/** S21: make a contribution or view link and send it to the family group. */
-export function ShareSheet({ onClose, onCopied }: { onClose: () => void; onCopied: (t: string) => void }) {
+const kinds = [
+  [
+    'contribute',
+    'group_add',
+    'رابط مساهمة',
+    'يدخل القريب برقم جواله، يختار غصنه، ويضيف أبناءه وأحفاده. إضافاته تنتظر اعتمادك.',
+  ],
+  [
+    'view',
+    'visibility',
+    'رابط مشاهدة',
+    'للتصفح فقط بدون تسجيل دخول، ويلتزم بإعدادات الخصوصية.',
+  ],
+  [
+    'review',
+    'verified_user',
+    'رابط مدقق',
+    'من يدخل به يصير مدققًا يعتمد الإضافات في النطاق اللي تحدده، ويأخذ مقعدًا من باقتك.',
+  ],
+] as const;
+
+/** S21: make a contribution, view or reviewer link and send it to the family group. */
+export function ShareSheet({
+  onClose,
+  onCopied,
+  only,
+}: {
+  onClose: () => void;
+  onCopied: (t: string) => void;
+  /** Offer just these kinds; the reviewers page asks for reviewer links only. */
+  only?: Kind[];
+}) {
   const s = useDemo();
-  const [kind, setKind] = useState<Kind | null>(null);
+  const offered = kinds.filter(([k]) => (only ? only.includes(k) : k !== 'review'));
+  const [kind, setKind] = useState<Kind | null>(offered.length === 1 ? offered[0]![0] : null);
   const [expiry, setExpiry] = useState<keyof typeof days>('week');
-  const [uses, setUses] = useState<'10' | '50' | 'open'>('50');
+  const [uses, setUses] = useState<'1' | '10' | '50' | 'open'>(only?.includes('review') ? '1' : '50');
   const [scope, setScope] = useState<string>('all');
-  const [made, setMade] = useState<string | null>(null);
+  const [link, setLink] = useState<string | null>(null);
+  const [making, setMaking] = useState(false);
+  const [error, setError] = useState<string>();
 
   const branches = childrenOf(s.people, s.tree.rootId).filter((p) => p.gender === 'male');
-  const link = made ? `https://sulalah.app/i/${made.slice(-6)}` : '';
   const message =
     kind === 'view'
       ? `هذي ${s.tree.title}، تقدرون تتصفحونها من هنا: ${link}`
-      : `حيّاكم تساهمون في ${s.tree.title}، اختار غصنك وأضف أبناءك: ${link}`;
+      : kind === 'review'
+        ? `أبيك مدققًا معي في ${s.tree.title}، تعتمد إضافات العائلة: ${link}`
+        : `حيّاكم تساهمون في ${s.tree.title}، اختار غصنك وأضف أبناءك: ${link}`;
 
-  const make = () => {
-    const id = newId('inv');
-    update((st) => ({
-      ...st,
-      invites: [
-        {
-          id,
-          kind: kind!,
-          scope,
-          used: 0,
-          maxUses: uses === 'open' ? undefined : Number(uses),
-          expiresInDays: days[expiry],
-          status: 'active',
-        },
-        ...st.invites,
-      ],
-    }));
-    setMade(id);
+  const make = async () => {
+    if (!kind) return;
+    const maxUses = uses === 'open' || kind === 'view' ? undefined : Number(uses);
+    const live = liveTree();
+    if (!live) {
+      const id = newId('inv');
+      update((st) => ({
+        ...st,
+        invites: [
+          { id, kind, scope, used: 0, maxUses, expiresInDays: days[expiry], status: 'active' },
+          ...st.invites,
+        ],
+      }));
+      setLink(`https://sulalah.app/i/${id.slice(-6)}`);
+      return;
+    }
+    setMaking(true);
+    setError(undefined);
+    try {
+      const made = await makeLink(live.treeId, s.treeKey!, {
+        kind,
+        branch: scope === 'all' || kind === 'view' ? null : scope,
+        maxUses,
+        days: days[expiry],
+      });
+      // A view link opens the tree to visitors; their copy has to exist before the link works.
+      if (kind === 'view') await republishView();
+      update((st) => ({
+        ...st,
+        settings: kind === 'view' ? { ...st.settings, viewers: 'link' } : st.settings,
+        invites: [
+          {
+            id: made.id,
+            kind,
+            scope,
+            used: 0,
+            maxUses,
+            expiresInDays: days[expiry],
+            status: 'active',
+            url: made.url,
+          },
+          ...st.invites,
+        ],
+        log: [
+          logEntry(
+            'invite',
+            kind === 'view' ? 'أنشأ رابط مشاهدة' : kind === 'review' ? 'أنشأ رابط مدقق' : 'أنشأ رابط مساهمة',
+          ),
+          ...st.log,
+        ],
+      }));
+      setLink(made.url ?? null);
+    } catch {
+      setError('ما قدرنا ننشئ الرابط، تأكد من اتصالك وحاول مرة ثانية');
+    } finally {
+      setMaking(false);
+    }
   };
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(link ?? '');
       onCopied('نسخنا الرابط');
     } catch {
       onCopied('تعذّر النسخ، انسخه يدويًا');
@@ -72,15 +149,10 @@ export function ShareSheet({ onClose, onCopied }: { onClose: () => void; onCopie
       </div>
 
       <div className="grid gap-4 overflow-y-auto p-5">
-        {!made ? (
+        {!link ? (
           <>
             <div className="grid gap-2.5" role="radiogroup" aria-label="نوع الرابط">
-              {(
-                [
-                  ['contribute', 'group_add', 'رابط مساهمة', 'يدخل القريب برقم جواله، يختار غصنه، ويضيف أبناءه وأحفاده. إضافاته تنتظر اعتمادك.'],
-                  ['view', 'visibility', 'رابط مشاهدة', 'للتصفح فقط بدون تسجيل دخول، ويلتزم بإعدادات الخصوصية.'],
-                ] as const
-              ).map(([k, icon, title, body]) => (
+              {offered.map(([k, icon, title, body]) => (
                 <button
                   key={k}
                   type="button"
@@ -118,7 +190,7 @@ export function ShareSheet({ onClose, onCopied }: { onClose: () => void; onCopie
                     ]}
                   />
                 </div>
-                {kind === 'contribute' ? (
+                {kind !== 'view' ? (
                   <>
                     <div className="grid gap-1.5">
                       <span className="text-caption font-semibold text-ink">عدد مرات الاستخدام</span>
@@ -126,15 +198,24 @@ export function ShareSheet({ onClose, onCopied }: { onClose: () => void; onCopie
                         label="عدد مرات الاستخدام"
                         value={uses}
                         onChange={setUses}
-                        options={[
-                          { value: '10', label: '10' },
-                          { value: '50', label: '50' },
-                          { value: 'open', label: 'بلا حد' },
-                        ]}
+                        options={
+                          kind === 'review'
+                            ? [
+                                { value: '1', label: 'شخص واحد' },
+                                { value: '10', label: '10' },
+                              ]
+                            : [
+                                { value: '10', label: '10' },
+                                { value: '50', label: '50' },
+                                { value: 'open', label: 'بلا حد' },
+                              ]
+                        }
                       />
                     </div>
                     <label className="grid gap-1.5">
-                      <span className="text-caption font-semibold text-ink">النطاق</span>
+                      <span className="text-caption font-semibold text-ink">
+                        {kind === 'review' ? 'يراجع' : 'النطاق'}
+                      </span>
                       <select
                         value={scope}
                         onChange={(e) => setScope(e.target.value)}
@@ -150,9 +231,17 @@ export function ShareSheet({ onClose, onCopied }: { onClose: () => void; onCopie
                     </label>
                   </>
                 ) : null}
-                <Button className="mt-1 rounded-xl" onClick={make}>
+                {kind === 'view' && s.settings.viewers === 'members' ? (
+                  <p className="flex items-start gap-2 text-caption leading-relaxed text-muted">
+                    <Icon name="info" className="mt-0.5 text-[1rem]" />
+                    الشجرة الآن لأهلها فقط. إنشاء الرابط يفتحها لمن معه رابط مشاهدة، وتقدر تقفلها
+                    من الإعدادات متى ما بغيت.
+                  </p>
+                ) : null}
+                {error ? <p className="text-caption text-danger">{error}</p> : null}
+                <Button className="mt-1 rounded-xl" disabled={making} onClick={make}>
                   <Icon name="link" />
-                  أنشئ الرابط
+                  {making ? 'ننشئ الرابط…' : 'أنشئ الرابط'}
                 </Button>
               </div>
             ) : null}

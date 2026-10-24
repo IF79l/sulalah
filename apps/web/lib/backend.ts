@@ -25,3 +25,4 @@ export const safeNext = (next: string | undefined, fallback = '/trees') =>
   next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\')
     ? next
     : fallback;
+export const VIEW_BUCKET = 'tree-views';

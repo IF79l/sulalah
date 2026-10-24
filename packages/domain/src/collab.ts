@@ -77,7 +77,7 @@ export async function viewKeyFor(key: string, treeId: string): Promise<string> {
 
 /**
  * What a visitor may see, following the tree's settings: approved people only, daughters as
- * "ابنة" unless shown, the departed without children left out if hidden, and nothing about
+ * "ابنة" and wives as "زوجة" unless shown, the departed without children left out if hidden, and nothing about
  * who added or reviewed whom.
  */
 export function visitorsCopy(file: TreeFile): TreeFile {
@@ -90,7 +90,8 @@ export function visitorsCopy(file: TreeFile): TreeFile {
       const hideName = p.gender === 'female' && !settings.showDaughtersToVisitors;
       return {
         id: p.id,
-        name: hideName ? 'ابنة' : p.name,
+        // A wife has no father in the tree; she is hidden the same way as the daughters.
+        name: hideName ? (p.fatherId ? 'ابنة' : 'زوجة') : p.name,
         gender: p.gender,
         fatherId: p.fatherId,
         status: 'approved',

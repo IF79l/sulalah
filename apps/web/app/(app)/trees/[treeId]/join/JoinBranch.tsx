@@ -4,15 +4,20 @@ import { Button, Icon, Logo, Medallion, Segmented, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { setMyBranch } from '@/lib/collab-cloud';
 import {
   currentTreeId,
   byId,
   childrenOf,
   fold,
+  inBranch,
   lineage,
+  liveTree,
   nasab,
+  newId,
   num,
   pathTo,
+  stamp,
   update,
   useDemo,
 } from '@/lib/demo-store';
@@ -23,22 +28,65 @@ export function JoinBranch() {
   const router = useRouter();
   const [how, setHow] = useState<'search' | 'browse'>('search');
   const [q, setQ] = useState('');
-  const [trail, setTrail] = useState<string[]>([s.tree.rootId]);
+  // On a real tree, a link for one branch keeps the choice inside that branch.
+  const [limit] = useState(() => (liveTree() ? s.myBranch : undefined));
+  const [trail, setTrail] = useState<string[]>(() =>
+    limit ? pathTo(s.people, limit).map((p) => p.id) : [s.tree.rootId],
+  );
   const [picked, setPicked] = useState<string | null>(null);
   const [who, setWho] = useState<'me' | 'father'>('me');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>();
 
   const m = byId(s.people);
-  const men = lineage(s.people, s.tree.rootId).filter((p) => p.gender === 'male' && p.status === 'approved');
+  const men = lineage(s.people, s.tree.rootId).filter(
+    (p) =>
+      p.gender === 'male' &&
+      p.status === 'approved' &&
+      (!limit || inBranch(s.people, p.id, limit)),
+  );
   const hits = fold(q) ? men.filter((p) => fold(nasab(pathTo(s.people, p.id))).includes(fold(q))).slice(0, 8) : [];
   const here = trail.at(-1)!;
   const sons = childrenOf(s.people, here).filter((p) => p.gender === 'male' && p.status === 'approved');
   const person = picked ? m.get(picked) : undefined;
   const me = s.me.first;
 
-  const confirm = () => {
+  const confirm = async () => {
     if (!person) return;
-    update((st) => ({ ...st, myBranch: person.id }));
-    router.push(`/trees/${currentTreeId()}?as=contribute`);
+    const live = liveTree();
+    if (live) {
+      setSaving(true);
+      try {
+        await setMyBranch(live.treeId, person.id);
+      } catch {
+        setSaving(false);
+        setError('ما قدرنا نحفظ اختيارك، حاول مرة ثانية');
+        return;
+      }
+    }
+    update((st) => {
+      if (who !== 'father') return { ...st, myBranch: person.id };
+      // "This is my father, and I am not in the tree": start with yourself as a draft.
+      const id = newId('p');
+      return {
+        ...st,
+        myBranch: person.id,
+        people: [
+          ...st.people,
+          {
+            id,
+            name: st.me.first || 'أنا',
+            gender: 'male',
+            fatherId: person.id,
+            status: 'proposed',
+            addedBy: `${st.me.first} بن ${person.name}`,
+            addedAt: stamp(),
+          },
+        ],
+        drafts: [...st.drafts, id],
+      };
+    });
+    router.push(live ? `/trees/${live.treeId}` : `/trees/${currentTreeId()}?as=contribute`);
   };
 
   const Row = ({ id, onClick, chevron }: { id: string; onClick: () => void; chevron?: boolean }) => {
@@ -118,6 +166,7 @@ export function JoinBranch() {
                   {i > 0 ? <Icon name="chevron_left" className="text-[1rem] text-gold" /> : null}
                   <button
                     type="button"
+                    disabled={!!limit && i < trail.indexOf(limit)}
                     onClick={() => setTrail(trail.slice(0, i + 1))}
                     className={cn('rounded-full px-2 py-0.5 font-semibold', i === trail.length - 1 ? 'bg-olive-soft text-on-olive-soft' : 'text-forest hover:bg-surface')}
                   >
@@ -169,9 +218,10 @@ export function JoinBranch() {
             <p className="rounded-xl bg-surface-low px-3 py-2.5 text-body text-ink">
               أنا <strong className="text-forest">{who === 'me' ? nasab(pathTo(s.people, person.id)) : `${me} بن ${nasab(pathTo(s.people, person.id))}`}</strong>
             </p>
-            <Button className="rounded-xl" onClick={confirm}>
+            {error ? <p className="text-caption text-danger">{error}</p> : null}
+            <Button className="rounded-xl" disabled={saving} onClick={confirm}>
               <Icon name="check" />
-              تأكيد
+              {saving ? 'نحفظ…' : 'تأكيد'}
             </Button>
             <p className="text-center text-caption text-muted">تقدر تضيف داخل غصنك فقط. المالك يراجع اختيارك.</p>
           </div>
