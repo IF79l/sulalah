@@ -92,6 +92,11 @@ export function ProtectTree({ treeId, treeKey }: { treeId: string; treeKey: stri
             />
             {state === 'working' ? 'لحظة…' : hasPasskey ? 'أكّد ببصمتك' : 'فعّل البصمة'}
           </Button>
+          {!hasPasskey ? (
+            <p className="text-caption text-muted">
+              جهازك بيطلب منك تحفظ البصمة. هذي مرة وحدة بس، وبعدها يكفيك وجهك أو بصمتك.
+            </p>
+          ) : null}
           {state === 'retry' ? (
             <p role="alert" className="text-caption text-danger">
               ما اكتملت. حاول مرة ثانية، أو احفظ رمز الاسترجاع.
