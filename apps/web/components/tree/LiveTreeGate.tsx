@@ -1,34 +1,33 @@
 'use client';
 
-import { TreeFileError, keyFromRecoveryCode } from '@sulalah/domain';
-import { Button, Field, Icon, buttonClass, cn } from '@sulalah/ui';
+import { Button, Icon, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NoAccess, Sprouting, StatePage } from '@/components/States';
+import { appEnv } from '@/lib/backend';
 import { closeLive, liveTree, openLive } from '@/lib/demo-store';
 import { retrySave, startSaving, stopSaving, unsaved, useSaveStatus } from '@/lib/live-tree';
 import { supabase } from '@/lib/supabase/client';
 import { loadTreeFile } from '@/lib/tree-cloud';
-import { deviceKey, keepKey } from '@/lib/tree-keys';
+import { treeKey } from '@/lib/tree-keys';
 
-type Phase = 'loading' | 'locked' | 'no-access' | 'empty' | 'failed' | 'ready';
+type Phase = 'loading' | 'no-access' | 'empty' | 'no-key' | 'failed' | 'ready';
 
 /**
- * Opens a real tree for every page under /trees/[id]: checks the membership, finds this
- * device's key (or asks for the recovery code), opens the sealed file into the store, and
- * keeps it saved while the person works.
+ * Opens a real tree for every page under /trees/[id]: checks the membership, gets the tree's
+ * key from the server, opens the sealed file into the store, and keeps it saved while the
+ * person works.
  */
 export function LiveTreeGate({ treeId, children }: { treeId: string; children: ReactNode }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>(() =>
     liveTree()?.treeId === treeId ? 'ready' : 'loading',
   );
-  const [code, setCode] = useState('');
-  const [codeError, setCodeError] = useState<string>();
-  const [opening, setOpening] = useState(false);
+  /** What went wrong, shown on the staging copy so a failure can be told apart. */
+  const [why, setWhy] = useState<string>();
 
-  const open = async (typedKey?: string) => {
+  const open = async () => {
     const db = supabase();
     const {
       data: { user },
@@ -47,15 +46,18 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       db.from('trees').select('plan').eq('id', treeId).maybeSingle(),
       db.from('profiles').select('first_name, father_name, notify').eq('id', user.id).maybeSingle(),
     ]);
-    if (member.error || tree.error) return setPhase('failed');
+    if (member.error || tree.error) {
+      setWhy((member.error ?? tree.error)?.code);
+      return setPhase('failed');
+    }
     if (!member.data || !tree.data) return setPhase('no-access');
 
-    const key = typedKey ?? deviceKey(treeId);
-    if (!key) return setPhase('locked');
     try {
+      const key = await treeKey(treeId);
+      // Planted before the platform kept keys: nothing can open it.
+      if (!key) return setPhase('no-key');
       const loaded = await loadTreeFile(treeId, key);
       if (!loaded) return setPhase('empty');
-      if (typedKey) keepKey(treeId, typedKey);
       openLive(
         {
           treeId,
@@ -76,10 +78,9 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       startSaving(treeId, key, loaded.version, loaded.file);
       setPhase('ready');
     } catch (e) {
-      if (e instanceof TreeFileError && e.code === 'wrong-key') {
-        setCodeError(typedKey ? 'هذا الرمز ما يفتح هذه الشجرة' : undefined);
-        setPhase('locked');
-      } else setPhase('failed');
+      const err = e as { code?: string; message?: string };
+      setWhy([err.code, err.message].filter(Boolean).join(': '));
+      setPhase('failed');
     }
   };
 
@@ -107,7 +108,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       <StatePage
         icon="cloud_off"
         title="ما قدرنا نفتح الشجرة"
-        body="تأكد من اتصالك وحاول مرة ثانية."
+        body={`تأكد من اتصالك وحاول مرة ثانية.${appEnv === 'staging' && why ? ` (${why})` : ''}`}
         action={
           <Button
             onClick={() => {
@@ -117,6 +118,19 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
           >
             حاول مرة ثانية
           </Button>
+        }
+      />
+    );
+  if (phase === 'no-key')
+    return (
+      <StatePage
+        icon="park"
+        title="هذي شجرة تجريبية قديمة"
+        body="زُرعت قبل التحديث الأخير، فما تنفتح. ازرع شجرة جديدة."
+        action={
+          <Link href="/trees/new" className={buttonClass('primary')}>
+            ازرع شجرة
+          </Link>
         }
       />
     );
@@ -130,49 +144,6 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
           <Link href="/trees/new" className={buttonClass('primary')}>
             ازرع شجرة
           </Link>
-        }
-      />
-    );
-  if (phase === 'locked')
-    return (
-      <StatePage
-        icon="key"
-        title="افتح الشجرة على هذا الجهاز"
-        body="أسماء العائلة مشفّرة، ومفتاحها عند العائلة فقط. اكتب رمز الاسترجاع اللي حفظه مالك الشجرة، أو افتح رابط الدعوة اللي وصلك."
-        action={
-          <form
-            className="grid w-full max-w-sm gap-3 text-start"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              let key: string;
-              try {
-                key = keyFromRecoveryCode(code);
-              } catch {
-                setCodeError('الرمز 52 حرفًا ورقمًا، تأكد منه');
-                return;
-              }
-              setOpening(true);
-              await open(key);
-              setOpening(false);
-            }}
-          >
-            <Field
-              label="رمز الاسترجاع"
-              dir="ltr"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              error={codeError}
-              placeholder="XXXX-XXXX-…"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <Button type="submit" disabled={opening || !code.trim()}>
-              {opening ? 'نفتح الشجرة…' : 'افتح الشجرة'}
-            </Button>
-            <Link href="/trees" className={cn(buttonClass('ghost'), 'justify-self-center')}>
-              ارجع لأشجاري
-            </Link>
-          </form>
         }
       />
     );

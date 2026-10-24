@@ -110,6 +110,8 @@ export type Database = {
         Returns: number;
       };
       accept_invite: { Args: { token: string }; Returns: string };
+      tree_key: { Args: { tree: string }; Returns: string | null };
+      set_tree_key: { Args: { tree: string; new_key: string }; Returns: undefined };
       invite_preview: {
         Args: { token: string };
         Returns: { kind: InviteKind; inviter: string; valid: boolean }[];

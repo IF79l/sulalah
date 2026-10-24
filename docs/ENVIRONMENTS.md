@@ -42,20 +42,15 @@
 - Environments: أنشئ `staging` و `production`، وفي كل منهما secret باسم `SUPABASE_DB_PASSWORD` (كلمة مرور قاعدة ذلك المشروع). في `production` فعّل **Required reviewers** وضع فيصل.
 - في `staging` أيضًا: `STAGING_DEMO_OTP` (رمز رقم الاختبار) واختياريًا `STAGING_DEMO_TREE_KEY`.
 
-لزرع العائلة التجريبية: **Actions > Database > Run workflow** مع خيار "Plant the sample family on staging". يطبع رمز الاسترجاع لفتح الشجرة.
+لزرع العائلة التجريبية: **Actions > Database > Run workflow** مع خيار "Plant the sample family on staging". تفتحها بعدها بالدخول برقم التجربة.
 
 ### Vercel
 
 1. استورد الريبو، و **Root Directory** = `apps/web`.
-2. **Settings > Environment Variables**:
-
-| المتغير                                | Production         | Preview            |
-| -------------------------------------- | ------------------ | ------------------ |
-| `NEXT_PUBLIC_APP_ENV`                  | `production`       | `staging`          |
-| `NEXT_PUBLIC_SUPABASE_URL`             | رابط مشروع الإنتاج | رابط مشروع التجربة |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | مفتاح الإنتاج      | مفتاح التجربة      |
-
-3. في Supabase لكل مشروع: **Authentication > URL Configuration**، أضف رابط موقعه (الإنتاج: الدومين؛ التجربة: `https://*-<team>.vercel.app`).
+2. اربط Supabase من **Integrations** (يضيف مفاتيحه لكل البيئات، ولا بأس).
+3. أضف `NEXT_PUBLIC_APP_ENV` = `staging` لبيئة **Preview** فقط. التطبيق لا يشغّل الحسابات والأشجار الحقيقية إلا إذا وجد هذا المتغير، فالإنتاج يبقى نسخة تجريبية في المتصفح حتى لو وصلته المفاتيح، إلى أن نضع له `production` بعد قرار الاستضافة.
+4. المفاتيح السرية (`SUPABASE_SERVICE_ROLE_KEY` و `SUPABASE_SECRET_KEY` و `POSTGRES_*`) لا يستخدمها التطبيق، ولا تصل للمتصفح لأن Next.js لا يكشف إلا ما يبدأ بـ `NEXT_PUBLIC_`.
+5. في Supabase: **Authentication > URL Configuration**، أضف رابط المعاينات `https://*-khuto.vercel.app`.
 
 ## محليًا
 

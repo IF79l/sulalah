@@ -59,13 +59,13 @@ export type TreeFilePerson = z.infer<typeof personSchema>;
 
 const subtle = () => globalThis.crypto.subtle;
 
-function toB64url(bytes: Uint8Array) {
+export function toB64url(bytes: Uint8Array) {
   let s = '';
   bytes.forEach((b) => (s += String.fromCharCode(b)));
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function fromB64url(text: string) {
+export function fromB64url(text: string) {
   const s = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
   return Uint8Array.from(s, (c) => c.charCodeAt(0));
 }

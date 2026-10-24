@@ -201,3 +201,30 @@ delete from public.trees;
 select tests.ok((select count(*) from public.trees) = 0, 'the owner deletes the tree');
 reset role;
 select tests.ok((select count(*) from public.tree_members) = 0, 'deleting a tree removes its members');
+
+-- ---------- Tree keys ----------
+
+reset role;
+set role authenticated;
+select tests.as_user('amal');
+insert into tests.vars values ('tree2', public.create_tree()::text);
+select public.set_tree_key(v::uuid, repeat('k', 43)) from tests.vars where k = 'tree2';
+select tests.ok(public.tree_key(v::uuid) = repeat('k', 43), 'the owner gets the tree key back')
+  from tests.vars where k = 'tree2';
+select tests.fails(format($$ select public.set_tree_key(%L, %L) $$, v, repeat('x', 43)),
+  'a tree key is set once', 'already set') from tests.vars where k = 'tree2';
+select tests.fails($$ select key from public.tree_keys $$, 'nobody reads the keys table directly');
+
+reset role;
+insert into public.tree_members (tree_id, user_id, role)
+select v::uuid, '00000000-0000-4000-8000-00000000000c', 'contributor' from tests.vars where k = 'tree2';
+set role authenticated;
+select tests.as_user('chadi');
+select tests.ok(public.tree_key(v::uuid) = repeat('k', 43), 'a contributor gets the key after signing in')
+  from tests.vars where k = 'tree2';
+
+select tests.as_user('dana');
+select tests.fails(format($$ select public.tree_key(%L) $$, v), 'a stranger gets no key', 'not a member')
+  from tests.vars where k = 'tree2';
+select tests.fails(format($$ select public.set_tree_key(%L, %L) $$, v, repeat('x', 43)),
+  'a stranger cannot set a key', 'not allowed') from tests.vars where k = 'tree2';

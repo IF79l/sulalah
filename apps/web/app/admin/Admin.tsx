@@ -275,8 +275,9 @@ export function Admin({ live }: { live: boolean }) {
       >
         <p className="mb-5 flex items-start gap-2 rounded-xl border border-line/40 bg-card px-4 py-3 text-caption leading-relaxed text-ink-soft">
           <Icon name="encrypted" className="mt-0.5 text-[1.1rem] text-olive" />
-          هذي اللوحة تعرض اللي في قاعدة البيانات فقط. أسماء الأشجار ومن فيها مشفّرة عند العوائل، فما
-          تظهر هنا ولا تقدر تفتحها. البطاقات يحفظها مزود الدفع، ونحن نرى آخر أربعة أرقام فقط.
+          هذي اللوحة تعرض اللي في قاعدة البيانات فقط. أسماء الأشجار ومن فيها في ملفات مشفّرة، فما
+          تظهر هنا، وما تنفتح إلا بطلب من مالك الشجرة لاسترجاعها. البطاقات يحفظها مزود الدفع، ونحن
+          نرى آخر أربعة أرقام فقط.
         </p>
         {error ? <p className="mb-5 text-body text-danger">{error}</p> : null}
         <Tabs

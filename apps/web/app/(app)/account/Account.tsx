@@ -8,6 +8,7 @@ import { AppShell, Panel, Toast } from '@/components/AppShell';
 import { TREE_ID, closeLive, update, useDemo } from '@/lib/demo-store';
 import { stopSaving } from '@/lib/live-tree';
 import { supabase } from '@/lib/supabase/client';
+import { forgetKeys } from '@/lib/tree-keys';
 
 /** S23: my name, my number, my trees, and leaving. */
 export function Account({ live }: { live?: boolean }) {
@@ -142,6 +143,7 @@ export function Account({ live }: { live?: boolean }) {
               if (live) {
                 stopSaving();
                 closeLive();
+                forgetKeys();
                 await supabase().auth.signOut();
               }
               router.replace('/');
