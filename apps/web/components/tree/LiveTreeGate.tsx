@@ -61,12 +61,16 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
     if (member.error || tree.error) return setPhase('failed');
     if (!member.data || !tree.data) return setPhase('no-access');
 
+    // Only the owner keeps the tree key behind a passkey; everyone else opens their invite link.
+    const owner = member.data.role === 'owner';
     const key = typedKey ?? deviceKey(treeId);
     if (!key) {
-      const [mine] = await Promise.all([
-        sealedTreeKey(treeId).catch(() => undefined),
-        loadKeyring().catch(() => undefined),
-      ]);
+      const [mine] = owner
+        ? await Promise.all([
+            sealedTreeKey(treeId).catch(() => undefined),
+            loadKeyring().catch(() => undefined),
+          ])
+        : [];
       setSealed(passkeysPossible() ? mine : undefined);
       return setPhase('locked');
     }
@@ -94,7 +98,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       startSaving(treeId, key, loaded.version, loaded.file);
       setPhase('ready');
       // Opened with a code or this device's copy: keep one for the passkey too, if it is open.
-      if (hasOpenAccount())
+      if (owner && hasOpenAccount())
         void sealedTreeKey(treeId).then((s) => (s ? undefined : sealTreeKeyForMe(treeId, key)));
     } catch (e) {
       if (e instanceof TreeFileError && e.code === 'wrong-key') {
