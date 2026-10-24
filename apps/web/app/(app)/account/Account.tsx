@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { AppShell, Panel, Toast } from '@/components/AppShell';
 import { TREE_ID, closeLive, update, useDemo } from '@/lib/demo-store';
 import { stopSaving } from '@/lib/live-tree';
+import { closeKeyring } from '@/lib/passkey';
 import { supabase } from '@/lib/supabase/client';
 
 /** S23: my name, my number, my trees, and leaving. */
@@ -142,6 +143,7 @@ export function Account({ live }: { live?: boolean }) {
               if (live) {
                 stopSaving();
                 closeLive();
+                closeKeyring();
                 await supabase().auth.signOut();
               }
               router.replace('/');
