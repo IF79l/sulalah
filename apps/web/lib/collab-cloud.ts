@@ -54,11 +54,9 @@ export interface Link {
 
 const tokenContext = (treeId: string) => `invite-token:${treeId}`;
 
-async function linkUrl(treeId: string, key: string, kind: InviteKind, token: string) {
-  const origin = window.location.origin;
-  return kind === 'view'
-    ? `${origin}/view/${token}#${await viewKeyFor(key, treeId)}`
-    : `${origin}/invite/${token}#${key}`;
+/** Links are plain tokens: whoever opens one signs in by phone, or gets the visitors' copy. */
+function linkUrl(kind: InviteKind, token: string) {
+  return `${window.location.origin}/${kind === 'view' ? 'view' : 'invite'}/${token}`;
 }
 
 export async function listLinks(treeId: string, key: string): Promise<Link[]> {
@@ -74,7 +72,7 @@ export async function listLinks(treeId: string, key: string): Promise<Link[]> {
       let url: string | undefined;
       if (r.token_sealed)
         try {
-          url = await linkUrl(treeId, key, r.kind, await openText(r.token_sealed, key, tokenContext(treeId)));
+          url = linkUrl(r.kind, await openText(r.token_sealed, key, tokenContext(treeId)));
         } catch {
           url = undefined;
         }
@@ -139,7 +137,7 @@ export async function makeLink(
     maxUses: opts.maxUses,
     expiresAt,
     status: 'active',
-    url: await linkUrl(treeId, key, opts.kind, token),
+    url: linkUrl(opts.kind, token),
   };
 }
 
@@ -485,12 +483,13 @@ export async function publishView(treeId: string, key: string, file: TreeFile, v
   if (!slug) return;
   const db = supabase();
   const path = `${treeId}/${slug}/v${version}.json`;
-  const sealed = JSON.stringify(await sealTree(visitorsCopy(file), await viewKeyFor(key, treeId)));
+  const viewKey = await viewKeyFor(key, treeId);
+  const sealed = JSON.stringify(await sealTree(visitorsCopy(file), viewKey));
   const { error } = await db.storage
     .from(VIEW_BUCKET)
     .upload(path, sealed, { contentType: 'application/json', upsert: false, cacheControl: '60' });
   if (error && !/exist|duplicate|409/i.test(error.message)) throw error;
-  const { error: e2 } = await db.rpc('publish_view', { tree: treeId, path });
+  const { error: e2 } = await db.rpc('publish_view', { tree: treeId, path, copy_key: viewKey });
   if (e2) throw e2;
   const old = (await listAll(VIEW_BUCKET, treeId)).filter((p) => p !== path);
   if (old.length) await removeAll(VIEW_BUCKET, old);
@@ -499,19 +498,17 @@ export async function publishView(treeId: string, key: string, file: TreeFile, v
 export type ViewProblem = 'stopped' | 'expired' | 'used-up' | 'closed' | 'not-ready' | 'missing' | 'wrong-key';
 
 /** What a visitor with a view link gets: the filtered copy, or why not. */
-export async function openViewLink(
-  token: string,
-  viewKey: string,
-): Promise<{ file: TreeFile } | { problem: ViewProblem }> {
+export async function openViewLink(token: string): Promise<{ file: TreeFile } | { problem: ViewProblem }> {
   const { data, error } = await supabase().rpc('open_view', { token });
   if (error) throw error;
   const row = data?.[0];
   if (!row) return { problem: 'missing' };
-  if (row.problem || !row.path) return { problem: (row.problem ?? 'not-ready') as ViewProblem };
+  if (row.problem || !row.path || !row.view_key)
+    return { problem: (row.problem ?? 'not-ready') as ViewProblem };
   const res = await fetch(`${supabaseUrl}/storage/v1/object/public/${VIEW_BUCKET}/${row.path}`);
   if (!res.ok) return { problem: 'not-ready' };
   try {
-    return { file: await openTree(await res.json(), viewKey) };
+    return { file: await openTree(await res.json(), row.view_key) };
   } catch {
     return { problem: 'wrong-key' };
   }

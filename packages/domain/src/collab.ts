@@ -62,8 +62,9 @@ export async function openText(sealed: string, key: string, context: string): Pr
 // ---------- The visitors' copy ----------
 
 /**
- * The key visitors get in a view link. It is derived from the tree key, so every owner and
- * reviewer can make it, but nobody can get from it back to the tree key.
+ * The key the visitors' copy is sealed with. It is derived from the tree key, so every owner
+ * and reviewer seals with the same one; the server hands it to view links, and nobody can get
+ * from it back to the tree key.
  */
 export async function viewKeyFor(key: string, treeId: string): Promise<string> {
   const base = await subtle().importKey('raw', fromB64url(key), 'HKDF', false, ['deriveBits']);

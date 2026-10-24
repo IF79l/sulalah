@@ -33,3 +33,8 @@ export function keepKey(treeId: string, key: string) {
 export function forgetKeys() {
   known.clear();
 }
+
+/** Forgets one tree's key, when the person leaves it or it is deleted. */
+export function forgetKey(treeId: string) {
+  known.delete(treeId);
+}

@@ -174,13 +174,17 @@ export type Database = {
       };
       open_view: {
         Args: { token: string };
-        Returns: { problem: InviteProblem | 'closed' | 'not-ready' | null; path: string | null }[];
+        Returns: {
+          problem: InviteProblem | 'closed' | 'not-ready' | null;
+          path: string | null;
+          view_key: string | null;
+        }[];
       };
       set_view_open: {
         Args: { tree: string; open: boolean; fresh?: boolean };
         Returns: string | null;
       };
-      publish_view: { Args: { tree: string; path: string }; Returns: undefined };
+      publish_view: { Args: { tree: string; path: string; copy_key: string }; Returns: undefined };
       set_member_role: {
         Args: { tree: string; member: string; new_role: TreeRole; scope?: string[] };
         Returns: undefined;

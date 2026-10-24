@@ -7,9 +7,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { acceptInvite, myUserId, previewInvite } from '@/lib/collab-cloud';
 import { generations, lineage, num, useDemo } from '@/lib/demo-store';
-import { keepKey } from '@/lib/tree-keys';
 
-type Problem = 'expired' | 'used-up' | 'full' | 'stopped' | 'missing' | 'no-key' | 'failed';
+type Problem = 'expired' | 'used-up' | 'full' | 'stopped' | 'missing' | 'failed';
 
 const problems = (from: string): Record<Problem, [string, string, string]> => ({
   expired: ['timer_off', 'انتهت صلاحية هذا الرابط', `اطلب رابطًا جديدًا من ${from} في قروب العائلة.`],
@@ -25,11 +24,6 @@ const problems = (from: string): Record<Problem, [string, string, string]> => ({
   ],
   stopped: ['link_off', 'هذا الرابط موقوف', `أوقفه ${from}. اطلب منه رابطًا جديدًا.`],
   missing: ['search_off', 'ما لقينا هذا الرابط', 'تأكد إنك نسخته كاملًا من رسالة الدعوة.'],
-  'no-key': [
-    'key_off',
-    'الرابط ناقص',
-    'آخر الرابط فيه مفتاح الشجرة، ويبدو إنه انقص وقت النسخ. افتح الرابط من الرسالة نفسها.',
-  ],
   failed: ['cloud_off', 'ما قدرنا نفتح الدعوة', 'تأكد من اتصالك وحاول مرة ثانية.'],
 });
 
@@ -145,12 +139,10 @@ export function InviteLanding({ state }: { state: 'ok' | 'expired' | 'used-up' |
   );
 }
 
-const keySlot = (token: string) => `sulalah-invite:${token}`;
-
 /**
- * S12 on a real tree. The link carries the tree key after the `#`, which never reaches the
- * server; it is held for this tab while the person signs in, and kept on the device once they
- * join. The tree's name is sealed, so the card names the person who sent it.
+ * S12 on a real tree. The link is only a token: once the person signs in with their phone code
+ * and joins, the tree opens for them like for any member. The tree's name is in the sealed
+ * file, so the card names the person who sent it.
  */
 export function LiveInvite({ token }: { token: string }) {
   const router = useRouter();
@@ -159,22 +151,10 @@ export function LiveInvite({ token }: { token: string }) {
     | { at: 'problem'; problem: Problem; from: string }
     | { at: 'ready'; kind: 'contribute' | 'review'; from: string; signedIn: boolean }
   >({ at: 'loading' });
-  const [key, setKey] = useState<string>();
   const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     let gone = false;
-    const fromLink = window.location.hash.slice(1);
-    let k: string | undefined;
-    try {
-      if (fromLink) sessionStorage.setItem(keySlot(token), fromLink);
-      k = sessionStorage.getItem(keySlot(token)) ?? undefined;
-    } catch {
-      k = fromLink || undefined;
-    }
-    // Out of the address bar, so the key does not sit in the history or a screenshot.
-    if (fromLink) window.history.replaceState(null, '', window.location.pathname);
-    setKey(k);
     void (async () => {
       try {
         const [row, me] = await Promise.all([previewInvite(token), myUserId()]);
@@ -182,12 +162,11 @@ export function LiveInvite({ token }: { token: string }) {
         if (!row) return setPhase({ at: 'problem', problem: 'missing', from: '' });
         const from = row.inviter || 'صاحب الشجرة';
         if (row.kind === 'view') {
-          router.replace(`/view/${token}${k ? `#${k}` : ''}`);
+          router.replace(`/view/${token}`);
           return;
         }
-        if (!k) return setPhase({ at: 'problem', problem: 'no-key', from });
-        // A stopped link still lets a member back in (to bring the key to a new phone),
-        // so only strangers see the problem.
+        // A member who opens an old link is let back into their tree, so only strangers see
+        // the problem.
         if (!row.valid && !me) return setPhase({ at: 'problem', problem: row.problem ?? 'stopped', from });
         setPhase({ at: 'ready', kind: row.kind, from, signedIn: !!me });
       } catch {
@@ -200,16 +179,9 @@ export function LiveInvite({ token }: { token: string }) {
   }, [router, token]);
 
   const join = async () => {
-    if (!key) return;
     setJoining(true);
     try {
       const treeId = await acceptInvite(token);
-      keepKey(treeId, key);
-      try {
-        sessionStorage.removeItem(keySlot(token));
-      } catch {
-        // Nothing kept.
-      }
       router.replace(
         phase.at === 'ready' && phase.kind === 'contribute'
           ? `/trees/${treeId}/join`

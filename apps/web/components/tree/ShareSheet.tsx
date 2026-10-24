@@ -148,7 +148,7 @@ export function ShareSheet({
         </IconButton>
       </div>
 
-      <div className="grid gap-4 overflow-y-auto p-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 overflow-y-auto p-5">
         {!link ? (
           <>
             <div className="grid gap-2.5" role="radiogroup" aria-label="نوع الرابط">
@@ -247,7 +247,7 @@ export function ShareSheet({
             ) : null}
           </>
         ) : (
-          <div className="grid animate-rise gap-4">
+          <div className="grid grid-cols-[minmax(0,1fr)] animate-rise gap-4">
             <p className="flex items-center gap-2 text-body font-semibold text-success">
               <Icon name="check_circle" fill />
               جهز الرابط
@@ -263,7 +263,7 @@ export function ShareSheet({
             </div>
             <div className="grid gap-1.5">
               <span className="text-caption font-semibold text-muted">الرسالة الجاهزة</span>
-              <p className="rounded-2xl rounded-ss-sm bg-[#e7f3e1] p-3 text-body leading-relaxed text-ink">{message}</p>
+              <p className="rounded-2xl rounded-ss-sm bg-[#e7f3e1] p-3 text-body leading-relaxed text-ink [overflow-wrap:anywhere]">{message}</p>
             </div>
             <a
               href={`https://wa.me/?text=${encodeURIComponent(message)}`}

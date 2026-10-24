@@ -181,10 +181,18 @@ begin
 end $$;
 
 /**
- * Opens a view link: answers where the visitors' copy is, or why it cannot be opened
- * ('stopped', 'expired', 'used-up', 'closed', 'not-ready'). Each opening counts as a use.
+ * The key of the visitors' copy sits next to the tree's key, out of reach of every role; view
+ * links are plain tokens and open_view hands it out with the copy's path.
  */
-create function public.open_view(token text) returns table (problem text, path text)
+alter table public.tree_keys
+  add column view_key text check (view_key ~ '^[A-Za-z0-9_-]{43}$');
+
+/**
+ * Opens a view link: answers where the visitors' copy is and the key it is sealed with, or why
+ * it cannot be opened ('stopped', 'expired', 'used-up', 'closed', 'not-ready'). Each opening
+ * counts as a use.
+ */
+create function public.open_view(token text) returns table (problem text, path text, view_key text)
 language plpgsql security definer set search_path = '' as $$
 declare
   inv public.invites;
@@ -195,15 +203,16 @@ begin
   where i.token_hash = public.hash_token(token) and i.kind::text = 'view' for update;
   if not found then return; end if;
   why := public.invite_problem(inv);
-  if why is not null then return query select why, null::text; return; end if;
+  if why is not null then return query select why, null::text, null::text; return; end if;
   select * into tree from public.trees t where t.id = inv.tree_id;
-  if tree.view_slug is null then return query select 'closed', null::text; return; end if;
+  if tree.view_slug is null then return query select 'closed', null::text, null::text; return; end if;
   if tree.view_path is null or split_part(tree.view_path, '/', 2) <> tree.view_slug then
-    return query select 'not-ready', null::text;
+    return query select 'not-ready', null::text, null::text;
     return;
   end if;
   update public.invites set use_count = use_count + 1 where id = inv.id;
-  return query select null::text, tree.view_path;
+  return query
+    select null::text, tree.view_path, k.view_key from public.tree_keys k where k.tree_id = tree.id;
 end $$;
 
 /**
@@ -227,11 +236,14 @@ begin
       view_path = case when not open or fresh then null else t.view_path end
   where t.id = tree
   returning view_slug into slug;
+  if not open then
+    update public.tree_keys k set view_key = null where k.tree_id = tree;
+  end if;
   return slug;
 end $$;
 
-/** Points visitors at a copy just uploaded to the tree's view folder. */
-create function public.publish_view(tree uuid, path text) returns void
+/** Points visitors at a copy just uploaded to the tree's view folder, sealed with `copy_key`. */
+create function public.publish_view(tree uuid, path text, copy_key text) returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   slug text;
@@ -248,6 +260,7 @@ begin
     raise exception 'file missing' using errcode = 'P0002';
   end if;
   update public.trees set view_path = path where id = tree;
+  update public.tree_keys k set view_key = copy_key where k.tree_id = tree;
 end $$;
 
 /**

@@ -20,16 +20,16 @@ const problems: Record<ViewProblem | 'failed', [string, string, string]> = {
   'not-ready': ['hourglass_top', 'الشجرة تتجهز', 'افتح الرابط بعد دقيقة.'],
   missing: ['search_off', 'ما لقينا هذا الرابط', 'تأكد إنك نسخته كاملًا من الرسالة.'],
   'wrong-key': [
-    'key_off',
-    'الرابط ناقص',
-    'آخر الرابط فيه مفتاح العرض، ويبدو إنه انقص وقت النسخ. افتحه من الرسالة نفسها.',
+    'cloud_off',
+    'ما قدرنا نفتح الشجرة',
+    'النسخة المعروضة ما انفتحت. اطلب من صاحب الشجرة رابطًا جديدًا.',
   ],
   failed: ['cloud_off', 'ما قدرنا نفتح الشجرة', 'تأكد من اتصالك وحاول مرة ثانية.'],
 };
 
 /**
- * S22 on a real tree: a visitor's read-only look. The link carries the view key after the
- * `#`; the copy it opens was filtered by the tree's privacy settings before it was sealed.
+ * S22 on a real tree: a visitor's read-only look. The link is a plain token; the server hands
+ * out the copy's key with its path. The copy was filtered by the tree's privacy settings before it was sealed.
  */
 export function VisitorView({ token }: { token: string }) {
   const [state, setState] = useState<{ file: TreeFile } | { problem: ViewProblem | 'failed' } | null>(
@@ -37,12 +37,7 @@ export function VisitorView({ token }: { token: string }) {
   );
 
   useEffect(() => {
-    const key = window.location.hash.slice(1);
-    if (!key) {
-      setState({ problem: 'wrong-key' });
-      return;
-    }
-    openViewLink(token, key)
+    openViewLink(token)
       .then(setState)
       .catch(() => setState({ problem: 'failed' }));
   }, [token]);

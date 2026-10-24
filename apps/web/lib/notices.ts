@@ -2,15 +2,14 @@
 
 /**
  * A person's notifications on real trees. The server keeps who did what and how many; the
- * words are put together here, with the tree's name and the branch read from the tree file
- * on this device when its key is here.
+ * words are put together here, with the tree's name and the branch read from the tree file.
  */
 import { useEffect, useSyncExternalStore } from 'react';
 import { backendOn } from '@/lib/backend';
 import { listNotices, markNoticesRead, unreadNotices, type Notice } from '@/lib/collab-cloud';
 import { getState, liveTree, num } from '@/lib/demo-store';
 import { loadTreeFile } from '@/lib/tree-cloud';
-import { deviceKey } from '@/lib/tree-keys';
+import { treeKey } from '@/lib/tree-keys';
 
 interface TreeWords {
   title: string;
@@ -30,19 +29,20 @@ async function wordsFor(treeId: string): Promise<TreeWords | null> {
     return { title: s.tree.title, names: new Map(s.people.map((p) => [p.id, p.name])) };
   }
   if (words.has(treeId)) return words.get(treeId)!;
-  const key = deviceKey(treeId);
   let w: TreeWords | null = null;
-  if (key)
-    try {
+  try {
+    const key = await treeKey(treeId);
+    if (key) {
       const loaded = await loadTreeFile(treeId, key);
       if (loaded)
         w = {
           title: loaded.file.tree.title,
           names: new Map(loaded.file.people.map((p) => [p.id, p.name])),
         };
-    } catch {
-      w = null;
     }
+  } catch {
+    w = null;
+  }
   words.set(treeId, w);
   return w;
 }
