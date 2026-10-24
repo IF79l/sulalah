@@ -8,12 +8,16 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { DrawIn, Sapling, Sprig } from '@/components/Botanical';
 import { PlanArt } from '@/components/home/PlanArt';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
+import { backendOn } from '@/lib/backend';
+import { useMyFirstName } from '@/lib/me';
+import { useUnread } from '@/lib/notices';
 import {
   currentTreeId,
   actAs,
   allows,
   canReview,
   generations,
+  liveTree,
   num,
   useDemo,
   type DemoState,
@@ -53,12 +57,18 @@ export function AppShell({
   need?: Need;
 }) {
   const s = useDemo();
-  const allowed = meets(s, need);
   const path = usePathname();
   const waiting = s.submissions.filter(
     (x) => x.status === 'pending' && canReview(s, x.fatherId),
   ).length;
-  const unread = s.notices.filter((n) => n.unread).length;
+  const liveUnread = useUnread();
+  // With accounts on, a page outside any tree (notifications, account) has no tree to show:
+  // the sample family in the store is not this person's.
+  const away = backendOn && !liveTree() && !path.startsWith('/trees/');
+  const myFirst = useMyFirstName();
+  const first = away ? (myFirst ?? '') : s.me.first;
+  const allowed = away || meets(s, need);
+  const unread = backendOn ? liveUnread : s.notices.filter((n) => n.unread).length;
 
   const nav = (
     [
@@ -99,7 +109,7 @@ export function AppShell({
       need?: Need;
       hideFor?: string;
     }[]
-  ).filter((n) => meets(s, n.need) && n.hideFor !== s.as);
+  ).filter((n) => (away ? n.href === '/trees' : meets(s, n.need) && n.hideFor !== s.as));
   const isOn = (n: (typeof nav)[number]) => (n.exact ? path === n.href : path.startsWith(n.href));
 
   // On phones the page pills scroll sideways; bring the current one into view.
@@ -121,8 +131,8 @@ export function AppShell({
             <Logo />
           </Link>
           <div className="flex items-center gap-1">
-            <RoleSwitcher className="me-1" />
-            {s.as === 'visitor' ? (
+            {away ? null : <RoleSwitcher className="me-1" />}
+            {s.as === 'visitor' && !away ? (
               <Link
                 href="/login"
                 className="rounded-full bg-forest px-4 py-2 text-caption font-semibold text-ivory"
@@ -151,9 +161,9 @@ export function AppShell({
                   href="/account"
                   className="flex items-center gap-2 rounded-full p-0.5 pe-3 hover:bg-surface"
                 >
-                  <Medallion name={s.me.first} />
+                  <Medallion name={first || 'أنا'} />
                   <span className="hidden text-caption font-semibold text-forest sm:block">
-                    {s.me.first}
+                    {first}
                   </span>
                 </Link>
               </>
@@ -189,7 +199,7 @@ export function AppShell({
       <div className="mx-auto flex w-full max-w-[1440px] flex-1">
         <aside className="sticky top-16 hidden h-[calc(100dvh-4rem)] w-64 shrink-0 flex-col justify-between border-e border-line/30 p-4 lg:flex print:hidden">
           <div className="grid gap-5">
-            <TreeCard />
+            {away ? null : <TreeCard />}
             <nav className="grid gap-0.5">
               {nav.map((n) => (
                 <Link

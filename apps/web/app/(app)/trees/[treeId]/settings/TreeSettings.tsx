@@ -3,18 +3,25 @@
 import { Button, Field, Icon, Segmented, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AppShell, Panel, Toast } from '@/components/AppShell';
 import { TreeData } from '@/components/tree/TreeData';
+import { deleteTree, listMembers, setViewOpen, transferTree } from '@/lib/collab-cloud';
 import {
+  closeLive,
   currentTreeId,
   joinedMembers,
+  liveTree,
+  logEntry,
   resetDemo,
+  setLive,
   transferOwnership,
   update,
   useDemo,
   type Settings,
 } from '@/lib/demo-store';
+import { republishView, stopSaving } from '@/lib/live-tree';
+import { forgetKey } from '@/lib/tree-keys';
 
 function Toggle({
   label,
@@ -71,10 +78,78 @@ export function TreeSettings() {
   const [deleting, setDeleting] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [heir, setHeir] = useState('');
+  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const live = liveTree();
   const set = (patch: Partial<Settings>) => {
     update((st) => ({ ...st, settings: { ...st.settings, ...patch } }));
     setToast('حفظنا الإعداد');
+  };
+
+  // On a real tree only members who joined can take it over.
+  useEffect(() => {
+    const t = liveTree();
+    if (!t) return;
+    listMembers(t.treeId)
+      .then((members) => update((st) => ({ ...st, members })))
+      .catch(() => {});
+  }, []);
+  const heirs = live
+    ? s.members.filter((x) => x.role !== 'owner').map((x) => ({ id: x.userId, name: x.name }))
+    : joinedMembers.map((x) => ({ id: x, name: x }));
+  const heirName = heirs.find((x) => x.id === heir)?.name ?? '';
+
+  /** Opening or closing the tree to view links is a server switch on a real tree. */
+  const setViewers = async (viewers: Settings['viewers']) => {
+    if (!live) return set({ viewers });
+    setBusy(true);
+    try {
+      await setViewOpen(live.treeId, viewers === 'link');
+      update((st) => ({ ...st, settings: { ...st.settings, viewers } }));
+      if (viewers === 'link') await republishView();
+      setToast(viewers === 'link' ? 'فتحنا الشجرة لروابط المشاهدة' : 'قفلنا الشجرة على أهلها، وتوقفت روابط المشاهدة');
+    } catch {
+      setToast('ما قدرنا نحفظ الإعداد، حاول مرة ثانية');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handOver = async () => {
+    if (!live) {
+      transferOwnership(heir);
+      router.push(`/trees/${currentTreeId()}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await transferTree(live.treeId, heir);
+      update((st) => ({ ...st, log: [logEntry('edit', `نقل ملكية الشجرة إلى ${heirName}`), ...st.log] }));
+      setLive({ role: 'reviewer', scope: [] });
+      router.push(`/trees/${live.treeId}`);
+    } catch {
+      setBusy(false);
+      setToast('ما قدرنا ننقل الملكية، حاول مرة ثانية');
+    }
+  };
+
+  const remove = async () => {
+    if (!live) {
+      router.push('/trees');
+      return;
+    }
+    setBusy(true);
+    try {
+      stopSaving();
+      await deleteTree(live.treeId);
+      forgetKey(live.treeId);
+      closeLive();
+      router.replace('/trees');
+      router.refresh();
+    } catch {
+      setBusy(false);
+      setToast('ما قدرنا نحذف الشجرة، حاول مرة ثانية');
+    }
   };
 
   return (
@@ -115,7 +190,7 @@ export function TreeSettings() {
             <Segmented
               label="من يقدر يشوف الشجرة"
               value={s.settings.viewers}
-              onChange={(v) => set({ viewers: v })}
+              onChange={(v) => void setViewers(v)}
               options={[
                 { value: 'members', label: 'أهل الشجرة فقط' },
                 { value: 'link', label: 'ومن معه رابط المشاهدة' },
@@ -175,22 +250,24 @@ export function TreeSettings() {
             </span>
             <Icon name="chevron_left" className="text-muted" />
           </Link>
-          <button
-            type="button"
-            onClick={() => {
-              resetDemo();
-              setToast('رجّعنا العائلة التجريبية لبدايتها');
-            }}
-            className="flex w-full items-center justify-between px-5 py-4 text-start hover:bg-surface-low"
-          >
-            <span className="grid">
-              <span className="text-body font-semibold text-ink">إعادة العائلة التجريبية</span>
-              <span className="text-caption text-muted">
-                للتجربة فقط: يمسح ما أضفته في هذا المتصفح
+          {live ? null : (
+            <button
+              type="button"
+              onClick={() => {
+                resetDemo();
+                setToast('رجّعنا العائلة التجريبية لبدايتها');
+              }}
+              className="flex w-full items-center justify-between px-5 py-4 text-start hover:bg-surface-low"
+            >
+              <span className="grid">
+                <span className="text-body font-semibold text-ink">إعادة العائلة التجريبية</span>
+                <span className="text-caption text-muted">
+                  للتجربة فقط: يمسح ما أضفته في هذا المتصفح
+                </span>
               </span>
-            </span>
-            <Icon name="restart_alt" className="text-muted" />
-          </button>
+              <Icon name="restart_alt" className="text-muted" />
+            </button>
+          )}
         </Panel>
 
         <Panel title="منطقة الخطر" icon="warning" tone="danger">
@@ -217,17 +294,21 @@ export function TreeSettings() {
                   className="h-11 rounded-xl border border-line/70 bg-card px-3 text-body"
                 >
                   <option value="">اختر من أهل الشجرة</option>
-                  {joinedMembers.map((x) => (
-                    <option key={x}>{x}</option>
+                  {heirs.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name}
+                    </option>
                   ))}
                 </select>
                 <span className="text-caption text-muted">
-                  يظهر هنا فقط من انضم للشجرة برقم جواله.
+                  {heirs.length
+                    ? 'يظهر هنا فقط من انضم للشجرة برقم جواله.'
+                    : 'ما انضم أحد للشجرة بعد. أرسل رابط دعوة أولًا.'}
                 </span>
               </label>
               {heir ? (
                 <p className="rounded-xl border border-pending/40 bg-pending-soft p-3 text-caption leading-relaxed text-pending">
-                  يصير {heir} المالك: يدفع الباقة ويعتمد ويدير المدققين. وأنت تبقى مدققًا للشجرة
+                  يصير {heirName} المالك: يدفع الباقة ويعتمد ويدير المدققين. وأنت تبقى مدققًا للشجرة
                   كاملة، وما تقدر ترجع الملكية إلا إذا نقلها لك.
                 </p>
               ) : null}
@@ -235,13 +316,10 @@ export function TreeSettings() {
                 <Button
                   size="sm"
                   variant="danger"
-                  disabled={!heir}
-                  onClick={() => {
-                    transferOwnership(heir);
-                    router.push(`/trees/${currentTreeId()}`);
-                  }}
+                  disabled={!heir || busy}
+                  onClick={() => void handOver()}
                 >
-                  انقلها لـ {heir || '…'}
+                  انقلها لـ {heirName || '…'}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setTransferring(false)}>
                   إلغاء
@@ -274,10 +352,10 @@ export function TreeSettings() {
                   <Button
                     size="sm"
                     variant="danger"
-                    disabled={confirm.trim() !== s.tree.title}
-                    onClick={() => router.push('/trees')}
+                    disabled={confirm.trim() !== s.tree.title || busy}
+                    onClick={() => void remove()}
                   >
-                    احذفها نهائيًا
+                    {busy ? 'نحذفها…' : 'احذفها نهائيًا'}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setDeleting(false)}>
                     إلغاء
