@@ -33,33 +33,41 @@ export async function loadTreeFile(
   return { file, version: tree.file_version };
 }
 
+/** The server would not take the change: outside the person's branch, or past the plan. */
+export class SaveRefused extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 /**
- * Seals and uploads the next version, then moves the tree's pointer to it. The pointer only
- * moves if nobody saved in between; otherwise this throws SaveConflict and nothing changes.
+ * Seals the next version and hands it to the server, which checks the change before storing
+ * it and moving the tree's pointer. The pointer only moves if nobody saved in between;
+ * otherwise this throws SaveConflict and nothing changes.
  */
 export async function saveTreeFile(
   treeId: string,
   fromVersion: number,
   file: TreeFile,
   key: string,
-) {
-  const db = supabase();
-  const path = filePath(treeId, fromVersion + 1);
-  const sealed = JSON.stringify(
-    await sealTree({ ...file, updatedAt: new Date().toISOString() }, key),
-  );
-  const { error } = await db.storage
-    .from(TREE_BUCKET)
-    .upload(path, sealed, { contentType: 'application/json', upsert: false });
-  // The same version already uploaded means another device got there first.
-  if (error) throw /exist|duplicate|409/i.test(error.message) ? new SaveConflict() : error;
-  const { data, error: e2 } = await db.rpc('save_tree_file', {
-    tree: treeId,
-    from_version: fromVersion,
-    path,
+): Promise<number> {
+  const sealed = await sealTree({ ...file, updatedAt: new Date().toISOString() }, key);
+  const res = await fetch(`/api/trees/${treeId}/file`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ from: fromVersion, sealed }),
+    cache: 'no-store',
   });
-  if (e2) throw e2.code === '40001' || /conflict/.test(e2.message) ? new SaveConflict() : e2;
-  return data;
+  if (res.ok) return ((await res.json()) as { version: number }).version;
+  const body = (await res.json().catch(() => ({}))) as {
+    error?: { code: string; message: string };
+  };
+  if (res.status === 409) throw new SaveConflict();
+  if (res.status === 403 && body.error) throw new SaveRefused(body.error.code, body.error.message);
+  throw new Error(body.error?.code ?? `save failed (${res.status})`);
 }
 
 /** Plants a tree: a bare record and its key on the server, then its first sealed file. */

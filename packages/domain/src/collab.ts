@@ -6,6 +6,7 @@
  */
 import { z } from 'zod';
 import { normalizeArabic } from './arabic';
+import { countedNames } from './guard';
 import {
   TreeFileError,
   defaultTreeSettings,
@@ -220,7 +221,7 @@ export function takeIn(
   }
 
   const kept = file.people.filter((p) => !freed.has(p.id));
-  if (opts.limit !== undefined && kept.length + sub.people.length > opts.limit)
+  if (opts.limit !== undefined && countedNames(kept, file.tree.rootId) + sub.people.length > opts.limit)
     return { problem: 'too-many' };
 
   const siblings = kept.filter((p) => p.fatherId === sub.fatherId);

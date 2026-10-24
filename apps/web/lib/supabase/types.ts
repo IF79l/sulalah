@@ -103,6 +103,8 @@ export type Database = {
         Partial<Pick<ProfileRow, 'first_name' | 'father_name' | 'notify' | 'updated_at'>>
       >;
       trees: Table<TreeRow, never, never>;
+      /** Limits only; prices are billing's (billing-types.ts). */
+      plans: Table<{ id: PlanCode; max_persons: number; max_reviewers: number }, never, never>;
       tree_members: {
         Row: MemberRow;
         Insert: never;
@@ -155,10 +157,7 @@ export type Database = {
     Views: Record<never, never>;
     Functions: {
       create_tree: { Args: { requested?: PlanCode | null }; Returns: string };
-      save_tree_file: {
-        Args: { tree: string; from_version: number; path: string };
-        Returns: number;
-      };
+      tree_paused: { Args: { tree: string }; Returns: boolean };
       accept_invite: { Args: { token: string }; Returns: string };
       tree_key: { Args: { tree: string }; Returns: string | null };
       set_tree_key: { Args: { tree: string; new_key: string }; Returns: undefined };
