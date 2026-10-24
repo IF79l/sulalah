@@ -45,3 +45,6 @@ end $$;
 
 revoke execute on function public.tree_key, public.set_tree_key from public, anon;
 grant execute on function public.tree_key, public.set_tree_key to authenticated;
+
+-- Tell the API about the new functions straight away.
+notify pgrst, 'reload schema';
