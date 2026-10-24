@@ -131,14 +131,6 @@ export type Database = {
           },
         ];
       };
-      user_keys: Table<
-        { user_id: string; credential_id: string; wrapped_account_key: string; created_at: string },
-        { user_id: string; credential_id: string; wrapped_account_key: string }
-      >;
-      member_keys: Table<
-        { tree_id: string; user_id: string; wrapped_key: string; updated_at: string },
-        { tree_id: string; user_id: string; wrapped_key: string; updated_at?: string }
-      >;
       invites: Table<
         InviteRow,
         Pick<InviteRow, 'tree_id' | 'kind' | 'token_hash' | 'expires_at' | 'created_by'> &
@@ -168,6 +160,8 @@ export type Database = {
         Returns: number;
       };
       accept_invite: { Args: { token: string }; Returns: string };
+      tree_key: { Args: { tree: string }; Returns: string | null };
+      set_tree_key: { Args: { tree: string; new_key: string }; Returns: undefined };
       invite_preview: {
         Args: { token: string };
         Returns: {

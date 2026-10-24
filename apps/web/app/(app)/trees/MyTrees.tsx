@@ -23,8 +23,6 @@ export interface TreeCard {
   activity: string;
   invitedBy?: string;
   faces: string[];
-  /** This device has no key for the tree yet, so its names cannot be shown. */
-  locked?: boolean;
 }
 
 // Sample trees until they are stored (batch 2).
@@ -409,10 +407,8 @@ export function TreeCardView({ tree: t }: { tree: TreeCard }) {
           </div>
         </div>
         <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-line/30 bg-surface-low px-3 py-1.5 text-caption font-medium text-forest">
-          <Icon name={t.locked ? 'lock' : 'diversity_3'} className="text-olive" />
-          {t.locked
-            ? 'مقفلة على هذا الجهاز'
-            : `${num(t.people)} فردًا · ${num(t.generations)} أجيال`}
+          <Icon name="diversity_3" className="text-olive" />
+          {`${num(t.people)} فردًا · ${num(t.generations)} أجيال`}
         </span>
       </div>
 
@@ -428,12 +424,7 @@ export function TreeCardView({ tree: t }: { tree: TreeCard }) {
             <span className="text-body font-medium text-ink">{t.activity}</span>
           </span>
         </div>
-        {t.locked ? (
-          <span className="flex items-center gap-1.5 text-body font-semibold text-ink-soft">
-            <Icon name="key" />
-            افتحها مرة برمز الاسترجاع وتبقى مفتوحة
-          </span>
-        ) : t.pending ? (
+        {t.pending ? (
           <span className="flex w-full items-center justify-between gap-3 rounded-xl border border-pending/25 bg-pending-soft px-3 py-2 md:w-auto">
             <span className="flex items-center gap-2 text-caption font-bold text-pending">
               <span className="size-2.5 rounded-full bg-pending" />
@@ -463,7 +454,7 @@ export function TreeCardView({ tree: t }: { tree: TreeCard }) {
             href={`/trees/${t.id}`}
             className={cn(buttonClass(owner ? 'primary' : 'secondary', 'sm'), 'rounded-xl')}
           >
-            {t.locked ? 'افتحها برمز الاسترجاع' : 'افتح الشجرة'}
+            افتح الشجرة
             <Icon name="arrow_back" />
           </Link>
         </div>

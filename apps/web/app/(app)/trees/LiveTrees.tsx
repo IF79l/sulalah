@@ -1,11 +1,10 @@
 'use client';
 
-import { TreeFileError } from '@sulalah/domain';
 import { useEffect, useState } from 'react';
 import { generations, type Person } from '@/lib/demo-store';
 import type { TreeRole } from '@/lib/supabase/types';
 import { loadTreeFile } from '@/lib/tree-cloud';
-import { deviceKey } from '@/lib/tree-keys';
+import { treeKey } from '@/lib/tree-keys';
 import { TreesFrame, type TreeCard } from './MyTrees';
 
 export interface Membership {
@@ -33,7 +32,7 @@ function since(iso: string) {
 
 /**
  * The person's real trees. The server lists only ids and roles; each tree's name and people
- * are read from its sealed file with the key on this device.
+ * are read from its sealed file with the tree's key.
  */
 export function LiveTrees({ me, memberships }: { me: string; memberships: Membership[] }) {
   const [cards, setCards] = useState<TreeCard[] | null>(null);
@@ -45,7 +44,7 @@ export function LiveTrees({ me, memberships }: { me: string; memberships: Member
         const base: TreeCard = {
           id: m.treeId,
           title: 'شجرة عائلة',
-          note: 'أسماؤها مشفّرة، ومفتاحها ليس على هذا الجهاز.',
+          note: 'تعذّر فتحها الآن.',
           role: m.role,
           people: 0,
           generations: 0,
@@ -53,19 +52,17 @@ export function LiveTrees({ me, memberships }: { me: string; memberships: Member
           activity: `حُفظت ${since(m.updatedAt)}`,
           invitedBy: m.invitedBy,
           faces: [],
-          locked: true,
         };
-        const key = deviceKey(m.treeId);
-        if (!key) return base;
         try {
+          const key = await treeKey(m.treeId);
+          if (!key) return { ...base, note: 'ما حُفظت بعد.' };
           const loaded = await loadTreeFile(m.treeId, key);
-          if (!loaded) return { ...base, locked: false, note: 'ما حُفظت بعد.' };
+          if (!loaded) return { ...base, note: 'ما حُفظت بعد.' };
           const { tree, people, submissions } = loaded.file;
           const root = people.find((p) => p.id === tree.rootId);
           const approved = people.filter((p) => p.status === 'approved');
           return {
             ...base,
-            locked: false,
             title: tree.title,
             note: root ? `من الجد ${root.name}.` : '',
             people: approved.length,
@@ -79,10 +76,8 @@ export function LiveTrees({ me, memberships }: { me: string; memberships: Member
               .slice(0, 4)
               .map((p) => p.name),
           };
-        } catch (e) {
-          return e instanceof TreeFileError
-            ? base
-            : { ...base, locked: false, note: 'تعذّر فتحها الآن.' };
+        } catch {
+          return base;
         }
       }),
     ).then((list) => {
