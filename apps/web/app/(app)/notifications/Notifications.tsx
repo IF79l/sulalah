@@ -2,27 +2,49 @@
 
 import { Icon, cn } from '@sulalah/ui';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { AppShell, EmptyState } from '@/components/AppShell';
-import { planLimits, lineage, num, update, useDemo } from '@/lib/demo-store';
+import { backendOn } from '@/lib/backend';
+import { lineage, num, planLimits, update, useDemo, when, type Notice } from '@/lib/demo-store';
+import { describe, readNotices, refreshNotices, useNoticeList } from '@/lib/notices';
 
 /** S19: what happened on my trees, newest first. */
 export function Notifications() {
   const s = useDemo();
-  const unread = s.notices.filter((n) => n.unread).length;
+  const liveList = useNoticeList();
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (backendOn) refreshNotices().catch(() => setFailed(true));
+  }, []);
+
+  // Real notifications come from the server; the sample family's live in the browser.
+  const notices: Notice[] | null = backendOn
+    ? (liveList?.map((n) => {
+        const d = describe(n);
+        return { id: n.id, icon: d.icon, text: d.text, href: d.href, at: n.at, unread: !n.read };
+      }) ?? null)
+    : s.notices;
+  const unread = notices?.filter((n) => n.unread).length ?? 0;
   const used = lineage(s.people, s.tree.rootId).length;
   const limit = planLimits(s).maxPersons;
-  const near = used / limit >= 0.9;
-  const read = (id?: string) =>
+  const near = !backendOn && used / limit >= 0.9;
+  const read = (id?: string) => {
+    if (backendOn) {
+      void readNotices(id ? [id] : undefined);
+      return;
+    }
     update((st) => ({
       ...st,
       notices: st.notices.map((n) => (!id || n.id === id ? { ...n, unread: false } : n)),
     }));
+  };
 
   return (
     <AppShell
       need="member"
       title="الإشعارات"
-      subtitle={unread ? `${num(unread)} غير مقروءة` : 'كلها مقروءة'}
+      subtitle={!notices ? ' ' : unread ? `${num(unread)} غير مقروءة` : 'كلها مقروءة'}
       actions={
         unread ? (
           <button
@@ -41,9 +63,17 @@ export function Notifications() {
           اقتربت من حد الباقة: {num(used)} من {num(limit)}
         </p>
       ) : null}
-      {s.notices.length ? (
+      {!notices ? (
+        failed ? (
+          <EmptyState icon="cloud_off" title="ما قدرنا نجيب الإشعارات" body="تأكد من اتصالك وارجع لها بعد شوي." />
+        ) : (
+          <p role="status" className="py-10 text-center text-body text-muted">
+            نجيب الإشعارات…
+          </p>
+        )
+      ) : notices.length ? (
         <ul className="grid overflow-hidden rounded-2xl border border-line/40 bg-card">
-          {s.notices.map((n) => (
+          {notices.map((n) => (
             <li key={n.id} className="border-b border-line/30 last:border-0">
               <Link
                 href={n.href ?? '#'}
@@ -70,7 +100,7 @@ export function Notifications() {
                   >
                     {n.text}
                   </span>
-                  <span className="text-caption text-muted">{n.at}</span>
+                  <span className="text-caption text-muted">{when(n.at)}</span>
                 </span>
                 {n.unread ? (
                   <span

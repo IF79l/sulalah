@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { AppShell, EmptyState } from '@/components/AppShell';
 import { VineLeaf } from '@/components/Botanical';
-import { currentTreeId, allows, useDemo, type Action } from '@/lib/demo-store';
+import { currentTreeId, allows, useDemo, when, type Action } from '@/lib/demo-store';
 
 // Each kind of change is a leaf colour on the vine: new growth green, approval deep green,
 // edits and invites gold, removals withered.
@@ -92,7 +92,7 @@ export function Activity() {
                       />
                       <strong className="text-forest">{l.who}</strong> {l.text}
                     </p>
-                    <p className="text-caption text-muted">{l.at}</p>
+                    <p className="text-caption text-muted">{when(l.at)}</p>
                   </div>
                   {l.personId ? (
                     <Link
