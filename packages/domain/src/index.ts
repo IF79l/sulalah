@@ -1,4 +1,5 @@
 export * from './arabic';
+export * from './billing';
 export * from './plans';
 export * from './permissions';
 export * from './schemas';

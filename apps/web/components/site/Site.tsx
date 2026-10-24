@@ -1,4 +1,4 @@
-import { defaultPlanLimits, type PlanId } from '@sulalah/domain';
+import { defaultPlanLimits, type PlanId, type PlanOffer } from '@sulalah/domain';
 import { Icon, Logo, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -68,12 +68,18 @@ export function SiteHeader({ home }: { home?: boolean }) {
   );
 }
 
-export function PlanCards() {
+/** "49 ر.س" from halalas. */
+const sar = (h: number) => `${(h / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })} ر.س`;
+
+/** The plan cards; with `offers` from the plans table they show its limits and prices. */
+export function PlanCards({ offers }: { offers?: PlanOffer[] } = {}) {
   return (
     <div className="grid items-stretch gap-5 lg:grid-cols-3">
       {plans.map((p, i) => {
         const featured = p.id === 'extended';
-        const l = defaultPlanLimits[p.id];
+        const offer = offers?.find((o) => o.id === p.id);
+        const l = offer?.limits ?? defaultPlanLimits[p.id];
+        const price = offer?.prices;
         return (
           <InView
             as="article"
@@ -131,7 +137,18 @@ export function PlanCards() {
                 featured ? 'text-gold-light' : 'text-forest',
               )}
             >
-              السعر يُعلن عند الإطلاق
+              {price?.monthly ? (
+                <>
+                  {sar(price.monthly)} شهريًا
+                  {price.annual ? (
+                    <span className="block text-caption font-normal opacity-80">
+                      أو {sar(price.annual)} سنويًا
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                'السعر يُعلن عند الإطلاق'
+              )}
             </p>
             <Link
               href="/trees/new"
