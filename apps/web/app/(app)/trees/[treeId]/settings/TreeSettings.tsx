@@ -7,7 +7,7 @@ import { useState, type ReactNode } from 'react';
 import { AppShell, Panel, Toast } from '@/components/AppShell';
 import { TreeData } from '@/components/tree/TreeData';
 import {
-  TREE_ID,
+  currentTreeId,
   joinedMembers,
   resetDemo,
   transferOwnership,
@@ -145,7 +145,7 @@ export function TreeSettings() {
           <p className="flex items-center justify-between gap-2 px-5 py-3 text-caption">
             <span className="text-muted">جرّب كيف يشوفها الزائر</span>
             <Link
-              href={`/trees/${TREE_ID}?as=visitor`}
+              href={`/trees/${currentTreeId()}?as=visitor`}
               className="font-semibold text-olive hover:underline"
             >
               عرض كزائر
@@ -166,7 +166,7 @@ export function TreeSettings() {
 
         <Panel title="السجل" icon="history">
           <Link
-            href={`/trees/${TREE_ID}/activity`}
+            href={`/trees/${currentTreeId()}/activity`}
             className="flex items-center justify-between border-b border-line/30 px-5 py-4 hover:bg-surface-low"
           >
             <span className="grid">
@@ -238,7 +238,7 @@ export function TreeSettings() {
                   disabled={!heir}
                   onClick={() => {
                     transferOwnership(heir);
-                    router.push(`/trees/${TREE_ID}`);
+                    router.push(`/trees/${currentTreeId()}`);
                   }}
                 >
                   انقلها لـ {heir || '…'}

@@ -209,8 +209,8 @@ export function Admin() {
       >
         <p className="mb-5 flex items-start gap-2 rounded-xl border border-line/40 bg-card px-4 py-3 text-caption leading-relaxed text-ink-soft">
           <Icon name="encrypted" className="mt-0.5 text-[1.1rem] text-olive" />
-          هذي اللوحة تعرض اللي في قاعدة البيانات فقط. أسماء الأشجار ومن فيها مشفّرة عند العوائل، فما
-          تظهر هنا ولا تقدر تفتحها.
+          هذي اللوحة تعرض اللي في قاعدة البيانات فقط. أسماء الأشجار ومن فيها في ملفات مشفّرة، فما
+          تظهر هنا، وما تنفتح إلا بطلب من مالك الشجرة لاسترجاعها.
         </p>
         <Tabs
           value={tab}

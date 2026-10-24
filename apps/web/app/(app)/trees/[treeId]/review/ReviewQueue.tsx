@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { AppShell, EmptyState, Tabs } from '@/components/AppShell';
 import { BranchGlimpse } from '@/components/Botanical';
 import {
-  TREE_ID,
+  currentTreeId,
   byId,
   canReview,
   demoReviewer,
@@ -15,7 +15,7 @@ import {
   type SubmissionStatus,
 } from '@/lib/demo-store';
 
-const t = (p = '') => `/trees/${TREE_ID}${p}`;
+const t = (p = '') => `/trees/${currentTreeId()}${p}`;
 
 /** S16: submissions waiting on me, grouped as they were sent. */
 export function ReviewQueue() {

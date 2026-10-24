@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
-  TREE_ID,
+  currentTreeId,
   byId,
   childrenOf,
   fold,
@@ -38,7 +38,7 @@ export function JoinBranch() {
   const confirm = () => {
     if (!person) return;
     update((st) => ({ ...st, myBranch: person.id }));
-    router.push(`/trees/${TREE_ID}?as=contribute`);
+    router.push(`/trees/${currentTreeId()}?as=contribute`);
   };
 
   const Row = ({ id, onClick, chevron }: { id: string; onClick: () => void; chevron?: boolean }) => {

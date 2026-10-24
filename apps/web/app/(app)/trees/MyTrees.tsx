@@ -2,6 +2,7 @@
 
 import { Chip, Icon, Logo, Medallion, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { StatePage } from '@/components/States';
 import { meets, type Need } from '@/components/AppShell';
@@ -9,7 +10,7 @@ import { TREE_ID, canReview, generations, update, useDemo } from '@/lib/demo-sto
 
 type Role = 'owner' | 'reviewer' | 'contributor';
 
-interface TreeCard {
+export interface TreeCard {
   id: string;
   title: string;
   note: string;
@@ -57,14 +58,16 @@ const roleLabel: Record<Role, string> = {
 
 const num = (n: number) => n.toLocaleString('en-US');
 
-const allNav: {
+export interface NavItem {
   icon: string;
   label: string;
   href: string;
   active?: boolean;
   badge?: number;
   need?: Need;
-}[] = [
+}
+
+const allNav: NavItem[] = [
   { icon: 'account_tree', label: 'أشجاري', href: '/trees', active: true },
   {
     icon: 'fact_check',
@@ -120,6 +123,89 @@ export function MyTrees() {
   const nav = allNav
     .filter((n) => meets(s, n.need))
     .map((n) => (n.need === 'review.view' ? { ...n, badge: pending } : n));
+  return (
+    <TreesFrame
+      me={s.me.first}
+      nav={nav}
+      trees={trees}
+      headerEnd={<RoleSwitcher className="me-1" />}
+      aside={
+        <>
+          {s.ignoredInvites?.includes('al-abdulaziz') ? (
+            <p className="flex items-center justify-between gap-2 rounded-2xl border border-dashed border-line/60 px-4 py-3 text-caption text-muted">
+              تجاهلت دعوة شجرة آل العبدالعزيز.
+              <button
+                type="button"
+                className="font-semibold text-olive hover:underline"
+                onClick={() =>
+                  update((st) => ({
+                    ...st,
+                    ignoredInvites: (st.ignoredInvites ?? []).filter((x) => x !== 'al-abdulaziz'),
+                  }))
+                }
+              >
+                تراجع
+              </button>
+            </p>
+          ) : (
+            <section className="rounded-2xl border border-line/30 bg-card p-4 shadow-xs">
+              <div className="mb-3 flex items-center justify-between border-b border-line/20 pb-3">
+                <h2 className="flex items-center gap-1.5 text-title font-bold text-forest">
+                  <Icon name="mark_email_unread" className="text-olive" />
+                  دعوات وصلتك
+                </h2>
+                <Chip>1 جديدة</Chip>
+              </div>
+              <div className="grid gap-2 rounded-xl border border-gold-light/25 bg-surface-low p-3">
+                <span className="text-body font-semibold text-forest">شجرة آل العبدالعزيز</span>
+                <p className="text-caption text-muted">
+                  يدعوك سلطان العبدالعزيز لتضيف فرعك في الشجرة.
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <Link
+                    href="/login?invite=al-abdulaziz"
+                    className={cn(buttonClass('primary', 'sm'), 'flex-1 rounded-lg')}
+                  >
+                    اقبل الدعوة
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      update((st) => ({
+                        ...st,
+                        ignoredInvites: [...(st.ignoredInvites ?? []), 'al-abdulaziz'],
+                      }))
+                    }
+                    className={cn(buttonClass('ghost', 'sm'), 'rounded-lg text-danger')}
+                  >
+                    تجاهل
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+        </>
+      }
+    />
+  );
+}
+
+/** The page around the tree cards, shared by the sample and the real list. */
+export function TreesFrame({
+  me,
+  nav,
+  trees,
+  headerEnd,
+  aside,
+  loading,
+}: {
+  me: string;
+  nav: NavItem[];
+  trees: TreeCard[];
+  headerEnd?: ReactNode;
+  aside?: ReactNode;
+  loading?: boolean;
+}) {
   const total = trees.reduce((s, t) => s + t.people, 0);
   const waiting = trees.reduce((s, t) => s + t.pending, 0);
   return (
@@ -130,7 +216,7 @@ export function MyTrees() {
             <Logo />
           </Link>
           <div className="flex items-center gap-1">
-            <RoleSwitcher className="me-1" />
+            {headerEnd}
             <Link
               href="/notifications"
               aria-label="الإشعارات"
@@ -144,8 +230,8 @@ export function MyTrees() {
               href="/account"
               className="flex items-center gap-2 rounded-full p-0.5 pe-3 hover:bg-surface"
             >
-              <Medallion name="فيصل" />
-              <span className="hidden text-caption font-semibold text-forest sm:block">فيصل</span>
+              <Medallion name={me || 'أنا'} />
+              <span className="hidden text-caption font-semibold text-forest sm:block">{me}</span>
             </Link>
           </div>
         </div>
@@ -210,9 +296,25 @@ export function MyTrees() {
 
           <div className="grid gap-6 xl:grid-cols-12">
             <div className="grid content-start gap-6 xl:col-span-8">
-              {trees.map((t) => (
-                <TreeCardView key={t.id} tree={t} />
-              ))}
+              {loading ? (
+                <p
+                  role="status"
+                  className="flex items-center gap-2 rounded-2xl border border-line/30 bg-card p-6 text-body text-muted"
+                >
+                  <Icon name="progress_activity" className="animate-spin text-olive" />
+                  نفتح أشجارك…
+                </p>
+              ) : trees.length ? (
+                trees.map((t) => <TreeCardView key={t.id} tree={t} />)
+              ) : (
+                <div className="grid justify-items-center gap-3 rounded-2xl border border-line/30 bg-card p-8 text-center">
+                  <Icon name="forest" className="text-[2.5rem] text-olive" />
+                  <h2 className="text-title font-bold text-forest">ما عندك أشجار بعد</h2>
+                  <p className="max-w-sm text-body text-muted">
+                    ازرع شجرة عائلتك، أو افتح رابط الدعوة اللي وصلك من أهلك.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid content-start gap-6 xl:col-span-4">
@@ -230,61 +332,7 @@ export function MyTrees() {
                 </Link>
               </div>
 
-              {s.ignoredInvites?.includes('al-abdulaziz') ? (
-                <p className="flex items-center justify-between gap-2 rounded-2xl border border-dashed border-line/60 px-4 py-3 text-caption text-muted">
-                  تجاهلت دعوة شجرة آل العبدالعزيز.
-                  <button
-                    type="button"
-                    className="font-semibold text-olive hover:underline"
-                    onClick={() =>
-                      update((st) => ({
-                        ...st,
-                        ignoredInvites: (st.ignoredInvites ?? []).filter(
-                          (x) => x !== 'al-abdulaziz',
-                        ),
-                      }))
-                    }
-                  >
-                    تراجع
-                  </button>
-                </p>
-              ) : (
-                <section className="rounded-2xl border border-line/30 bg-card p-4 shadow-xs">
-                  <div className="mb-3 flex items-center justify-between border-b border-line/20 pb-3">
-                    <h2 className="flex items-center gap-1.5 text-title font-bold text-forest">
-                      <Icon name="mark_email_unread" className="text-olive" />
-                      دعوات وصلتك
-                    </h2>
-                    <Chip>1 جديدة</Chip>
-                  </div>
-                  <div className="grid gap-2 rounded-xl border border-gold-light/25 bg-surface-low p-3">
-                    <span className="text-body font-semibold text-forest">شجرة آل العبدالعزيز</span>
-                    <p className="text-caption text-muted">
-                      يدعوك سلطان العبدالعزيز لتضيف فرعك في الشجرة.
-                    </p>
-                    <div className="flex items-center gap-2 pt-1">
-                      <Link
-                        href="/login?invite=al-abdulaziz"
-                        className={cn(buttonClass('primary', 'sm'), 'flex-1 rounded-lg')}
-                      >
-                        اقبل الدعوة
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          update((st) => ({
-                            ...st,
-                            ignoredInvites: [...(st.ignoredInvites ?? []), 'al-abdulaziz'],
-                          }))
-                        }
-                        className={cn(buttonClass('ghost', 'sm'), 'rounded-lg text-danger')}
-                      >
-                        تجاهل
-                      </button>
-                    </div>
-                  </div>
-                </section>
-              )}
+              {aside}
 
               <figure className="relative overflow-hidden rounded-2xl bg-forest p-5 text-ivory shadow-sm">
                 <blockquote className="mb-3 text-body-lg leading-relaxed text-ivory-deep">
@@ -314,7 +362,7 @@ function Stat({ label, value, warn }: { label: string; value: string; warn?: boo
   );
 }
 
-function TreeCardView({ tree: t }: { tree: TreeCard }) {
+export function TreeCardView({ tree: t }: { tree: TreeCard }) {
   const owner = t.role === 'owner';
   return (
     <article
@@ -353,7 +401,7 @@ function TreeCardView({ tree: t }: { tree: TreeCard }) {
         </div>
         <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-line/30 bg-surface-low px-3 py-1.5 text-caption font-medium text-forest">
           <Icon name="diversity_3" className="text-olive" />
-          {num(t.people)} فردًا · {num(t.generations)} أجيال
+          {`${num(t.people)} فردًا · ${num(t.generations)} أجيال`}
         </span>
       </div>
 

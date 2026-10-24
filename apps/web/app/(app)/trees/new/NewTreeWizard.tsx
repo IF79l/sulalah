@@ -1,10 +1,20 @@
 'use client';
 
-import { defaultPlanLimits, fromCsv, type CsvIssue, type PlanId, type TreeFilePerson } from '@sulalah/domain';
+import {
+  defaultPlanLimits,
+  fromCsv,
+  generateTreeKey,
+  type CsvIssue,
+  type PlanId,
+  type TreeFilePerson,
+} from '@sulalah/domain';
 import { Button, Chip, Field, Icon, Logo, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
-import { TREE_ID, names, replaceTree, update } from '@/lib/demo-store';
+import { TREE_ID, names, newId, replaceTree, update } from '@/lib/demo-store';
+import { appEnv } from '@/lib/backend';
+import { plantTree } from '@/lib/tree-cloud';
+import { keepKey } from '@/lib/tree-keys';
 
 const steps = [
   { title: 'اسم الشجرة', icon: 'edit' },
@@ -20,7 +30,11 @@ const plans: { id: PlanId; name: string; who: string }[] = [
 
 /** The nth forefather above the founder, in words. */
 const above = (i: number, founder: string) =>
-  i === 0 ? `والد ${founder || 'الجد'}` : i === 1 ? 'جده' : `الجد ${['الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع'][i - 2] ?? 'الأعلى'}`;
+  i === 0
+    ? `والد ${founder || 'الجد'}`
+    : i === 1
+      ? 'جده'
+      : `الجد ${['الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع'][i - 2] ?? 'الأعلى'}`;
 
 const num = (n: number) => n.toLocaleString('en-US');
 
@@ -48,9 +62,13 @@ interface Imported {
 /** Keeps only the founder's line: anyone not descended from him has no place on the tree. */
 function readCsv(file: string, text: string): Imported | { file: string; issues: CsvIssue[] } {
   const r = fromCsv(text);
-  if (!r.rootId) return { file, issues: r.issues.length ? r.issues : [{ line: 1, message: 'ما لقينا أسماء في الملف' }] };
+  if (!r.rootId)
+    return {
+      file,
+      issues: r.issues.length ? r.issues : [{ line: 1, message: 'ما لقينا أسماء في الملف' }],
+    };
   const keep = new Set([r.rootId]);
-  for (let grew = true; grew; ) {
+  for (let grew = true; grew;) {
     grew = false;
     for (const p of r.people)
       if (p.fatherId && keep.has(p.fatherId) && !keep.has(p.id)) {
@@ -59,14 +77,21 @@ function readCsv(file: string, text: string): Imported | { file: string; issues:
       }
   }
   const people = r.people.filter((p) => keep.has(p.id));
-  return { file, people, rootId: r.rootId, issues: r.issues, dropped: r.people.length - people.length };
+  return {
+    file,
+    people,
+    rootId: r.rootId,
+    issues: r.issues,
+    dropped: r.people.length - people.length,
+  };
 }
 
 /**
  * Three steps to plant a tree: its name, the trunk (the founder and his forefathers, which
- * the tree engraves on its trunk), then the plan. Saving arrives with the database (batch 2).
+ * the tree engraves on its trunk), then the plan. With `live` the tree is sealed with a new key
+ * kept on this device and saved; the owner leaves with its recovery code.
  */
-export function NewTreeWizard() {
+export function NewTreeWizard({ live }: { live?: boolean }) {
   const [step, setStep] = useState(0);
   const [family, setFamily] = useState('');
   const [founder, setFounder] = useState('');
@@ -74,12 +99,65 @@ export function NewTreeWizard() {
   const [plan, setPlan] = useState<PlanId>('extended');
   const [done, setDone] = useState(false);
   const [imported, setImported] = useState<Imported | null>(null);
+  const [planted, setPlanted] = useState<string>();
+  const [planting, setPlanting] = useState(false);
+  const [plantError, setPlantError] = useState<string>();
 
   const title = family.trim() ? `شجرة آل ${family.trim()}` : 'شجرة العائلة';
   const filled = ancestors.map((a) => a.trim()).filter(Boolean);
   const canNext = step === 0 ? !!family.trim() : step === 1 ? !!founder.trim() : true;
 
+  const plantLive = async () => {
+    setPlanting(true);
+    setPlantError(undefined);
+    const key = generateTreeKey();
+    const rootId = imported?.rootId ?? newId('p');
+    const people: TreeFilePerson[] = imported
+      ? imported.people.map((p) => ({
+          ...p,
+          status: 'approved' as const,
+          ...(p.id === rootId ? { name: founder.trim() } : {}),
+        }))
+      : [{ id: rootId, name: founder.trim(), gender: 'male', fatherId: null, status: 'approved' }];
+    try {
+      const id = await plantTree(
+        plan,
+        (treeId) => {
+          // Kept before the first save, so a dropped connection never strands the tree.
+          keepKey(treeId, key);
+          return {
+            format: 'sulalah-tree',
+            version: 1,
+            tree: { id: treeId, title, family: family.trim(), rootId, ancestors: filled },
+            people,
+            unions: [],
+            submissions: [],
+            updatedAt: new Date().toISOString(),
+          };
+        },
+        key,
+      );
+      setPlanted(id);
+      setDone(true);
+    } catch (e) {
+      const why = (e as { code?: string; message?: string }) ?? {};
+      setPlantError(
+        `ما قدرنا نزرع الشجرة. تأكد من اتصالك وحاول مرة ثانية.${
+          appEnv === 'staging'
+            ? ` (${[why.code, why.message].filter(Boolean).join(': ') || 'خطأ'})`
+            : ''
+        }`,
+      );
+    } finally {
+      setPlanting(false);
+    }
+  };
+
   const plant = () => {
+    if (live) {
+      void plantLive();
+      return;
+    }
     if (imported) {
       replaceTree(
         { title, family: family.trim(), rootId: imported.rootId, ancestors: filled },
@@ -105,7 +183,7 @@ export function NewTreeWizard() {
               : 'الخطوة التالية: ادعُ عائلتك يختارون أغصانهم ويضيفون أبناءهم.'}
           </p>
           <div className="grid w-full gap-2">
-            <Link href={`/trees/${TREE_ID}`} className={buttonClass('primary')}>
+            <Link href={`/trees/${planted ?? TREE_ID}`} className={buttonClass('primary')}>
               افتح الشجرة
               <Icon name="arrow_back" />
             </Link>
@@ -143,19 +221,34 @@ export function NewTreeWizard() {
                     className={cn('h-0.5 w-6 md:w-14', i <= step ? 'bg-forest' : 'bg-line/60')}
                   />
                 ) : null}
-                <span className="flex items-center gap-2" aria-current={i === step ? 'step' : undefined}>
+                <span
+                  className="flex items-center gap-2"
+                  aria-current={i === step ? 'step' : undefined}
+                >
                   <span
                     className={cn(
                       'flex size-8 items-center justify-center rounded-full text-caption font-bold md:size-9',
                       i < step && 'bg-forest text-ivory',
-                      i === step && 'border-2 border-gold-light bg-forest text-gold-light shadow-md',
+                      i === step &&
+                        'border-2 border-gold-light bg-forest text-gold-light shadow-md',
                       i > step && 'border border-dashed border-outline text-outline',
                     )}
                   >
-                    {i < step ? <Icon name="check" /> : i === step ? <Icon name={s.icon} fill /> : num(i + 1)}
+                    {i < step ? (
+                      <Icon name="check" />
+                    ) : i === step ? (
+                      <Icon name={s.icon} fill />
+                    ) : (
+                      num(i + 1)
+                    )}
                   </span>
                   <span className="hidden lg:grid">
-                    <span className={cn('text-body font-semibold', i > step ? 'text-outline' : 'text-forest')}>
+                    <span
+                      className={cn(
+                        'text-body font-semibold',
+                        i > step ? 'text-outline' : 'text-forest',
+                      )}
+                    >
                       {s.title}
                     </span>
                     <span className="text-caption text-muted">
@@ -193,8 +286,7 @@ export function NewTreeWizard() {
                 />
                 {family.trim() ? (
                   <p className="rounded-xl bg-surface-low px-4 py-3 text-body text-ink-soft">
-                    عنوان الشجرة:{' '}
-                    <span className="font-title text-h2 text-forest">{title}</span>
+                    عنوان الشجرة: <span className="font-title text-h2 text-forest">{title}</span>
                   </p>
                 ) : null}
               </Card>
@@ -265,7 +357,9 @@ export function NewTreeWizard() {
                         type="button"
                         aria-label="احذف"
                         onClick={() =>
-                          setAncestors(ancestors.length > 1 ? ancestors.filter((_, j) => j !== i) : [''])
+                          setAncestors(
+                            ancestors.length > 1 ? ancestors.filter((_, j) => j !== i) : [''],
+                          )
                         }
                         className="mb-2 rounded-lg p-1.5 text-muted hover:bg-danger-soft hover:text-danger"
                       >
@@ -306,7 +400,9 @@ export function NewTreeWizard() {
                       onClick={() => setPlan(p.id)}
                       className={cn(
                         'flex items-center justify-between gap-4 rounded-2xl border bg-card p-5 text-start transition',
-                        on ? 'border-2 border-forest shadow-md' : 'border-line/50 hover:border-gold-light',
+                        on
+                          ? 'border-2 border-forest shadow-md'
+                          : 'border-line/50 hover:border-gold-light',
                       )}
                     >
                       <span className="grid gap-1">
@@ -333,6 +429,11 @@ export function NewTreeWizard() {
             </>
           ) : null}
 
+          {plantError ? (
+            <p role="alert" className="text-body font-medium text-danger">
+              {plantError}
+            </p>
+          ) : null}
           <div className="mt-2 flex items-center justify-between gap-3 border-t border-line/30 pt-5">
             {step > 0 ? (
               <Button variant="quiet" onClick={() => setStep(step - 1)}>
@@ -347,11 +448,18 @@ export function NewTreeWizard() {
                 الخطوة {num(step + 1)} من {num(steps.length)}
               </span>
               <Button
-                disabled={!canNext}
+                disabled={!canNext || planting}
                 onClick={() => (step < steps.length - 1 ? setStep(step + 1) : plant())}
               >
-                {step < steps.length - 1 ? `التالي: ${steps[step + 1]!.title}` : 'ازرع الشجرة'}
-                <Icon name="arrow_back" />
+                {step < steps.length - 1
+                  ? `التالي: ${steps[step + 1]!.title}`
+                  : planting
+                    ? 'نزرع الشجرة…'
+                    : 'ازرع الشجرة'}
+                <Icon
+                  name={planting ? 'progress_activity' : 'arrow_back'}
+                  className={planting ? 'animate-spin' : undefined}
+                />
               </Button>
             </span>
           </div>
@@ -381,7 +489,10 @@ export function NewTreeWizard() {
               </span>
               {filled.map((a, i) => (
                 <div key={i} className="flex flex-col items-center">
-                  <span aria-hidden="true" className="h-6 w-1.5 bg-linear-to-b from-[#8f7b56] to-[#6b4329]" />
+                  <span
+                    aria-hidden="true"
+                    className="h-6 w-1.5 bg-linear-to-b from-[#8f7b56] to-[#6b4329]"
+                  />
                   <span className="flex min-w-48 items-center gap-3 rounded-xl border border-line/40 bg-card px-4 py-2.5 shadow-xs">
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-olive-soft text-caption font-bold text-on-olive-soft">
                       {i === 0 ? 'أب' : 'جد'}
@@ -394,7 +505,10 @@ export function NewTreeWizard() {
                 </div>
               ))}
               <span aria-hidden="true" className="h-6 w-2 rounded-b bg-[#6b4329]" />
-              <span aria-hidden="true" className="h-1.5 w-32 rounded-full bg-linear-to-l from-transparent via-[#6b4329]/40 to-transparent" />
+              <span
+                aria-hidden="true"
+                className="h-1.5 w-32 rounded-full bg-linear-to-l from-transparent via-[#6b4329]/40 to-transparent"
+              />
             </div>
             {chain.length > 1 ? (
               <p className="rounded-full border border-line/40 bg-surface-low px-4 py-1.5 text-center text-caption text-forest">
@@ -457,10 +571,15 @@ function CsvImport({
             عندك الأسماء في جدول؟ (اختياري)
           </h3>
           <p className="max-w-[52ch] text-caption leading-relaxed text-muted">
-            ارفع ملف CSV من Excel أو Google Sheets، وتنبت الشجرة بكل أسمائها. كل صف شخص، ومعه معرف أبيه.
+            ارفع ملف CSV من Excel أو Google Sheets، وتنبت الشجرة بكل أسمائها. كل صف شخص، ومعه معرف
+            أبيه.
           </p>
         </div>
-        <button type="button" onClick={template} className="text-caption font-semibold text-olive hover:underline">
+        <button
+          type="button"
+          onClick={template}
+          className="text-caption font-semibold text-olive hover:underline"
+        >
           نزّل ملف نموذج
         </button>
       </div>
@@ -477,8 +596,9 @@ function CsvImport({
           <p className="flex items-start gap-2 text-body text-ink">
             <Icon name="check_circle" fill className="mt-0.5 text-success" />
             <span>
-              قرأنا <strong className="text-forest">{names(imported.people.length)}</strong> من {imported.file}، والجد
-              المؤسس {imported.people.find((p) => p.id === imported.rootId)?.name}.
+              قرأنا <strong className="text-forest">{names(imported.people.length)}</strong> من{' '}
+              {imported.file}، والجد المؤسس{' '}
+              {imported.people.find((p) => p.id === imported.rootId)?.name}.
               {imported.dropped ? ` تركنا ${num(imported.dropped)} ما لهم صلة بالجد المؤسس.` : ''}
             </span>
           </p>
@@ -499,16 +619,32 @@ function CsvImport({
           </div>
         </div>
       ) : (
-        <Button variant="secondary" className="justify-self-start rounded-xl" onClick={() => input.current?.click()}>
+        <Button
+          variant="secondary"
+          className="justify-self-start rounded-xl"
+          onClick={() => input.current?.click()}
+        >
           <Icon name="upload_file" />
           اختر ملف CSV
         </Button>
       )}
 
       {issues.length ? (
-        <div className={cn('grid gap-1.5 rounded-xl p-3', failed && !imported ? 'bg-danger-soft' : 'bg-pending-soft')}>
-          <p className={cn('text-caption font-semibold', failed && !imported ? 'text-danger' : 'text-pending')}>
-            {failed && !imported ? `ما قدرنا نقرأ ${failed.file}` : `ملاحظات على الملف (${num(issues.length)})`}
+        <div
+          className={cn(
+            'grid gap-1.5 rounded-xl p-3',
+            failed && !imported ? 'bg-danger-soft' : 'bg-pending-soft',
+          )}
+        >
+          <p
+            className={cn(
+              'text-caption font-semibold',
+              failed && !imported ? 'text-danger' : 'text-pending',
+            )}
+          >
+            {failed && !imported
+              ? `ما قدرنا نقرأ ${failed.file}`
+              : `ملاحظات على الملف (${num(issues.length)})`}
           </p>
           <ul className="grid gap-1 text-caption leading-relaxed text-ink-soft">
             {issues.slice(0, 5).map((i, k) => (
@@ -516,7 +652,9 @@ function CsvImport({
                 <span className="text-muted">السطر {num(i.line)}:</span> {i.message}
               </li>
             ))}
-            {issues.length > 5 ? <li className="text-muted">و{num(issues.length - 5)} ملاحظات ثانية</li> : null}
+            {issues.length > 5 ? (
+              <li className="text-muted">و{num(issues.length - 5)} ملاحظات ثانية</li>
+            ) : null}
           </ul>
         </div>
       ) : null}

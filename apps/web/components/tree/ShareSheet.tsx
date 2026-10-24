@@ -4,7 +4,7 @@ import { Button, Icon, IconButton, Segmented, Sheet, buttonClass, cn } from '@su
 import Link from 'next/link';
 import { useState } from 'react';
 import {
-  TREE_ID,
+  currentTreeId,
   childrenOf,
   newId,
   update,
@@ -189,7 +189,7 @@ export function ShareSheet({ onClose, onCopied }: { onClose: () => void; onCopie
         )}
 
         <Link
-          href={`/trees/${TREE_ID}/invites`}
+          href={`/trees/${currentTreeId()}/invites`}
           className="inline-flex items-center justify-center gap-1 text-caption font-semibold text-olive hover:underline"
         >
           <Icon name="tune" className="text-[1.1em]" />

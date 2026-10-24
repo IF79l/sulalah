@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AppShell, EmptyState, Panel, Toast } from '@/components/AppShell';
 import {
-  TREE_ID,
+  currentTreeId,
   actingName,
   allows,
   byId,
@@ -23,7 +23,7 @@ import {
   type Person,
 } from '@/lib/demo-store';
 
-const t = (p = '') => `/trees/${TREE_ID}${p}`;
+const t = (p = '') => `/trees/${currentTreeId()}${p}`;
 
 function leafTone(p: Person) {
   if (p.status === 'proposed') return 'border-dashed border-pending bg-pending-soft text-pending';

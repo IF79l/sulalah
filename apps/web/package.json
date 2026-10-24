@@ -7,10 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:staging": "tsx scripts/seed-staging.ts"
   },
   "dependencies": {
-    "@sulalah/db": "workspace:*",
     "@sulalah/domain": "workspace:*",
     "@sulalah/tree-svg": "workspace:*",
     "@sulalah/tree-engine": "workspace:*",
@@ -27,6 +27,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }

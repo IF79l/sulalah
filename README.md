@@ -10,7 +10,7 @@
 | `packages/tree-engine` | محرك الشجرة: النسب، تخطيط 2D حتمي (جذع، أغصان، أوراق)، الكاميرا السينمائية (TypeScript خالص) |
 | `packages/tree-svg`    | مشهد `<LivingTree>` بـ SVG: الأغصان والأوراق والحركة واللمس                                  |
 | `packages/domain`      | قواعد الصلاحيات `can()`، البحث العربي، الباقات، مخططات Zod                                   |
-| `packages/db`          | مخطط Drizzle لـ PostgreSQL والمايغريشن                                                       |
+| `supabase`             | قاعدة البيانات: المايغريشن، سياسات RLS، الدوال، واختبارات الصلاحيات                          |
 | `packages/ui`          | نظام التصميم                                                                                 |
 | `legacy/aghsan`        | النموذج الأولي السابق، للمرجعية فقط ولا يُبنى                                                |
 
@@ -24,6 +24,7 @@ cp .env.example apps/web/.env.local
 pnpm dev        # http://localhost:3000
 pnpm test       # اختبارات المحرك والصلاحيات
 pnpm typecheck
+pnpm db:test    # سياسات قاعدة البيانات على أي Postgres (DATABASE_URL)
 ```
 
-يتطلب Node 22 و pnpm 10.
+يتطلب Node 22 و pnpm 10. بدون مفاتيح Supabase يعمل التطبيق كنسخة تجريبية في المتصفح؛ ومعها يسجّل الدخول بالجوال ويحفظ الأشجار مشفّرة. البيئات الثلاث (محلي، تجربة، إنتاج) في [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md).

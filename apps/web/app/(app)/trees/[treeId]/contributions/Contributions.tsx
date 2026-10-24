@@ -4,10 +4,10 @@ import { Chip, Icon, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useState } from 'react';
 import { AppShell, EmptyState, Tabs, Toast } from '@/components/AppShell';
-import { TREE_ID, byId, actingName, num, update, useDemo, type Person } from '@/lib/demo-store';
+import { currentTreeId, byId, actingName, num, update, useDemo, type Person } from '@/lib/demo-store';
 
 type Tab = 'drafts' | 'pending' | 'approved' | 'rejected';
-const t = (p = '') => `/trees/${TREE_ID}${p}`;
+const t = (p = '') => `/trees/${currentTreeId()}${p}`;
 
 const leaf: Record<Tab, string> = {
   drafts: 'border-[1.5px] border-dashed border-line bg-card',

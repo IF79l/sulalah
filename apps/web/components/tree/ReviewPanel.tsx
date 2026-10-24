@@ -4,7 +4,7 @@ import { Button, Chip, Icon, IconButton, Medallion, Sheet, cn } from '@sulalah/u
 import Link from 'next/link';
 import { useState } from 'react';
 import {
-  TREE_ID,
+  currentTreeId,
   approve,
   byId,
   num,
@@ -80,7 +80,7 @@ export function ReviewPanel({
           </span>
           <p className="text-title font-bold text-forest">هذا الغصن خارج نطاق مراجعتك</p>
           <p className="text-body text-muted">يراجعه المالك أو مدقق مسؤول عن غصن {father?.name}.</p>
-          <Link href={`/trees/${TREE_ID}/review`} className="text-body font-semibold text-olive hover:underline">
+          <Link href={`/trees/${currentTreeId()}/review`} className="text-body font-semibold text-olive hover:underline">
             ارجع للإضافات الواردة
           </Link>
         </div>
@@ -100,7 +100,7 @@ export function ReviewPanel({
           <div className="flex flex-wrap justify-center gap-2">
             {nextId ? (
               <Link
-                href={`/trees/${TREE_ID}?review=${nextId}`}
+                href={`/trees/${currentTreeId()}?review=${nextId}`}
                 className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-forest px-5 font-semibold text-ivory"
               >
                 الطلب التالي
@@ -108,7 +108,7 @@ export function ReviewPanel({
               </Link>
             ) : null}
             <Link
-              href={`/trees/${TREE_ID}/review`}
+              href={`/trees/${currentTreeId()}/review`}
               className="inline-flex h-11 items-center rounded-xl border border-line px-5 font-semibold text-forest"
             >
               كل الإضافات

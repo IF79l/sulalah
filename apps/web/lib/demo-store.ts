@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * The sample tree every screen works on until trees are stored (batch 2). It lives in the
- * browser so that the screens act on one another: a contributor's additions reach the
- * review queue, an approval greens the leaves, a setting sticks. Nothing leaves the device.
+ * The tree every screen works on. For the sample family it lives in the browser, so that the
+ * screens act on one another: a contributor's additions reach the review queue, an approval
+ * greens the leaves, a setting sticks. A real tree is opened into the same store from its
+ * sealed file (`openLive`), kept in memory only, and saved back by lib/live-tree.ts.
  */
 import {
   can,
@@ -13,6 +14,7 @@ import {
   type PlanId,
   type TreeFile,
   type TreeFilePerson,
+  type TreeRole,
   type Viewer,
 } from '@sulalah/domain';
 import {
@@ -342,6 +344,7 @@ const listeners = new Set<() => void>();
 
 function load(): DemoState {
   if (state) return state;
+  if (live) return (state = seed());
   try {
     const raw = localStorage.getItem(KEY);
     const saved = raw ? (JSON.parse(raw) as DemoState) : null;
@@ -357,11 +360,74 @@ const serverState = seed();
 
 export function update(fn: (s: DemoState) => DemoState) {
   state = fn(load());
-  try {
-    localStorage.setItem(KEY, JSON.stringify(state));
-  } catch {
-    // Private windows may refuse storage; the change still holds for this visit.
-  }
+  // A real family's names stay in memory; only the sample tree is kept in the browser.
+  if (!live)
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch {
+      // Private windows may refuse storage; the change still holds for this visit.
+    }
+  listeners.forEach((l) => l());
+}
+
+export function subscribe(l: () => void) {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+}
+
+export const getState = load;
+
+// ---------- A real tree ----------
+
+export interface LiveTree {
+  treeId: string;
+  role: TreeRole;
+  /** A reviewer's branches; empty means the whole tree. */
+  scope: string[];
+}
+
+let live: LiveTree | null = null;
+
+/** The real tree open in the store, if any. */
+export const liveTree = () => live;
+
+/** The id links and the tree file use: the open real tree's, or the sample's. */
+export const currentTreeId = () => live?.treeId ?? TREE_ID;
+
+/** Puts a real tree in the store, in place of the sample, with nothing of the sample left. */
+export function openLive(
+  info: LiveTree & { branch?: string; plan: PlanId; me: DemoState['me'] },
+  file: TreeFile,
+  key: string,
+) {
+  live = { treeId: info.treeId, role: info.role, scope: info.scope };
+  state = {
+    ...seed(),
+    tree: { ...file.tree, unions: file.unions },
+    as: info.role,
+    treeKey: key,
+    people: file.people as Person[],
+    submissions: file.submissions,
+    reviewers: [],
+    invites: [],
+    notices: [],
+    log: [],
+    plan: info.plan,
+    me: info.me,
+    myBranch: info.branch,
+    ignoredInvites: [],
+    drafts: [],
+  };
+  listeners.forEach((l) => l());
+}
+
+/** Back to the sample tree, as it was left in this browser. */
+export function closeLive() {
+  if (!live) return;
+  live = null;
+  state = null;
   listeners.forEach((l) => l());
 }
 
@@ -527,7 +593,7 @@ export function toTreeFile(s: DemoState): TreeFile {
     format: 'sulalah-tree',
     version: 1,
     tree: {
-      id: TREE_ID,
+      id: currentTreeId(),
       title: s.tree.title,
       family: s.tree.family,
       rootId: s.tree.rootId,
@@ -582,6 +648,8 @@ export function actorOf(s: DemoState): Actor {
     case 'owner':
       return { userId: 'me', membership: { role: 'owner', scopePersonIds: [] } };
     case 'reviewer': {
+      if (live)
+        return { userId: 'me', membership: { role: 'reviewer', scopePersonIds: live.scope } };
       const r = demoReviewer(s);
       return {
         userId: 'reviewer',
@@ -619,6 +687,8 @@ export const canReview = (s: DemoState, fatherId: string) =>
   });
 
 export function actAs(as: Viewer) {
+  // On a real tree the role is the membership's, not a switch.
+  if (live) return;
   update((st) => ({ ...st, as }));
 }
 
