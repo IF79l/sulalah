@@ -12,6 +12,7 @@ import { Button, Chip, Field, Icon, Logo, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { TREE_ID, names, newId, replaceTree, update } from '@/lib/demo-store';
+import { appEnv } from '@/lib/backend';
 import { plantTree } from '@/lib/tree-cloud';
 import { keepKey } from '@/lib/tree-keys';
 
@@ -138,8 +139,15 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
       );
       setPlanted(id);
       setDone(true);
-    } catch {
-      setPlantError('ما قدرنا نزرع الشجرة. تأكد من اتصالك وحاول مرة ثانية.');
+    } catch (e) {
+      const why = (e as { code?: string; message?: string }) ?? {};
+      setPlantError(
+        `ما قدرنا نزرع الشجرة. تأكد من اتصالك وحاول مرة ثانية.${
+          appEnv === 'staging'
+            ? ` (${[why.code, why.message].filter(Boolean).join(': ') || 'خطأ'})`
+            : ''
+        }`,
+      );
     } finally {
       setPlanting(false);
     }

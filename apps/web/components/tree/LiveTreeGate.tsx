@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NoAccess, Sprouting, StatePage } from '@/components/States';
+import { appEnv } from '@/lib/backend';
 import { closeLive, liveTree, openLive } from '@/lib/demo-store';
 import { retrySave, startSaving, stopSaving, unsaved, useSaveStatus } from '@/lib/live-tree';
 import { supabase } from '@/lib/supabase/client';
 import { loadTreeFile } from '@/lib/tree-cloud';
 import { treeKey } from '@/lib/tree-keys';
 
-type Phase = 'loading' | 'no-access' | 'empty' | 'failed' | 'ready';
+type Phase = 'loading' | 'no-access' | 'empty' | 'no-key' | 'failed' | 'ready';
 
 /**
  * Opens a real tree for every page under /trees/[id]: checks the membership, gets the tree's
@@ -23,6 +24,8 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
   const [phase, setPhase] = useState<Phase>(() =>
     liveTree()?.treeId === treeId ? 'ready' : 'loading',
   );
+  /** What went wrong, shown on the staging copy so a failure can be told apart. */
+  const [why, setWhy] = useState<string>();
 
   const open = async () => {
     const db = supabase();
@@ -43,12 +46,16 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       db.from('trees').select('plan, view_slug').eq('id', treeId).maybeSingle(),
       db.from('profiles').select('first_name, father_name, notify').eq('id', user.id).maybeSingle(),
     ]);
-    if (member.error || tree.error) return setPhase('failed');
+    if (member.error || tree.error) {
+      setWhy((member.error ?? tree.error)?.code);
+      return setPhase('failed');
+    }
     if (!member.data || !tree.data) return setPhase('no-access');
 
     try {
       const key = await treeKey(treeId);
-      if (!key) return setPhase('empty');
+      // Planted before the platform kept keys: nothing can open it.
+      if (!key) return setPhase('no-key');
       const loaded = await loadTreeFile(treeId, key);
       if (!loaded) return setPhase('empty');
       openLive(
@@ -72,7 +79,9 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       );
       startSaving(treeId, key, loaded.version, loaded.file);
       setPhase('ready');
-    } catch {
+    } catch (e) {
+      const err = e as { code?: string; message?: string };
+      setWhy([err.code, err.message].filter(Boolean).join(': '));
       setPhase('failed');
     }
   };
@@ -101,7 +110,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       <StatePage
         icon="cloud_off"
         title="ما قدرنا نفتح الشجرة"
-        body="تأكد من اتصالك وحاول مرة ثانية."
+        body={`تأكد من اتصالك وحاول مرة ثانية.${appEnv === 'staging' && why ? ` (${why})` : ''}`}
         action={
           <Button
             onClick={() => {
@@ -111,6 +120,19 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
           >
             حاول مرة ثانية
           </Button>
+        }
+      />
+    );
+  if (phase === 'no-key')
+    return (
+      <StatePage
+        icon="park"
+        title="هذي شجرة تجريبية قديمة"
+        body="زُرعت قبل التحديث الأخير، فما تنفتح. ازرع شجرة جديدة."
+        action={
+          <Link href="/trees/new" className={buttonClass('primary')}>
+            ازرع شجرة
+          </Link>
         }
       />
     );

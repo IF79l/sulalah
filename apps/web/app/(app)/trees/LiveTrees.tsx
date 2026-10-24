@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { appEnv } from '@/lib/backend';
 import { generations, type Person } from '@/lib/demo-store';
 import type { TreeRole } from '@/lib/supabase/types';
 import { loadTreeFile } from '@/lib/tree-cloud';
@@ -76,8 +77,14 @@ export function LiveTrees({ me, memberships }: { me: string; memberships: Member
               .slice(0, 4)
               .map((p) => p.name),
           };
-        } catch {
-          return base;
+        } catch (e) {
+          const why = (e as { code?: string; message?: string }) ?? {};
+          return appEnv === 'staging'
+            ? {
+                ...base,
+                note: `${base.note} (${[why.code, why.message].filter(Boolean).join(': ') || 'خطأ'})`,
+              }
+            : base;
         }
       }),
     ).then((list) => {
