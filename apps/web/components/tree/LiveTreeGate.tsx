@@ -38,6 +38,8 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
   /** This person's tree key sealed for their passkey, when they have one. */
   const [sealed, setSealed] = useState<string>();
   const [typing, setTyping] = useState(false);
+  /** Contributors and reviewers open a tree on a new phone with their invite link. */
+  const [guest, setGuest] = useState(false);
 
   const open = async (typedKey?: string) => {
     const db = supabase();
@@ -72,6 +74,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
           ])
         : [];
       setSealed(passkeysPossible() ? mine : undefined);
+      setGuest(!owner);
       return setPhase('locked');
     }
     try {
@@ -164,12 +167,18 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
         icon="key"
         title="افتح الشجرة على هذا الجهاز"
         body={
-          sealed
-            ? 'أسماء العائلة مشفّرة، ومفتاحها محفوظ ببصمتك. أكّد ببصمتك أو وجهك وتنفتح.'
-            : 'أسماء العائلة مشفّرة، ومفتاحها عند العائلة فقط. اكتب رمز الاسترجاع، أو افتح رابط الدعوة اللي وصلك.'
+          guest
+            ? 'أسماء العائلة مشفّرة، ومفتاحها في رابط الدعوة. افتح الرابط اللي وصلك على هذا الجهاز وتنفتح الشجرة.'
+            : sealed
+              ? 'أسماء العائلة مشفّرة، ومفتاحها محفوظ ببصمتك. أكّد ببصمتك أو وجهك وتنفتح.'
+              : 'أسماء العائلة مشفّرة، ومفتاحها عند العائلة فقط. اكتب رمز الاسترجاع، أو افتح رابط الدعوة اللي وصلك.'
         }
         action={
-          sealed && !typing ? (
+          guest ? (
+            <Link href="/trees" className={buttonClass('ghost')}>
+              ارجع لأشجاري
+            </Link>
+          ) : sealed && !typing ? (
             <div className="grid w-full max-w-sm gap-3">
               <Button
                 disabled={opening}
