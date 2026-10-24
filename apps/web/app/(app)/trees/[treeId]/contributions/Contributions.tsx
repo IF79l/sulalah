@@ -1,10 +1,26 @@
 'use client';
 
-import { Chip, Icon, buttonClass, cn } from '@sulalah/ui';
+import { Button, Chip, Icon, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { AppShell, EmptyState, Tabs, Toast } from '@/components/AppShell';
-import { currentTreeId, byId, actingName, num, update, useDemo, type Person } from '@/lib/demo-store';
+import { AppShell, EmptyState, Panel, Tabs, Toast } from '@/components/AppShell';
+import { leaveTree } from '@/lib/collab-cloud';
+import {
+  currentTreeId,
+  byId,
+  actingName,
+  isMine,
+  liveTree,
+  num,
+  update,
+  useDemo,
+  type Person,
+  type Submission,
+  when,
+} from '@/lib/demo-store';
+import { reopenForChanges, withdraw as takeBack } from '@/lib/live-actions';
+import { forgetKey } from '@/lib/tree-keys';
 
 type Tab = 'drafts' | 'pending' | 'approved' | 'rejected';
 const t = (p = '') => `/trees/${currentTreeId()}${p}`;
@@ -19,47 +35,60 @@ const leaf: Record<Tab, string> = {
 /** S15: everything I added, by where it stands. */
 export function Contributions() {
   const s = useDemo();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>('pending');
   const [toast, setToast] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const m = byId(s.people);
   const me = actingName(s);
+  const live = liveTree();
 
   // The demo account also shows the sample family's history as if it were its own.
-  const mine = s.submissions.filter(
-    (x) => x.contributor === me || x.id === 'sub-1' || x.id === 'sub-0',
-  );
+  const mine = live
+    ? s.submissions.filter((x) => isMine(s, x))
+    : s.submissions.filter((x) => x.contributor === me || x.id === 'sub-1' || x.id === 'sub-0');
   const drafts = s.drafts.map((id) => m.get(id)).filter((p): p is Person => !!p);
+  const sampleRejected: (Submission & { names?: string[] })[] = live
+    ? []
+    : [
+        {
+          id: 'sub-x',
+          contributor: me,
+          fatherId: 'bandar',
+          personIds: [],
+          at: 'قبل 3 أسابيع',
+          status: 'rejected',
+          note: 'الاسم مكرر، سلمان مسجّل من قبل',
+          names: ['سلمان'],
+        },
+      ];
   const groups = {
     pending: mine.filter((x) => x.status === 'pending' || x.status === 'changes'),
     approved: mine.filter((x) => x.status === 'approved'),
-    rejected: [
-      ...mine.filter((x) => x.status === 'rejected'),
-      {
-        id: 'sub-x',
-        contributor: me,
-        fatherId: 'bandar',
-        personIds: [],
-        at: 'قبل 3 أسابيع',
-        status: 'rejected' as const,
-        note: 'الاسم مكرر، سلمان مسجّل من قبل',
-        names: ['سلمان'],
-      },
-    ],
+    rejected: [...mine.filter((x) => x.status === 'rejected'), ...sampleRejected],
   };
 
   const items = (subId: string, ids: string[], names?: string[]) =>
     names ?? ids.map((id) => m.get(id)?.name).filter(Boolean);
 
-  const withdraw = (id: string) => {
-    update((st) => {
-      const sub = st.submissions.find((x) => x.id === id);
-      return {
-        ...st,
-        people: st.people.filter((p) => !sub?.personIds.includes(p.id)),
-        submissions: st.submissions.filter((x) => x.id !== id),
-      };
-    });
-    setToast('سحبنا الطلب');
+  const withdraw = async (id: string) => {
+    try {
+      await takeBack(id);
+      setToast('سحبنا الطلب');
+    } catch {
+      setToast('ما قدرنا نسحبه، حاول مرة ثانية');
+    }
+  };
+
+  const leave = async () => {
+    if (!live) return;
+    try {
+      await leaveTree(live.treeId);
+      forgetKey(live.treeId);
+      router.replace('/trees');
+    } catch {
+      setToast('ما قدرنا نخرجك من الشجرة، حاول مرة ثانية');
+    }
   };
 
   const list = tab === 'drafts' ? [] : groups[tab];
@@ -128,7 +157,7 @@ export function Contributions() {
       ) : list.length ? (
         <ul className="grid gap-3">
           {list.map((x) => {
-            const names = items(x.id, x.personIds, 'names' in x ? x.names : undefined);
+            const names = items(x.id, x.personIds, 'names' in x ? (x.names as string[]) : undefined);
             const changes = x.status === 'changes';
             return (
               <li
@@ -141,7 +170,7 @@ export function Contributions() {
                     <div className="grid gap-0.5">
                       <p className="text-body font-semibold text-forest">{names.join('، ')}</p>
                       <p className="text-caption text-muted">
-                        تحت {m.get(x.fatherId)?.name}، {x.at}
+                        تحت {m.get(x.fatherId)?.name}، {when(x.at)}
                       </p>
                     </div>
                   </div>
@@ -174,18 +203,29 @@ export function Contributions() {
                   </blockquote>
                 ) : null}
                 <div className="flex flex-wrap gap-3 text-caption font-semibold">
-                  {tab === 'pending' ? (
+                  {tab === 'pending' && !changes ? (
                     <button
                       type="button"
-                      onClick={() => withdraw(x.id)}
+                      onClick={() => void withdraw(x.id)}
                       className="text-danger hover:underline"
                     >
                       سحب الطلب
                     </button>
                   ) : null}
-                  {tab === 'rejected' || changes ? (
-                    <Link href={t()} className="text-olive hover:underline">
+                  {changes ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        reopenForChanges(x.id);
+                        router.push(`${t()}?focus=${x.fatherId}`);
+                      }}
+                      className="text-olive hover:underline"
+                    >
                       عدّل وأعد الإرسال
+                    </button>
+                  ) : tab === 'rejected' ? (
+                    <Link href={`${t()}?focus=${x.fatherId}`} className="text-olive hover:underline">
+                      أضف من جديد
                     </Link>
                   ) : null}
                   {tab === 'approved' ? (
@@ -214,6 +254,32 @@ export function Contributions() {
         />
       )}
       <p className="mt-6 text-caption text-muted">{num(mine.length)} طلبات منذ انضمامك.</p>
+      {live && live.role !== 'owner' ? (
+        <Panel title="عضويتك" icon="person" className="mt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <span className="grid">
+              <span className="text-body font-semibold text-ink">الخروج من الشجرة</span>
+              <span className="text-caption text-muted">
+                ما تقدر تضيف أو تراجع بعدها. ما اعتُمد من إضافاتك يبقى في الشجرة.
+              </span>
+            </span>
+            {leaving ? (
+              <span className="flex gap-2">
+                <Button size="sm" variant="danger" onClick={() => void leave()}>
+                  اخرج
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setLeaving(false)}>
+                  لا
+                </Button>
+              </span>
+            ) : (
+              <Button size="sm" variant="secondary" onClick={() => setLeaving(true)}>
+                اخرج من الشجرة
+              </Button>
+            )}
+          </div>
+        </Panel>
+      ) : null}
       {toast ? <Toast text={toast} onDone={() => setToast(null)} /> : null}
     </AppShell>
   );

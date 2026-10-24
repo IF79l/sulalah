@@ -2,14 +2,18 @@
 
 import { Button, Chip, Icon, IconButton, Medallion, Sheet, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { permissionTable, viewerLabel, type Viewer } from '@sulalah/domain';
 import { AppShell, Panel, Toast } from '@/components/AppShell';
+import { ShareSheet } from '@/components/tree/ShareSheet';
+import { listMembers, removeMember, setMemberRole, type Member } from '@/lib/collab-cloud';
 import {
   currentTreeId,
   byId,
   childrenOf,
   joinedMembers,
+  liveTree,
+  logEntry,
   myName,
   newId,
   num,
@@ -19,15 +23,70 @@ import {
   type Reviewer,
 } from '@/lib/demo-store';
 
-/** S18: who reviews what, within the plan's seats. */
+/** The store's members and reviewers from the server's list. */
+function keepMembers(list: Member[]) {
+  update((st) => ({
+    ...st,
+    members: list,
+    reviewers: list
+      .filter((x) => x.role === 'reviewer')
+      .map((x) => ({
+        id: x.userId,
+        name: x.name,
+        scope: x.scope.length ? x.scope : 'all',
+        reviewed: st.submissions.filter((y) => y.reviewedBy === x.name).length,
+      })),
+  }));
+}
+
+const roleChip: Record<Member['role'], string> = {
+  owner: 'المالك',
+  reviewer: 'مدقق',
+  contributor: 'مساهم',
+};
+
+/** S18: who reviews what, within the plan's seats, and everyone who joined the tree. */
 export function Reviewers() {
   const s = useDemo();
   const [editing, setEditing] = useState<Reviewer | 'new' | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const m = byId(s.people);
+  const live = liveTree();
   const seats = planLimits(s).maxReviewers;
   const used = s.reviewers.length;
   const full = used >= seats;
+
+  const refresh = async () => {
+    const t = liveTree();
+    if (t) keepMembers(await listMembers(t.treeId));
+  };
+  useEffect(() => {
+    refresh().catch(() => setToast('تعذّر تحميل أهل الشجرة'));
+  }, []);
+
+  /** Runs a membership change on the server, then reads the list again. */
+  const change = async (run: () => Promise<void>, done: string, log?: string) => {
+    setBusy(true);
+    try {
+      await run();
+      await refresh();
+      if (log) update((st) => ({ ...st, log: [logEntry('edit', log), ...st.log] }));
+      setToast(done);
+      return true;
+    } catch (e) {
+      setToast(
+        /reviewer limit/.test(e instanceof Error ? e.message : '')
+          ? 'مقاعد المدققين في باقتك مكتملة'
+          : 'ما قدرنا نحفظ التغيير، حاول مرة ثانية',
+      );
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <AppShell
@@ -40,10 +99,18 @@ export function Reviewers() {
             رقِّ الباقة لإضافة مدققين
           </Link>
         ) : (
-          <Button size="sm" onClick={() => setEditing('new')}>
-            <Icon name="person_add" />
-            أضف مدققًا
-          </Button>
+          <>
+            {live ? (
+              <Button size="sm" variant="quiet" onClick={() => setInviting(true)}>
+                <Icon name="add_link" />
+                رابط مدقق
+              </Button>
+            ) : null}
+            <Button size="sm" onClick={() => setEditing('new')}>
+              <Icon name="person_add" />
+              أضف مدققًا
+            </Button>
+          </>
         )
       }
     >
@@ -57,7 +124,7 @@ export function Reviewers() {
         <div className="h-2.5 overflow-hidden rounded-full bg-surface-high">
           <div
             className="h-full rounded-full bg-olive transition-all"
-            style={{ width: `${(used / seats) * 100}%` }}
+            style={{ width: `${Math.min(100, (used / seats) * 100)}%` }}
           />
         </div>
       </div>
@@ -100,7 +167,16 @@ export function Reviewers() {
                 size="sm"
                 variant="ghost"
                 className="text-danger"
+                disabled={busy}
                 onClick={() => {
+                  if (live) {
+                    void change(
+                      () => setMemberRole(live.treeId, r.id, 'contributor'),
+                      `ألغينا صلاحية ${r.name}، وصار مساهمًا`,
+                      `ألغى صلاحية المدقق ${r.name}`,
+                    );
+                    return;
+                  }
                   update((st) => ({ ...st, reviewers: st.reviewers.filter((x) => x.id !== r.id) }));
                   setToast(`ألغينا صلاحية ${r.name}`);
                 }}
@@ -112,14 +188,102 @@ export function Reviewers() {
         ))}
       </ul>
 
+      {live ? (
+        <Panel title="أهل الشجرة" icon="groups" className="mt-6">
+          <ul>
+            {s.members.map((x) => (
+              <li
+                key={x.userId}
+                className="flex flex-wrap items-center gap-3 border-b border-line/25 px-5 py-3 last:border-0"
+              >
+                <Medallion name={x.name} size="sm" />
+                <span className="grid min-w-0 flex-1">
+                  <span className="text-body font-semibold text-forest">
+                    {x.userId === live.userId ? `أنت، ${x.name}` : x.name}
+                  </span>
+                  <span className="text-caption text-muted">
+                    {roleChip[x.role]}
+                    {x.role === 'contributor'
+                      ? x.branch
+                        ? `، غصن ${m.get(x.branch)?.name ?? 'غير موجود'}`
+                        : '، ما اختار غصنه بعد'
+                      : ''}
+                  </span>
+                </span>
+                {x.role !== 'owner' ? (
+                  removing === x.userId ? (
+                    <span className="flex items-center gap-2 rounded-xl bg-danger-soft p-1.5 ps-3">
+                      <span className="text-caption text-danger">يخرج من الشجرة</span>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        disabled={busy}
+                        onClick={() =>
+                          void change(
+                            () => removeMember(live.treeId, x.userId),
+                            `أخرجنا ${x.name} من الشجرة`,
+                            `أخرج ${x.name} من الشجرة`,
+                          ).then(() => setRemoving(null))
+                        }
+                      >
+                        أخرجه
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setRemoving(null)}>
+                        لا
+                      </Button>
+                    </span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-danger"
+                      onClick={() => setRemoving(x.userId)}
+                    >
+                      إخراج
+                    </Button>
+                  )
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {s.members.length <= 1 ? (
+            <p className="border-t border-line/30 px-5 py-3 text-caption text-muted">
+              ما انضم أحد بعد. أرسل رابط مساهمة في قروب العائلة من صفحة روابط الدعوة.
+            </p>
+          ) : null}
+        </Panel>
+      ) : null}
+
       <RoleTable />
 
+      {inviting ? (
+        <ShareSheet only={['review']} onClose={() => setInviting(false)} onCopied={setToast} />
+      ) : null}
       {editing ? (
         <ReviewerSheet
           reviewer={editing === 'new' ? undefined : editing}
-          taken={s.reviewers.map((r) => r.name)}
+          candidates={
+            live
+              ? s.members
+                  .filter((x) => x.role === 'contributor')
+                  .map((x) => ({ id: x.userId, name: x.name }))
+              : joinedMembers
+                  .filter((x) => !s.reviewers.some((r) => r.name === x))
+                  .map((x) => ({ id: newId('r'), name: x }))
+          }
+          busy={busy}
           onClose={() => setEditing(null)}
-          onSave={(r) => {
+          onSave={async (r) => {
+            if (live) {
+              const ok = await change(
+                () =>
+                  setMemberRole(live.treeId, r.id, 'reviewer', r.scope === 'all' ? [] : r.scope),
+                editing === 'new' ? `صار ${r.name} مدققًا` : 'حفظنا النطاق',
+                editing === 'new' ? `جعل ${r.name} مدققًا` : `عدّل نطاق ${r.name}`,
+              );
+              if (ok) setEditing(null);
+              return;
+            }
             update((st) => ({
               ...st,
               reviewers: st.reviewers.some((x) => x.id === r.id)
@@ -148,20 +312,23 @@ export function Reviewers() {
 
 function ReviewerSheet({
   reviewer,
-  taken,
+  candidates,
+  busy,
   branches,
   branchName,
   onSave,
   onClose,
 }: {
   reviewer?: Reviewer;
-  taken: string[];
+  /** Members who may become reviewers: everyone who joined and does not review yet. */
+  candidates: { id: string; name: string }[];
+  busy?: boolean;
   branches: { id: string; name: string; sons: { id: string; name: string }[] }[];
   branchName: (id: string) => string;
   onSave: (r: Reviewer) => void;
   onClose: () => void;
 }) {
-  const [name, setName] = useState(reviewer?.name ?? '');
+  const [pick, setPick] = useState('');
   const [all, setAll] = useState(reviewer?.scope === 'all');
   const [picked, setPicked] = useState<Set<string>>(
     new Set(reviewer && reviewer.scope !== 'all' ? reviewer.scope : []),
@@ -172,7 +339,7 @@ function ReviewerSheet({
     else n.add(id);
     setPicked(n);
   };
-  const free = joinedMembers.filter((x) => !taken.includes(x) || x === reviewer?.name);
+  const chosen = candidates.find((c) => c.id === pick);
   return (
     <Sheet label={reviewer ? 'تعديل النطاق' : 'أضف مدققًا'}>
       <div className="flex items-center justify-between border-b border-line/25 bg-surface-low/60 px-4 py-2.5">
@@ -188,16 +355,22 @@ function ReviewerSheet({
           <label className="grid gap-1.5">
             <span className="text-body font-medium text-ink">من أهل الشجرة</span>
             <select
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={pick}
+              onChange={(e) => setPick(e.target.value)}
               className="h-12 rounded-xl border border-line/70 bg-card px-3 text-body"
             >
               <option value="">اختر شخصًا انضم للشجرة</option>
-              {free.map((x) => (
-                <option key={x}>{x}</option>
+              {candidates.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                </option>
               ))}
             </select>
-            <span className="text-caption text-muted">يظهر هنا فقط من انضم عبر رابط دعوة.</span>
+            <span className="text-caption text-muted">
+              {candidates.length
+                ? 'يظهر هنا فقط من انضم عبر رابط دعوة.'
+                : 'ما فيه أحد انضم بعد. أرسل له رابط مدقق بدلًا من ذلك.'}
+            </span>
           </label>
         ) : null}
 
@@ -272,11 +445,11 @@ function ReviewerSheet({
 
         <Button
           className="rounded-xl"
-          disabled={(!reviewer && !name) || (!all && picked.size === 0)}
+          disabled={busy || (!reviewer && !chosen) || (!all && picked.size === 0)}
           onClick={() =>
             onSave({
-              id: reviewer?.id ?? newId('r'),
-              name: reviewer?.name ?? name,
+              id: reviewer?.id ?? chosen!.id,
+              name: reviewer?.name ?? chosen!.name,
               scope: all ? 'all' : [...picked],
               reviewed: reviewer?.reviewed ?? 0,
             })

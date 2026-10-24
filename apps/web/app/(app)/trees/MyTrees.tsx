@@ -6,7 +6,9 @@ import type { ReactNode } from 'react';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { StatePage } from '@/components/States';
 import { meets, type Need } from '@/components/AppShell';
+import { backendOn } from '@/lib/backend';
 import { TREE_ID, canReview, generations, update, useDemo } from '@/lib/demo-store';
+import { useUnread } from '@/lib/notices';
 
 type Role = 'owner' | 'reviewer' | 'contributor';
 
@@ -208,6 +210,9 @@ export function TreesFrame({
 }) {
   const total = trees.reduce((s, t) => s + t.people, 0);
   const waiting = trees.reduce((s, t) => s + t.pending, 0);
+  const demo = useDemo();
+  const liveUnread = useUnread();
+  const unread = backendOn ? liveUnread : demo.notices.filter((n) => n.unread).length;
   return (
     <div className="flex min-h-dvh flex-col bg-ivory">
       <header className="sticky top-0 z-30 border-b border-line/30 bg-ivory/90 shadow-xs backdrop-blur-md">
@@ -219,11 +224,13 @@ export function TreesFrame({
             {headerEnd}
             <Link
               href="/notifications"
-              aria-label="الإشعارات"
+              aria-label={unread ? `الإشعارات، ${unread} غير مقروءة` : 'الإشعارات'}
               className="relative flex size-10 items-center justify-center rounded-full text-forest hover:bg-surface"
             >
               <Icon name="notifications" />
-              <span className="absolute top-2 right-2 size-2.5 rounded-full bg-danger ring-2 ring-ivory" />
+              {unread ? (
+                <span className="absolute top-2 right-2 size-2.5 rounded-full bg-danger ring-2 ring-ivory" />
+              ) : null}
             </Link>
             <span className="mx-2 h-6 w-px bg-line/40" />
             <Link

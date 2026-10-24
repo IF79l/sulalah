@@ -11,7 +11,9 @@ import {
   sendBack,
   type Person,
   type Submission,
+  when,
 } from '@/lib/demo-store';
+import { tellContributor } from '@/lib/live-actions';
 
 /**
  * S17: one submission, reviewed on the tree. Every proposed person is a row; unticking a
@@ -130,7 +132,7 @@ export function ReviewPanel({
       <div className="grid gap-4 overflow-y-auto p-5">
         <div className="grid gap-1">
           <p className="text-caption text-muted">
-            أرسلها {submission.contributor} {submission.at}
+            أرسلها {submission.contributor} {when(submission.at)}
           </p>
           <p className="text-body text-ink">
             تحت <strong className="text-forest">{father?.name}</strong>، {num(proposed.length)}{' '}
@@ -208,6 +210,7 @@ export function ReviewPanel({
                 disabled={!note.trim()}
                 onClick={() => {
                   sendBack(submission.id, mode === 'reject' ? 'rejected' : 'changes', note.trim(), reviewer);
+                  tellContributor(submission, mode === 'reject' ? 'rejected' : 'changes', 0);
                   finish(mode === 'reject' ? 'رفضت الإضافة، ووصل السبب للمساهم' : 'أرسلت طلب التعديل للمساهم');
                 }}
               >
@@ -225,6 +228,11 @@ export function ReviewPanel({
               disabled={keep.size === 0}
               onClick={() => {
                 approve(submission.id, [...keep], reviewer);
+                tellContributor(
+                  submission,
+                  keep.size === proposed.length ? 'approved' : 'partly_approved',
+                  keep.size,
+                );
                 finish(`اعتمدت ${num(keep.size)} ${keep.size > 2 ? 'إضافات' : keep.size === 2 ? 'إضافتين' : 'إضافة'}، ونبتت في الشجرة`);
               }}
             >

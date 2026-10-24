@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 // ---------- The file ----------
 
-const personSchema = z.object({
+export const personSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   gender: z.enum(['male', 'female']),
@@ -24,6 +24,21 @@ const personSchema = z.object({
   submissionId: z.string().optional(),
 });
 
+const settingsSchema = z.object({
+  showDaughtersToVisitors: z.boolean(),
+  showDeceased: z.boolean(),
+  showBirthYears: z.boolean(),
+});
+
+const logSchema = z.object({
+  id: z.string(),
+  who: z.string(),
+  action: z.enum(['add', 'edit', 'approve', 'reject', 'invite', 'delete']),
+  text: z.string(),
+  personId: z.string().optional(),
+  at: z.string(),
+});
+
 export const treeFileSchema = z.object({
   format: z.literal('sulalah-tree'),
   version: z.literal(1),
@@ -36,24 +51,44 @@ export const treeFileSchema = z.object({
   }),
   people: z.array(personSchema),
   unions: z.array(z.object({ aId: z.string(), bId: z.string() })),
-  /** Additions waiting on review, as they were sent. */
+  /** Additions waiting on review, as they were sent, and what became of them. */
   submissions: z.array(
     z.object({
       id: z.string(),
       contributor: z.string(),
+      /** The sender's account id, so the result can be sent back to them. */
+      by: z.string().optional(),
       fatherId: z.string(),
       personIds: z.array(z.string()),
       at: z.string(),
       status: z.enum(['pending', 'changes', 'approved', 'rejected']),
       note: z.string().optional(),
       warnings: z.array(z.string()).optional(),
+      /** The earlier submission this one corrects, after a request for changes. */
+      replaces: z.string().optional(),
+      reviewedBy: z.string().optional(),
     }),
   ),
+  /** What visitors on a view link may see. Members always see everything. */
+  settings: settingsSchema.optional(),
+  /** Who did what, newest first, capped at LOG_LIMIT entries. */
+  log: z.array(logSchema).optional(),
   updatedAt: z.string(),
 });
 
 export type TreeFile = z.infer<typeof treeFileSchema>;
 export type TreeFilePerson = z.infer<typeof personSchema>;
+export type TreeFileSubmission = TreeFile['submissions'][number];
+export type TreeSettings = z.infer<typeof settingsSchema>;
+export type TreeLogEntry = z.infer<typeof logSchema>;
+
+export const defaultTreeSettings: TreeSettings = {
+  showDaughtersToVisitors: false,
+  showDeceased: true,
+  showBirthYears: true,
+};
+
+export const LOG_LIMIT = 500;
 
 // ---------- Encryption ----------
 
@@ -75,7 +110,7 @@ export function generateTreeKey(): string {
   return toB64url(globalThis.crypto.getRandomValues(new Uint8Array(32)));
 }
 
-async function importKey(key: string) {
+export async function importKey(key: string) {
   const raw = fromB64url(key);
   if (raw.length !== 32) throw new TreeFileError('bad-key');
   return subtle().importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
@@ -184,8 +219,17 @@ export function mergeTreeFiles(base: TreeFile, local: TreeFile, remote: TreeFile
     people: byKey((p) => p.id, base.people, local.people, remote.people),
     unions: byKey((u) => `${u.aId}+${u.bId}`, base.unions, local.unions, remote.unions),
     submissions: byKey((x) => x.id, base.submissions, local.submissions, remote.submissions),
+    settings: same(local.settings, base.settings) ? remote.settings : local.settings,
+    // The log only grows: keep every entry either side has, newest first.
+    log: mergeLogs(local.log, remote.log),
     updatedAt: new Date().toISOString(),
   };
+}
+
+function mergeLogs(a: TreeLogEntry[] = [], b: TreeLogEntry[] = []): TreeLogEntry[] | undefined {
+  if (!a.length && !b.length) return undefined;
+  const all = new Map([...b, ...a].map((x) => [x.id, x]));
+  return [...all.values()].sort((x, y) => (x.at < y.at ? 1 : x.at > y.at ? -1 : 0)).slice(0, LOG_LIMIT);
 }
 
 // ---------- Recovery code ----------

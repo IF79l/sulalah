@@ -43,7 +43,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
         .eq('tree_id', treeId)
         .eq('user_id', user.id)
         .maybeSingle(),
-      db.from('trees').select('plan').eq('id', treeId).maybeSingle(),
+      db.from('trees').select('plan, view_slug').eq('id', treeId).maybeSingle(),
       db.from('profiles').select('first_name, father_name, notify').eq('id', user.id).maybeSingle(),
     ]);
     if (member.error || tree.error) {
@@ -61,10 +61,12 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       openLive(
         {
           treeId,
+          userId: user.id,
           role: member.data.role,
           scope: member.data.scope_person_ids,
           branch: member.data.branch_person_id ?? undefined,
           plan: tree.data.plan,
+          viewOpen: !!tree.data.view_slug,
           me: {
             first: profile.data?.first_name ?? '',
             father: profile.data?.father_name ?? '',

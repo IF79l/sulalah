@@ -1,16 +1,36 @@
 'use client';
 
 import { Button, Chip, Icon, cn } from '@sulalah/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppShell, EmptyState, Toast } from '@/components/AppShell';
 import { ShareSheet } from '@/components/tree/ShareSheet';
-import { byId, num, update, useDemo, type Invite } from '@/lib/demo-store';
+import { listLinks, stopLink, type Link as LiveLink } from '@/lib/collab-cloud';
+import { byId, liveTree, logEntry, num, update, useDemo, type Invite } from '@/lib/demo-store';
+import { republishView } from '@/lib/live-tree';
 
 const statusChip: Record<Invite['status'], [string, 'success' | 'neutral' | 'danger']> = {
   active: ['فعّال', 'success'],
   expired: ['منتهي', 'neutral'],
   stopped: ['موقوف', 'danger'],
+  'used-up': ['اكتمل', 'neutral'],
 };
+
+const kindLabel: Record<Invite['kind'], [string, string]> = {
+  contribute: ['رابط مساهمة', 'group_add'],
+  view: ['رابط مشاهدة', 'visibility'],
+  review: ['رابط مدقق', 'verified_user'],
+};
+
+const asInvite = (l: LiveLink): Invite => ({
+  id: l.id,
+  kind: l.kind,
+  scope: l.branch ?? 'all',
+  used: l.used,
+  maxUses: l.maxUses,
+  expiresInDays: Math.max(0, Math.ceil((Date.parse(l.expiresAt) - Date.now()) / 86_400_000)),
+  status: l.status,
+  url: l.url,
+});
 
 /** S21: every invite link, with how it is being used. */
 export function Invites() {
@@ -18,15 +38,59 @@ export function Invites() {
   const [making, setMaking] = useState(false);
   const [stopping, setStopping] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [loading, setLoading] = useState(() => !!liveTree());
   const m = byId(s.people);
+  const live = liveTree();
 
-  const copy = async (id: string) => {
+  // A real tree's links live on the server; the list is read fresh each visit.
+  useEffect(() => {
+    const t = liveTree();
+    if (!t) return;
+    let gone = false;
+    listLinks(t.treeId, s.treeKey!)
+      .then((links) => {
+        if (!gone) update((st) => ({ ...st, invites: links.map(asInvite) }));
+      })
+      .catch(() => !gone && setToast('تعذّر تحميل الروابط'))
+      .finally(() => !gone && setLoading(false));
+    return () => {
+      gone = true;
+    };
+  }, [s.treeKey]);
+
+  const copy = async (inv: Invite) => {
     try {
-      await navigator.clipboard.writeText(`https://sulalah.app/i/${id.slice(-6)}`);
+      await navigator.clipboard.writeText(inv.url ?? `https://sulalah.app/i/${inv.id.slice(-6)}`);
       setToast('نسخنا الرابط');
     } catch {
       setToast('تعذّر النسخ');
     }
+  };
+
+  const stop = async (inv: Invite) => {
+    if (live) {
+      try {
+        await stopLink(live.treeId, {
+          id: inv.id,
+          kind: inv.kind,
+          branch: null,
+          used: inv.used,
+          expiresAt: '',
+          status: inv.status,
+        });
+        if (inv.kind === 'view') await republishView();
+      } catch {
+        setToast('ما قدرنا نوقف الرابط، حاول مرة ثانية');
+        return;
+      }
+    }
+    update((st) => ({
+      ...st,
+      invites: st.invites.map((x) => (x.id === inv.id ? { ...x, status: 'stopped' } : x)),
+      log: live ? [logEntry('invite', `أوقف ${kindLabel[inv.kind][0]}`), ...st.log] : st.log,
+    }));
+    setStopping(null);
+    setToast('أوقفنا الرابط');
   };
 
   return (
@@ -41,7 +105,11 @@ export function Invites() {
         </Button>
       }
     >
-      {s.invites.length ? (
+      {loading ? (
+        <p role="status" className="py-10 text-center text-body text-muted">
+          نجيب الروابط…
+        </p>
+      ) : s.invites.length ? (
         <ul className="grid gap-3">
           {s.invites.map((inv) => {
             const [label, tone] = statusChip[inv.status];
@@ -56,16 +124,14 @@ export function Invites() {
                 <span
                   className={cn(
                     'flex size-11 items-center justify-center rounded-xl',
-                    inv.kind === 'contribute'
-                      ? 'bg-forest text-gold-light'
-                      : 'bg-surface text-forest',
+                    inv.kind === 'view' ? 'bg-surface text-forest' : 'bg-forest text-gold-light',
                   )}
                 >
-                  <Icon name={inv.kind === 'contribute' ? 'group_add' : 'visibility'} />
+                  <Icon name={kindLabel[inv.kind][1]} />
                 </span>
                 <div className="grid gap-1">
                   <p className="flex flex-wrap items-center gap-2 text-body font-semibold text-forest">
-                    {inv.kind === 'contribute' ? 'رابط مساهمة' : 'رابط مشاهدة'}
+                    {kindLabel[inv.kind][0]}
                     <Chip tone="olive">
                       {inv.scope === 'all' ? 'الشجرة كاملة' : `غصن ${m.get(inv.scope)?.name}`}
                     </Chip>
@@ -76,6 +142,8 @@ export function Invites() {
                     {inv.maxUses ? ` من ${num(inv.maxUses)}` : ''}،{' '}
                     {inv.status === 'expired'
                       ? 'انتهت صلاحيته'
+                      : inv.status === 'stopped' || inv.status === 'used-up'
+                        ? 'ما يقبل أحدًا جديدًا'
                       : inv.expiresInDays === 1
                         ? 'ينتهي بكرة'
                         : `ينتهي بعد ${num(inv.expiresInDays)} أيام`}
@@ -96,16 +164,7 @@ export function Invites() {
                       <Button
                         size="sm"
                         variant="danger"
-                        onClick={() => {
-                          update((st) => ({
-                            ...st,
-                            invites: st.invites.map((x) =>
-                              x.id === inv.id ? { ...x, status: 'stopped' } : x,
-                            ),
-                          }));
-                          setStopping(null);
-                          setToast('أوقفنا الرابط');
-                        }}
+                        onClick={() => void stop(inv)}
                       >
                         أوقفه
                       </Button>
@@ -115,7 +174,12 @@ export function Invites() {
                     </div>
                   ) : (
                     <div className="flex gap-1">
-                      <Button size="sm" variant="quiet" onClick={() => copy(inv.id)}>
+                      <Button
+                        size="sm"
+                        variant="quiet"
+                        disabled={live ? !inv.url : false}
+                        onClick={() => copy(inv)}
+                      >
                         <Icon name="content_copy" />
                         نسخ
                       </Button>

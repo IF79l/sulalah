@@ -53,9 +53,9 @@ select tests.ok((select price_monthly_halalas from public.plans where id = 'fami
   'plans ship without prices');
 select tests.fails($$ update public.plans set price_monthly_halalas = 100 $$,
   'nobody outside the server edits prices');
-select tests.ok(public.reviewer_cap('extended') = 5, 'the reviewer cap comes from the plans table');
 
 set role authenticated;
+select tests.ok(public.reviewer_cap('extended') = 5, 'the reviewer cap comes from the plans table');
 select tests.fails($$ select public.billing_apply_payment(gen_random_uuid(), 'pay_1', 100, 'SAR') $$,
   'a signed in person cannot apply a payment');
 select tests.fails($$ select public.billing_grant_manual(

@@ -21,6 +21,7 @@ import {
   update,
   useDemo,
   type Person,
+  when,
 } from '@/lib/demo-store';
 
 const t = (p = '') => `/trees/${currentTreeId()}${p}`;
@@ -269,7 +270,7 @@ export function Profile({ personId }: { personId: string }) {
                   <span className="mt-1 size-2.5 shrink-0 rounded-full bg-olive" />
                   <span className="grid text-body">
                     <span className="text-ink">أضافه {p.addedBy ?? 'المالك'}</span>
-                    <span className="text-caption text-muted">{p.addedAt ?? '—'}</span>
+                    <span className="text-caption text-muted">{p.addedAt ? when(p.addedAt) : '—'}</span>
                   </span>
                 </li>
                 {p.approvedBy ? (
@@ -277,7 +278,7 @@ export function Profile({ personId }: { personId: string }) {
                     <span className="mt-1 size-2.5 shrink-0 rounded-full bg-leaf" />
                     <span className="grid text-body">
                       <span className="text-ink">اعتمده {p.approvedBy}</span>
-                      <span className="text-caption text-muted">{p.addedAt ?? '—'}</span>
+                      <span className="text-caption text-muted">{p.addedAt ? when(p.addedAt) : '—'}</span>
                     </span>
                   </li>
                 ) : null}
@@ -287,7 +288,7 @@ export function Profile({ personId }: { personId: string }) {
                     <span className="grid text-body">
                       <span className="text-ink">{l.text}</span>
                       <span className="text-caption text-muted">
-                        {l.who}، {l.at}
+                        {l.who}، {when(l.at)}
                       </span>
                     </span>
                   </li>

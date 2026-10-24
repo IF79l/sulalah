@@ -21,7 +21,8 @@ export default async function LoginPage({
     const { data } = await db.rpc('invite_preview', { token: invite });
     const row = data?.[0];
     // The tree's name is sealed in its file, so the banner names the person who invited.
-    if (row?.valid) banner = { from: row.inviter, tree: 'شجرة عائلته', token: invite };
+    // Even a stopped link sends the person back to it: members may still bring the key over.
+    if (row) banner = { from: row.inviter, tree: 'شجرة عائلته', token: invite };
   }
   return <SignIn live invite={banner} next={next} />;
 }

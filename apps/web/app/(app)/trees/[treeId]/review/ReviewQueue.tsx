@@ -1,8 +1,8 @@
 'use client';
 
-import { Chip, Icon, Medallion, buttonClass, cn } from '@sulalah/ui';
+import { Button, Chip, Icon, Medallion, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppShell, EmptyState, Tabs } from '@/components/AppShell';
 import { BranchGlimpse } from '@/components/Botanical';
 import {
@@ -10,10 +10,13 @@ import {
   byId,
   canReview,
   demoReviewer,
+  liveTree,
   num,
   useDemo,
   type SubmissionStatus,
+  when,
 } from '@/lib/demo-store';
+import { syncIncoming } from '@/lib/live-tree';
 
 const t = (p = '') => `/trees/${currentTreeId()}${p}`;
 
@@ -21,7 +24,21 @@ const t = (p = '') => `/trees/${currentTreeId()}${p}`;
 export function ReviewQueue() {
   const s = useDemo();
   const [tab, setTab] = useState<SubmissionStatus>('pending');
+  const [looking, setLooking] = useState(false);
+  const live = liveTree();
   const m = byId(s.people);
+
+  // On a real tree, new submission files are fetched as the queue opens.
+  const look = async () => {
+    setLooking(true);
+    await syncIncoming();
+    setLooking(false);
+  };
+  useEffect(() => {
+    if (liveTree()) void look();
+    // Once per visit to the queue.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // A reviewer sees only what hangs from their branches; the rest is the owner's.
   const mine = s.submissions.filter((x) => canReview(s, x.fatherId));
   const outside =
@@ -30,9 +47,10 @@ export function ReviewQueue() {
   const count = (st: SubmissionStatus) => mine.filter((x) => x.status === st).length;
   const list = mine.filter((x) => x.status === tab);
   const r = demoReviewer(s);
+  const scope = live ? live.scope : r && r.scope !== 'all' ? r.scope : [];
   const scopeName =
-    s.as === 'reviewer' && r && r.scope !== 'all'
-      ? r.scope.map((id) => `غصن ${m.get(id)?.name ?? ''}`).join('، ')
+    s.as === 'reviewer' && scope.length
+      ? scope.map((id) => `غصن ${m.get(id)?.name ?? ''}`).join('، ')
       : null;
 
   return (
@@ -40,6 +58,14 @@ export function ReviewQueue() {
       need="review.view"
       title="الإضافات الواردة"
       subtitle="راجع ما أرسلته العائلة على الشجرة نفسها، ثم اعتمده أو اطلب تعديله."
+      actions={
+        live ? (
+          <Button size="sm" variant="quiet" disabled={looking} onClick={() => void look()}>
+            <Icon name="refresh" className={looking ? 'animate-spin' : undefined} />
+            {looking ? 'نبحث…' : 'تحديث'}
+          </Button>
+        ) : undefined
+      }
     >
       <Tabs
         value={tab}
@@ -84,7 +110,7 @@ export function ReviewQueue() {
                             : 'إضافة'}
                       </p>
                       <p className="text-caption text-muted">
-                        تحت {father?.name}، {x.at}
+                        تحت {father?.name}، {when(x.at)}
                       </p>
                     </div>
                   </div>

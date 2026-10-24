@@ -4,7 +4,21 @@
  */
 export type TreeRole = 'owner' | 'reviewer' | 'contributor';
 export type PlanCode = 'family' | 'extended' | 'tribe';
-export type InviteKind = 'contribute' | 'review';
+export type InviteKind = 'contribute' | 'review' | 'view';
+/** Why a link no longer works. */
+export type InviteProblem = 'stopped' | 'expired' | 'used-up' | 'full';
+
+export type NoticeKind =
+  | 'submitted'
+  | 'approved'
+  | 'partly_approved'
+  | 'changes'
+  | 'rejected'
+  | 'withdrawn'
+  | 'joined'
+  | 'made_reviewer'
+  | 'made_contributor'
+  | 'owner_now';
 
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
@@ -37,6 +51,8 @@ export type TreeRow = {
   file_version: number;
   file_path: string | null;
   file_size: number | null;
+  view_slug: string | null;
+  view_path: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -62,6 +78,19 @@ export type InviteRow = {
   expires_at: string;
   revoked_at: string | null;
   created_by: string;
+  token_sealed: string | null;
+  created_at: string;
+};
+
+export type NoticeRow = {
+  id: string;
+  user_id: string;
+  tree_id: string;
+  kind: NoticeKind;
+  actor_id: string | null;
+  count: number;
+  ref: string | null;
+  read_at: string | null;
   created_at: string;
 };
 
@@ -87,6 +116,13 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
+            foreignKeyName: 'tree_members_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
             foreignKeyName: 'tree_members_invited_by_fkey';
             columns: ['invited_by'];
             isOneToOne: false;
@@ -98,9 +134,23 @@ export type Database = {
       invites: Table<
         InviteRow,
         Pick<InviteRow, 'tree_id' | 'kind' | 'token_hash' | 'expires_at' | 'created_by'> &
-          Partial<Pick<InviteRow, 'branch_person_id' | 'max_uses'>>,
+          Partial<Pick<InviteRow, 'branch_person_id' | 'max_uses' | 'token_sealed'>>,
         Pick<InviteRow, 'revoked_at'>
       >;
+      notifications: {
+        Row: NoticeRow;
+        Insert: never;
+        Update: Pick<NoticeRow, 'read_at'>;
+        Relationships: [
+          {
+            foreignKeyName: 'notifications_actor_id_fkey';
+            columns: ['actor_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -114,10 +164,47 @@ export type Database = {
       set_tree_key: { Args: { tree: string; new_key: string }; Returns: undefined };
       invite_preview: {
         Args: { token: string };
-        Returns: { kind: InviteKind; inviter: string; valid: boolean }[];
+        Returns: {
+          kind: InviteKind;
+          inviter: string;
+          valid: boolean;
+          problem: InviteProblem | null;
+          branch: string | null;
+        }[];
+      };
+      open_view: {
+        Args: { token: string };
+        Returns: {
+          problem: InviteProblem | 'closed' | 'not-ready' | null;
+          path: string | null;
+          view_key: string | null;
+        }[];
+      };
+      set_view_open: {
+        Args: { tree: string; open: boolean; fresh?: boolean };
+        Returns: string | null;
+      };
+      publish_view: { Args: { tree: string; path: string; copy_key: string }; Returns: undefined };
+      set_member_role: {
+        Args: { tree: string; member: string; new_role: TreeRole; scope?: string[] };
+        Returns: undefined;
+      };
+      transfer_ownership: { Args: { tree: string; member: string }; Returns: undefined };
+      notify_submission: {
+        Args: { tree: string; anchor_path: string[]; n: number };
+        Returns: undefined;
+      };
+      notify_member: {
+        Args: { tree: string; member: string; what: NoticeKind; n: number; at?: string | null };
+        Returns: undefined;
       };
     };
-    Enums: { tree_role: TreeRole; plan_id: PlanCode; invite_kind: InviteKind };
+    Enums: {
+      tree_role: TreeRole;
+      plan_id: PlanCode;
+      invite_kind: InviteKind;
+      notice_kind: NoticeKind;
+    };
     CompositeTypes: Record<never, never>;
   };
 };
