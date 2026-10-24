@@ -8,6 +8,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NoAccess, Sprouting, StatePage } from '@/components/States';
 import { closeLive, liveTree, openLive } from '@/lib/demo-store';
 import { retrySave, startSaving, stopSaving, unsaved, useSaveStatus } from '@/lib/live-tree';
+import {
+  hasOpenAccount,
+  loadKeyring,
+  openTreeKey,
+  passkeysPossible,
+  sealTreeKeyForMe,
+  sealedTreeKey,
+} from '@/lib/passkey';
 import { supabase } from '@/lib/supabase/client';
 import { loadTreeFile } from '@/lib/tree-cloud';
 import { deviceKey, keepKey } from '@/lib/tree-keys';
@@ -27,6 +35,9 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState<string>();
   const [opening, setOpening] = useState(false);
+  /** This person's tree key sealed for their passkey, when they have one. */
+  const [sealed, setSealed] = useState<string>();
+  const [typing, setTyping] = useState(false);
 
   const open = async (typedKey?: string) => {
     const db = supabase();
@@ -51,7 +62,14 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
     if (!member.data || !tree.data) return setPhase('no-access');
 
     const key = typedKey ?? deviceKey(treeId);
-    if (!key) return setPhase('locked');
+    if (!key) {
+      const [mine] = await Promise.all([
+        sealedTreeKey(treeId).catch(() => undefined),
+        loadKeyring().catch(() => undefined),
+      ]);
+      setSealed(passkeysPossible() ? mine : undefined);
+      return setPhase('locked');
+    }
     try {
       const loaded = await loadTreeFile(treeId, key);
       if (!loaded) return setPhase('empty');
@@ -77,6 +95,9 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       );
       startSaving(treeId, key, loaded.version, loaded.file);
       setPhase('ready');
+      // Opened with a code or this device's copy: keep one for the passkey too, if it is open.
+      if (hasOpenAccount())
+        void sealedTreeKey(treeId).then((s) => (s ? undefined : sealTreeKeyForMe(treeId, key)));
     } catch (e) {
       if (e instanceof TreeFileError && e.code === 'wrong-key') {
         setCodeError(typedKey ? 'هذا الرمز ما يفتح هذه الشجرة' : undefined);
@@ -140,41 +161,84 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       <StatePage
         icon="key"
         title="افتح الشجرة على هذا الجهاز"
-        body="أسماء العائلة مشفّرة، ومفتاحها عند العائلة فقط. افتح رابط الدعوة اللي وصلك على هذا الجهاز، أو اكتب رمز الاسترجاع اللي حفظه مالك الشجرة."
+        body={
+          sealed
+            ? 'أسماء العائلة مشفّرة، ومفتاحها محفوظ ببصمتك. أكّد ببصمتك أو وجهك وتنفتح.'
+            : 'أسماء العائلة مشفّرة، ومفتاحها عند العائلة فقط. افتح رابط الدعوة اللي وصلك على هذا الجهاز، أو اكتب رمز الاسترجاع اللي حفظه مالك الشجرة.'
+        }
         action={
-          <form
-            className="grid w-full max-w-sm gap-3 text-start"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              let key: string;
-              try {
-                key = keyFromRecoveryCode(code);
-              } catch {
-                setCodeError('الرمز 52 حرفًا ورقمًا، تأكد منه');
-                return;
-              }
-              setOpening(true);
-              await open(key);
-              setOpening(false);
-            }}
-          >
-            <Field
-              label="رمز الاسترجاع"
-              dir="ltr"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              error={codeError}
-              placeholder="XXXX-XXXX-…"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <Button type="submit" disabled={opening || !code.trim()}>
-              {opening ? 'نفتح الشجرة…' : 'افتح الشجرة'}
-            </Button>
-            <Link href="/trees" className={cn(buttonClass('ghost'), 'justify-self-center')}>
-              ارجع لأشجاري
-            </Link>
-          </form>
+          sealed && !typing ? (
+            <div className="grid w-full max-w-sm gap-3">
+              <Button
+                disabled={opening}
+                onClick={async () => {
+                  setOpening(true);
+                  setCodeError(undefined);
+                  try {
+                    await open(await openTreeKey(treeId, sealed));
+                  } catch {
+                    setCodeError('ما اكتمل التأكيد. حاول مرة ثانية.');
+                  }
+                  setOpening(false);
+                }}
+              >
+                <Icon
+                  name={opening ? 'progress_activity' : 'fingerprint'}
+                  className={cn(opening && 'animate-spin')}
+                />
+                {opening ? 'نفتح الشجرة…' : 'افتح ببصمتك'}
+              </Button>
+              {codeError ? (
+                <p role="alert" className="text-caption text-danger">
+                  {codeError}
+                </p>
+              ) : null}
+              <button
+                type="button"
+                className="text-caption font-medium text-olive hover:underline"
+                onClick={() => {
+                  setCodeError(undefined);
+                  setTyping(true);
+                }}
+              >
+                عندي رمز استرجاع
+              </button>
+            </div>
+          ) : (
+            <form
+              className="grid w-full max-w-sm gap-3 text-start"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                let key: string;
+                try {
+                  key = keyFromRecoveryCode(code);
+                } catch {
+                  setCodeError('الرمز 52 حرفًا ورقمًا، تأكد منه');
+                  return;
+                }
+                setOpening(true);
+                await open(key);
+                setOpening(false);
+              }}
+            >
+              <Field
+                label="رمز الاسترجاع"
+                dir="ltr"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                error={codeError}
+                placeholder="XXXX-XXXX-…"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <Button type="submit" disabled={opening || !code.trim()}>
+                {opening ? 'نفتح الشجرة…' : 'افتح الشجرة'}
+              </Button>
+              <Link href="/trees" className={cn(buttonClass('ghost'), 'justify-self-center')}>
+                ارجع لأشجاري
+              </Link>
+            </form>
+          )
         }
       />
     );

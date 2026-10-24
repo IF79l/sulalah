@@ -4,15 +4,16 @@ import {
   defaultPlanLimits,
   fromCsv,
   generateTreeKey,
-  recoveryCode,
   type CsvIssue,
   type PlanId,
   type TreeFilePerson,
 } from '@sulalah/domain';
 import { Button, Chip, Field, Icon, Logo, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TREE_ID, names, newId, replaceTree, update } from '@/lib/demo-store';
+import { ProtectTree } from '@/components/tree/ProtectTree';
+import { loadKeyring } from '@/lib/passkey';
 import { plantTree } from '@/lib/tree-cloud';
 import { keepKey } from '@/lib/tree-keys';
 
@@ -99,10 +100,13 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
   const [plan, setPlan] = useState<PlanId>('extended');
   const [done, setDone] = useState(false);
   const [imported, setImported] = useState<Imported | null>(null);
-  const [planted, setPlanted] = useState<{ id: string; code: string }>();
+  const [planted, setPlanted] = useState<{ id: string; key: string }>();
   const [planting, setPlanting] = useState(false);
   const [plantError, setPlantError] = useState<string>();
-  const [copied, setCopied] = useState(false);
+  // Ready before the person taps, so the Face ID prompt can follow the tap at once.
+  useEffect(() => {
+    if (live) loadKeyring().catch(() => {});
+  }, [live]);
 
   const title = family.trim() ? `شجرة آل ${family.trim()}` : 'شجرة العائلة';
   const filled = ancestors.map((a) => a.trim()).filter(Boolean);
@@ -138,7 +142,7 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
         },
         key,
       );
-      setPlanted({ id, code: recoveryCode(key) });
+      setPlanted({ id, key });
       setDone(true);
     } catch {
       setPlantError('ما قدرنا نزرع الشجرة. تأكد من اتصالك وحاول مرة ثانية.');
@@ -176,39 +180,7 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
               ? `نبتت بـ ${names(imported.people.length)} من ملفك. ادعُ عائلتك يكملون أغصانهم.`
               : 'الخطوة التالية: ادعُ عائلتك يختارون أغصانهم ويضيفون أبناءهم.'}
           </p>
-          {planted ? (
-            <div className="grid w-full gap-2 rounded-xl border border-gold-light/40 bg-surface-low p-4 text-start">
-              <span className="flex items-center gap-2 text-body font-semibold text-forest">
-                <Icon name="key" className="text-olive" />
-                رمز الاسترجاع
-              </span>
-              <code
-                dir="ltr"
-                className="block rounded-lg bg-card px-3 py-2 text-center font-mono text-[0.8rem] leading-relaxed tracking-wide break-words text-ink"
-              >
-                {planted.code}
-              </code>
-              <p className="text-caption leading-relaxed text-muted">
-                أسماء عائلتك مشفّرة بمفتاح على هذا الجهاز فقط. احفظ الرمز في مكان آمن: به تفتح
-                الشجرة من جهاز ثاني، وإذا ضاع ما أحد يقدر يفتحها، ولا حتى سُلالة.
-              </p>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(planted.code);
-                    setCopied(true);
-                  } catch {
-                    setCopied(false);
-                  }
-                }}
-              >
-                <Icon name={copied ? 'check' : 'content_copy'} />
-                {copied ? 'نسخناه' : 'انسخ الرمز'}
-              </Button>
-            </div>
-          ) : null}
+          {planted ? <ProtectTree treeId={planted.id} treeKey={planted.key} /> : null}
           <div className="grid w-full gap-2">
             <Link href={`/trees/${planted?.id ?? TREE_ID}`} className={buttonClass('primary')}>
               افتح الشجرة
