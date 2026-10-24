@@ -27,4 +27,4 @@ pnpm typecheck
 pnpm db:test    # سياسات قاعدة البيانات على أي Postgres (DATABASE_URL)
 ```
 
-يتطلب Node 22 و pnpm 10. بدون مفاتيح Supabase يعمل التطبيق كنسخة تجريبية في المتصفح؛ ومعها يسجّل الدخول بالجوال ويحفظ الأشجار مشفّرة. البيئات الثلاث (محلي، تجربة، إنتاج) في [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md).
+يتطلب Node 22 و pnpm 10. بدون مفاتيح Supabase يعمل التطبيق كنسخة تجريبية في المتصفح؛ ومعها يسجّل الدخول بالجوال ويحفظ الأشجار مشفّرة. البيئات الثلاث (محلي، تجربة، إنتاج) في [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md). الاشتراكات والدفع ورموز الدخول في [docs/BILLING.md](docs/BILLING.md).

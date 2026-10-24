@@ -1,7 +1,11 @@
 import { Icon, cn } from '@sulalah/ui';
+import type { PlanOffer } from '@sulalah/domain';
+import { createClient } from '@supabase/supabase-js';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { InView } from '@/components/home/InView';
+import { backendOn, supabaseKey, supabaseUrl } from '@/lib/backend';
+import type { BillingDatabase } from '@/lib/supabase/billing-types';
 import {
   PageHead,
   PlanCards,
@@ -11,6 +15,26 @@ import {
   d,
   wrap,
 } from '@/components/site/Site';
+
+/** Prices come from the plans table, so announcing them needs no deploy. */
+export const revalidate = 300;
+
+async function offers(): Promise<PlanOffer[] | undefined> {
+  if (!backendOn) return undefined;
+  try {
+    const db = createClient<BillingDatabase>(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false },
+    });
+    const { data } = await db.from('plans').select('*').order('rank');
+    return data?.map((p) => ({
+      id: p.id,
+      limits: { maxPersons: p.max_persons, maxReviewers: p.max_reviewers },
+      prices: { monthly: p.price_monthly_halalas, annual: p.price_annual_halalas },
+    }));
+  } catch {
+    return undefined;
+  }
+}
 
 export const metadata: Metadata = {
   title: 'الباقات | سُلالة',
@@ -38,7 +62,7 @@ const rules = [
 const questions = [
   {
     q: 'متى تُعلن الأسعار؟',
-    a: 'عند الإطلاق. إلى ذاك الوقت تُفعّل الباقات يدويًا لمن يجرّب سُلالة معنا.',
+    a: 'عند الإطلاق. إلى ذاك الوقت تُفعّل الباقات يدويًا لمن يجرّب سُلالة معنا. بعده تدفع بمدى أو فيزا أو ماستركارد، شهريًا أو سنويًا، ويتجدد الاشتراك لحاله وتقدر توقفه متى ما شئت.',
   },
   {
     q: 'الأفراد يشملون البنات والزوجات؟',
@@ -50,7 +74,8 @@ const questions = [
   },
 ];
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const list = await offers();
   return (
     <main className="overflow-x-clip bg-ivory text-ink">
       <SiteHeader />
@@ -61,7 +86,7 @@ export default function PricingPage() {
 
       <section className="bg-card py-16 md:py-24">
         <InView className={cn(wrap, 'grid gap-14')}>
-          <PlanCards />
+          <PlanCards offers={list} />
           <PlanTable />
         </InView>
       </section>

@@ -59,6 +59,13 @@ account_sid = ""
 message_service_sid = ""
 auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 
+# Production sends codes through our own hook: WhatsApp first, SMS by Unifonic as the fallback
+# (apps/web/app/api/auth/sms-hook). Off locally, where the test numbers above need no message.
+[auth.hook.send_sms]
+enabled = false
+uri = "http://host.docker.internal:3000/api/auth/sms-hook"
+secrets = "env(SEND_SMS_HOOK_SECRET)"
+
 [auth.rate_limit]
 sms_sent = 30
 token_verifications = 30

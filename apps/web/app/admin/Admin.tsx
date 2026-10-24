@@ -1,53 +1,65 @@
 'use client';
 
-import type { PlanId } from '@sulalah/domain';
-import { Chip, Icon, Logo, Medallion, buttonClass, cn } from '@sulalah/ui';
+import { planIds, testPlanPrices, validVatNumber, type PlanId } from '@sulalah/domain';
+import { Button, Chip, Field, Icon, Logo, Medallion, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
-import { useState } from 'react';
-import { Tabs, Toast } from '@/components/AppShell';
+import { useCallback, useEffect, useState } from 'react';
+import { Panel, Tabs, Toast } from '@/components/AppShell';
+import {
+  demoInvoices,
+  demoPayments,
+  demoSeller,
+  demoSetPrices,
+  demoSetSeller,
+  demoView,
+} from '@/lib/billing/demo';
+import { cycleName, day, riyals, statusName } from '@/lib/billing/format';
+import type { AdminAction, AdminBilling } from '@/lib/billing/types';
 import { TREE_ID, myName, newId, num, planName, update, useDemo } from '@/lib/demo-store';
 
 /**
- * The platform owner's desk: accounts, trees, plan activations and invoices. It holds only
- * what the database holds. A tree here is its id, owner, plan and file, never its names,
- * which stay encrypted with the family.
+ * The platform owner's desk: plan requests, subscriptions, payments, invoices, prices and the
+ * seller printed on invoices, and what login codes cost. It holds only what the database
+ * holds. A tree here is its id, owner and plan, never its names, which stay encrypted with
+ * the family.
  */
 
-type Tab = 'requests' | 'trees' | 'users' | 'invoices';
+type Tab = 'requests' | 'subscriptions' | 'payments' | 'invoices' | 'prices' | 'codes' | 'users';
 
-interface TreeRow {
-  id: string;
-  owner: string;
-  plan: PlanId;
-  members: number;
-  fileKb: number;
-  updated: string;
-}
-
-const otherTrees: TreeRow[] = [
+// The sample platform's other families, so the desk has something to show without accounts.
+const others: AdminBilling['subscriptions'] = [
   {
-    id: 'bani-khalid',
-    owner: 'تركي بن خالد',
-    plan: 'family',
-    members: 9,
-    fileKb: 41,
-    updated: 'قبل أسبوع',
-  },
-  {
-    id: 'al-abdulaziz',
+    treeId: 'al-abdulaziz',
     owner: 'سلطان بن عبدالعزيز',
     plan: 'tribe',
-    members: 64,
-    fileKb: 610,
-    updated: 'أمس',
+    cycle: 'annual',
+    status: 'active',
+    provider: 'sandbox',
+    periodEnd: '2027-06-02T09:00:00Z',
+    cancelAtPeriodEnd: false,
+    scheduledPlan: null,
   },
   {
-    id: 'al-otaibi-23',
+    treeId: 'al-otaibi-23',
     owner: 'نايف بن مطلق',
     plan: 'extended',
-    members: 21,
-    fileKb: 188,
-    updated: 'قبل 3 أيام',
+    cycle: 'monthly',
+    status: 'past_due',
+    provider: 'sandbox',
+    periodEnd: '2026-10-22T09:00:00Z',
+    cancelAtPeriodEnd: false,
+    scheduledPlan: null,
+  },
+  {
+    treeId: 'bani-khalid',
+    owner: 'تركي بن خالد',
+    plan: 'family',
+    cycle: 'monthly',
+    status: 'active',
+    provider: 'manual',
+    periodEnd: null,
+    cancelAtPeriodEnd: false,
+    scheduledPlan: null,
   },
 ];
 
@@ -65,97 +77,149 @@ const users = [
   { name: 'ماجد بن سالم', phone: '54 •••• 772', trees: 1, joined: 'أكتوبر 2026', role: 'مساهم' },
 ];
 
-interface Invoice {
-  id: string;
-  owner: string;
-  plan: PlanId;
-  status: 'paid' | 'manual' | 'due';
-  at: string;
+function demoAdmin(s: ReturnType<typeof useDemo>): AdminBilling {
+  const v = demoView();
+  const seller = demoSeller();
+  return {
+    offers: v.offers,
+    seller: { ...seller, vatRateBp: 1500 },
+    subscriptions: [
+      ...(v.subscription ? [{ treeId: TREE_ID, owner: myName(s), ...v.subscription }] : []),
+      ...others,
+    ],
+    invoices: demoInvoices().map((i) => ({ ...i, treeId: TREE_ID })),
+    payments: [
+      ...demoPayments(),
+      {
+        id: 'sbx-0003',
+        treeId: 'al-otaibi-23',
+        kind: 'renewal',
+        plan: 'extended',
+        amount: testPlanPrices.extended.monthly,
+        status: 'failed',
+        failureReason: 'رصيد البطاقة غير كاف',
+        provider: 'sandbox',
+        createdAt: '2026-10-22T03:00:00Z',
+      },
+      {
+        id: 'sbx-0002',
+        treeId: 'al-abdulaziz',
+        kind: 'new',
+        plan: 'tribe',
+        amount: testPlanPrices.tribe.annual,
+        status: 'paid',
+        failureReason: null,
+        provider: 'sandbox',
+        createdAt: '2026-06-02T09:00:00Z',
+      },
+    ],
+    requests: s.upgradeRequested
+      ? [{ treeId: TREE_ID, owner: myName(s), from: s.plan, to: s.upgradeRequested }]
+      : [],
+    codes: [
+      { channel: 'whatsapp', sent: 184, failed: 9 },
+      { channel: 'sms', sent: 23, failed: 0 },
+      { channel: 'mock', sent: 0, failed: 0 },
+    ],
+  };
 }
 
-/** The whole platform at a glance; numbers only, nothing from inside a tree. */
-export function Admin() {
+const statusTone = (s: string) =>
+  s === 'active' || s === 'paid'
+    ? 'success'
+    : s === 'past_due' || s === 'open'
+      ? 'pending'
+      : s === 'failed'
+        ? 'danger'
+        : 'neutral';
+
+export function Admin({ live }: { live: boolean }) {
   const s = useDemo();
-  const [tab, setTab] = useState<Tab>('requests');
+  const [tab, setTab] = useState<Tab>('subscriptions');
   const [toast, setToast] = useState<string | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    {
-      id: 'INV-0007',
-      owner: 'سلطان بن عبدالعزيز',
-      plan: 'tribe',
-      status: 'manual',
-      at: '2 أكتوبر 2026',
-    },
-    {
-      id: 'INV-0006',
-      owner: 'نايف بن مطلق',
-      plan: 'extended',
-      status: 'manual',
-      at: '28 سبتمبر 2026',
-    },
-    {
-      id: 'INV-0005',
-      owner: 'تركي بن خالد',
-      plan: 'family',
-      status: 'manual',
-      at: '14 سبتمبر 2026',
-    },
-  ]);
+  const [data, setData] = useState<AdminBilling | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const trees: TreeRow[] = [
-    {
-      id: TREE_ID,
-      owner: myName(s),
-      plan: s.plan,
-      members: 1 + s.reviewers.length + 6,
-      fileKb: 96,
-      updated: 'الآن',
-    },
-    ...otherTrees,
-  ];
-  const requests = s.upgradeRequested
-    ? [{ tree: TREE_ID, owner: myName(s), from: s.plan, to: s.upgradeRequested }]
-    : [];
+  const load = useCallback(() => {
+    if (!live) return setData(demoAdmin(s));
+    fetch('/api/admin/billing', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(setData)
+      .catch(() => setError('ما قدرنا نجيب بيانات الفوترة'));
+  }, [live, s]);
+  useEffect(load, [load]);
 
-  const activate = (to: PlanId) => {
-    update((st) => ({
-      ...st,
-      plan: to,
-      upgradeRequested: undefined,
-      notices: [
-        {
-          id: newId('n'),
-          icon: 'workspace_premium',
-          text: `تفعّلت باقة ${planName[to]} لشجرتك`,
-          at: 'الآن',
-          unread: true,
-          href: `/trees/${TREE_ID}/plan`,
-        },
-        ...st.notices,
-      ],
-    }));
-    setInvoices((list) => [
-      {
-        id: `INV-${String(8 + list.length - 3).padStart(4, '0')}`,
-        owner: myName(s),
-        plan: to,
-        status: 'manual',
-        at: 'اليوم',
-      },
-      ...list,
-    ]);
-    setToast(`فعّلنا باقة ${planName[to]}، ووصل المالك إشعار`);
+  const act = async (a: AdminAction, done: string) => {
+    if (live) {
+      const r = await fetch('/api/admin/billing', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(a),
+      });
+      if (!r.ok) {
+        const b = (await r.json().catch(() => ({}))) as { error?: { message: string } };
+        return setToast(b.error?.message ?? 'ما انحفظ التغيير');
+      }
+    } else if (a.action === 'prices')
+      demoSetPrices(a.plan, { monthly: a.monthly, annual: a.annual });
+    else if (a.action === 'seller')
+      demoSetSeller({
+        name: a.name,
+        vatNumber: a.vatNumber,
+        crNumber: a.crNumber,
+        address: a.address,
+      });
+    else
+      update((st) => ({
+        ...st,
+        plan: a.plan,
+        upgradeRequested: undefined,
+        notices: [
+          {
+            id: newId('n'),
+            icon: 'workspace_premium',
+            text: `تفعّلت باقة ${planName[a.plan]} لشجرتك`,
+            at: 'الآن',
+            unread: true,
+            href: `/trees/${TREE_ID}/plan`,
+          },
+          ...st.notices,
+        ],
+      }));
+    setToast(done);
+    load();
   };
 
+  const subs = data?.subscriptions ?? [];
+  const month = new Date().toISOString().slice(0, 7);
+  const monthly = subs
+    .filter((x) => x.status === 'active' && x.provider !== 'manual')
+    .reduce((sum, x) => {
+      const p = data!.offers.find((o) => o.id === x.plan)?.prices;
+      const price = x.cycle === 'annual' ? (p?.annual ?? 0) / 12 : (p?.monthly ?? 0);
+      return sum + price;
+    }, 0);
   const stats = [
-    { label: 'الحسابات', value: users.length, icon: 'group' },
-    { label: 'الأشجار', value: trees.length, icon: 'forest' },
-    { label: 'باقات مفعّلة', value: trees.length, icon: 'workspace_premium' },
     {
-      label: 'طلبات تنتظرك',
-      value: requests.length,
-      icon: 'pending_actions',
-      warn: requests.length > 0,
+      label: 'اشتراكات فعّالة',
+      value: num(subs.filter((x) => x.status === 'active').length),
+      icon: 'workspace_premium',
+    },
+    { label: 'الدخل الشهري المتكرر', value: riyals(Math.round(monthly)), icon: 'trending_up' },
+    {
+      label: 'فواتير هذا الشهر',
+      value: riyals(
+        (data?.invoices ?? [])
+          .filter((i) => i.issuedAt.startsWith(month))
+          .reduce((a, i) => a + i.total, 0),
+      ),
+      icon: 'receipt_long',
+    },
+    {
+      label: 'تجديدات متعثرة',
+      value: num(subs.filter((x) => x.status === 'past_due').length),
+      icon: 'credit_card_off',
+      warn: subs.some((x) => x.status === 'past_due'),
     },
   ];
 
@@ -178,7 +242,9 @@ export function Admin() {
           </Link>
         </div>
         <div className="relative mx-auto grid max-w-6xl gap-6 px-[max(16px,env(safe-area-inset-right,0px))] pt-6 pb-8 md:px-8">
-          <h1 className="page-in text-h1-m font-bold md:text-h1">أهلًا فيصل، هذي المنصة اليوم</h1>
+          <h1 className="page-in text-h1-m font-bold md:text-h1">
+            أهلًا {s.me.first}، هذي المنصة اليوم
+          </h1>
           <dl
             className="page-in grid grid-cols-2 gap-3 md:grid-cols-4"
             style={{ ['--d' as string]: 1 }}
@@ -191,11 +257,11 @@ export function Admin() {
                 </dt>
                 <dd
                   className={cn(
-                    'mt-1 text-[2rem]/none font-bold tabular-nums',
+                    'mt-1 text-[1.75rem]/none font-bold tabular-nums',
                     x.warn ? 'text-gold-light' : 'text-ivory',
                   )}
                 >
-                  {num(x.value)}
+                  {x.value}
                 </dd>
               </div>
             ))}
@@ -210,59 +276,134 @@ export function Admin() {
         <p className="mb-5 flex items-start gap-2 rounded-xl border border-line/40 bg-card px-4 py-3 text-caption leading-relaxed text-ink-soft">
           <Icon name="encrypted" className="mt-0.5 text-[1.1rem] text-olive" />
           هذي اللوحة تعرض اللي في قاعدة البيانات فقط. أسماء الأشجار ومن فيها مشفّرة عند العوائل، فما
-          تظهر هنا ولا تقدر تفتحها.
+          تظهر هنا ولا تقدر تفتحها. البطاقات يحفظها مزود الدفع، ونحن نرى آخر أربعة أرقام فقط.
         </p>
+        {error ? <p className="mb-5 text-body text-danger">{error}</p> : null}
         <Tabs
           value={tab}
           onChange={setTab}
           tabs={[
-            { value: 'requests', label: 'طلبات التفعيل', count: requests.length },
-            { value: 'trees', label: 'الأشجار', count: trees.length },
-            { value: 'users', label: 'الحسابات', count: users.length },
-            { value: 'invoices', label: 'الفواتير', count: invoices.length },
+            { value: 'subscriptions', label: 'الاشتراكات', count: subs.length },
+            { value: 'payments', label: 'المدفوعات', count: data?.payments.length ?? 0 },
+            { value: 'invoices', label: 'الفواتير', count: data?.invoices.length ?? 0 },
+            { value: 'requests', label: 'طلبات التفعيل', count: data?.requests.length ?? 0 },
+            { value: 'prices', label: 'الأسعار والبائع' },
+            { value: 'codes', label: 'رموز الدخول' },
+            ...(live ? [] : [{ value: 'users' as const, label: 'الحسابات', count: users.length }]),
           ]}
         />
 
-        {tab === 'requests' ? (
-          requests.length ? (
+        {!data ? null : tab === 'subscriptions' ? (
+          <Table
+            head={['الشجرة', 'المالك', 'الباقة', 'الحالة', 'التجديد', 'الدفع']}
+            rows={subs.map((x) => [
+              <span key="id" dir="ltr" className="font-mono text-caption text-ink">
+                {x.treeId.slice(0, 13)}
+              </span>,
+              x.owner,
+              <span key="p">
+                {planName[x.plan]}، {cycleName[x.cycle]}
+                {x.scheduledPlan ? (
+                  <span className="block text-caption text-muted">
+                    ينزل إلى {planName[x.scheduledPlan]}
+                  </span>
+                ) : null}
+              </span>,
+              <Chip key="st" tone={statusTone(x.status)}>
+                {x.cancelAtPeriodEnd ? 'لن يتجدد' : statusName[x.status]}
+              </Chip>,
+              x.periodEnd ? day(x.periodEnd) : 'مفتوح',
+              x.provider === 'manual' ? 'يدوي' : x.provider === 'moyasar' ? 'ميسّر' : 'تجريبي',
+            ])}
+          />
+        ) : tab === 'payments' ? (
+          <Table
+            head={['العملية', 'الشجرة', 'النوع', 'المبلغ', 'الحالة', 'التاريخ']}
+            rows={data.payments.map((p) => [
+              <span key="id" dir="ltr" className="font-mono text-caption">
+                {p.id.slice(0, 13)}
+              </span>,
+              <span key="t" dir="ltr" className="font-mono text-caption">
+                {p.treeId.slice(0, 13)}
+              </span>,
+              `${p.kind === 'renewal' ? 'تجديد' : p.kind === 'upgrade' ? 'ترقية' : 'اشتراك'}: ${planName[p.plan]}`,
+              <span key="a" className="tabular-nums">
+                {riyals(p.amount)}
+              </span>,
+              <span key="st" className="grid justify-items-start gap-1">
+                <Chip tone={statusTone(p.status)}>
+                  {p.status === 'paid'
+                    ? 'مدفوعة'
+                    : p.status === 'failed'
+                      ? 'مرفوضة'
+                      : p.status === 'open'
+                        ? 'بانتظار البنك'
+                        : 'منتهية'}
+                </Chip>
+                {p.failureReason ? (
+                  <span className="text-caption text-muted">{p.failureReason}</span>
+                ) : null}
+              </span>,
+              day(p.createdAt),
+            ])}
+            empty="ما فيه مدفوعات بعد"
+          />
+        ) : tab === 'invoices' ? (
+          <Table
+            head={['الرقم', 'العميل', 'الباقة', 'الإجمالي', 'الضريبة', 'التاريخ']}
+            rows={data.invoices.map((i) => [
+              <span key="id" dir="ltr" className="font-mono text-caption">
+                {i.number}
+              </span>,
+              i.buyerName,
+              i.plan ? planName[i.plan] : '',
+              <span key="t" className="tabular-nums">
+                {riyals(i.total)}
+              </span>,
+              i.vat ? (
+                <span key="v" className="tabular-nums">
+                  {riyals(i.vat)}
+                </span>
+              ) : (
+                <Chip key="v">غير مسجل</Chip>
+              ),
+              day(i.issuedAt),
+            ])}
+            empty="ما فيه فواتير بعد"
+          />
+        ) : tab === 'requests' ? (
+          data.requests.length ? (
             <ul className="grid gap-3">
-              {requests.map((r) => (
+              {data.requests.map((r) => (
                 <li
-                  key={r.tree}
+                  key={r.treeId}
                   className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gold-light/60 bg-card p-5"
                 >
                   <span className="flex items-center gap-3">
                     <Medallion name={r.owner} />
                     <span className="grid">
                       <span className="text-body font-semibold text-forest">
-                        {r.owner} يطلب ترقية
+                        {r.owner} يطلب باقة {planName[r.to]}
                       </span>
                       <span className="text-caption text-muted">
-                        الشجرة <span dir="ltr">{r.tree}</span> من {planName[r.from]} إلى{' '}
-                        {planName[r.to]}
+                        الشجرة <span dir="ltr">{r.treeId.slice(0, 13)}</span> على {planName[r.from]}{' '}
+                        الآن
                       </span>
                     </span>
                   </span>
-                  <span className="flex gap-2">
-                    <button
-                      type="button"
-                      className={cn(buttonClass('primary', 'sm'), 'rounded-xl')}
-                      onClick={() => activate(r.to)}
-                    >
-                      <Icon name="check" />
-                      فعّلها يدويًا
-                    </button>
-                    <button
-                      type="button"
-                      className={cn(buttonClass('ghost', 'sm'), 'rounded-xl')}
-                      onClick={() => {
-                        update((st) => ({ ...st, upgradeRequested: undefined }));
-                        setToast('أجّلنا الطلب');
-                      }}
-                    >
-                      لاحقًا
-                    </button>
-                  </span>
+                  <button
+                    type="button"
+                    className={cn(buttonClass('primary', 'sm'), 'rounded-xl')}
+                    onClick={() =>
+                      act(
+                        { action: 'grant', treeId: r.treeId, plan: r.to, until: null },
+                        `فعّلنا باقة ${planName[r.to]}، ووصل المالك إشعار`,
+                      )
+                    }
+                  >
+                    <Icon name="check" />
+                    فعّلها يدويًا
+                  </button>
                 </li>
               ))}
             </ul>
@@ -271,37 +412,19 @@ export function Admin() {
               <Icon name="task_alt" className="text-[2rem] text-olive" />
               <p className="text-title font-bold text-forest">ما فيه طلبات</p>
               <p className="max-w-sm text-body text-muted">
-                لما يطلب مالك ترقية من صفحة الباقة، يظهر طلبه هنا وتفعّله بضغطة.{' '}
-                <Link
-                  href={`/trees/${TREE_ID}/plan`}
-                  className="font-semibold text-olive hover:underline"
-                >
-                  جرّب تطلب ترقية
-                </Link>
+                قبل فتح الدفع، يطلب المالك الباقة من صفحة الباقة وتفعّلها هنا بضغطة. بعد الإطلاق
+                تتفعّل الباقات بالدفع لحالها.
               </p>
             </div>
           )
-        ) : null}
-
-        {tab === 'trees' ? (
-          <Table
-            head={['الشجرة', 'المالك', 'الباقة', 'الأعضاء', 'حجم الملف المشفّر', 'آخر تحديث']}
-            rows={trees.map((x) => [
-              <span key="id" dir="ltr" className="font-mono text-caption text-ink">
-                {x.id}
-              </span>,
-              x.owner,
-              <Chip key="p" tone={x.plan === 'tribe' ? 'forest' : 'olive'}>
-                {planName[x.plan]}
-              </Chip>,
-              num(x.members),
-              `${num(x.fileKb)} ك.ب`,
-              x.updated,
-            ])}
-          />
-        ) : null}
-
-        {tab === 'users' ? (
+        ) : tab === 'prices' ? (
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Prices data={data} onSave={act} />
+            <SellerForm data={data} onSave={act} />
+          </div>
+        ) : tab === 'codes' ? (
+          <Codes data={data} />
+        ) : (
           <Table
             head={['الاسم', 'الجوال', 'الأشجار', 'الدور الأبرز', 'انضم']}
             rows={users.map((u) => [
@@ -317,31 +440,193 @@ export function Admin() {
               u.joined,
             ])}
           />
-        ) : null}
-
-        {tab === 'invoices' ? (
-          <Table
-            head={['الرقم', 'المالك', 'الباقة', 'الحالة', 'التاريخ']}
-            rows={invoices.map((i) => [
-              <span key="id" dir="ltr" className="font-mono text-caption">
-                {i.id}
-              </span>,
-              i.owner,
-              planName[i.plan],
-              <Chip key="st" tone={i.status === 'due' ? 'pending' : 'success'}>
-                {i.status === 'manual' ? 'تفعيل يدوي' : i.status === 'paid' ? 'مدفوعة' : 'مستحقة'}
-              </Chip>,
-              i.at,
-            ])}
-          />
-        ) : null}
+        )}
       </main>
       {toast ? <Toast text={toast} onDone={() => setToast(null)} /> : null}
     </div>
   );
 }
 
-function Table({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
+const toRiyals = (h: number | null) => (h === null ? '' : String(h / 100));
+const toHalalas = (v: string) => (v.trim() === '' ? null : Math.round(Number(v) * 100));
+
+function Prices({
+  data,
+  onSave,
+}: {
+  data: AdminBilling;
+  onSave: (a: AdminAction, done: string) => void;
+}) {
+  const [draft, setDraft] = useState(
+    () =>
+      Object.fromEntries(
+        data.offers.map((o) => [
+          o.id,
+          { m: toRiyals(o.prices.monthly), a: toRiyals(o.prices.annual) },
+        ]),
+      ) as Record<PlanId, { m: string; a: string }>,
+  );
+  const bad = (v: string) => v.trim() !== '' && !(Number(v) >= 1);
+  return (
+    <Panel title="الأسعار" icon="sell">
+      <div className="grid gap-5 p-5">
+        <p className="text-caption leading-relaxed text-muted">
+          بالريال شاملة الضريبة. اترك الخانة فاضية لتبقى &quot;يُعلن عند الإطلاق&quot;. السعر الجديد
+          يسري على الاشتراكات الجديدة والتجديدات القادمة.
+        </p>
+        {planIds.map((id) => {
+          const d = draft[id];
+          return (
+            <div key={id} className="grid gap-3 rounded-xl border border-line/40 p-4">
+              <span className="text-body font-semibold text-forest">{planName[id]}</span>
+              <div className="grid grid-cols-2 gap-3">
+                <Field
+                  label="شهري"
+                  inputMode="decimal"
+                  dir="ltr"
+                  value={d.m}
+                  error={bad(d.m) ? 'رقم غير صحيح' : undefined}
+                  onChange={(e) => setDraft({ ...draft, [id]: { ...d, m: e.target.value } })}
+                />
+                <Field
+                  label="سنوي"
+                  inputMode="decimal"
+                  dir="ltr"
+                  value={d.a}
+                  error={bad(d.a) ? 'رقم غير صحيح' : undefined}
+                  onChange={(e) => setDraft({ ...draft, [id]: { ...d, a: e.target.value } })}
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="justify-self-start rounded-xl"
+                disabled={bad(d.m) || bad(d.a)}
+                onClick={() =>
+                  onSave(
+                    { action: 'prices', plan: id, monthly: toHalalas(d.m), annual: toHalalas(d.a) },
+                    `حفظنا أسعار ${planName[id]}`,
+                  )
+                }
+              >
+                احفظ
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </Panel>
+  );
+}
+
+function SellerForm({
+  data,
+  onSave,
+}: {
+  data: AdminBilling;
+  onSave: (a: AdminAction, done: string) => void;
+}) {
+  const [f, setF] = useState({
+    name: data.seller.name,
+    vatNumber: data.seller.vatNumber,
+    crNumber: data.seller.crNumber,
+    address: data.seller.address,
+  });
+  const vatBad = f.vatNumber !== '' && !validVatNumber(f.vatNumber);
+  return (
+    <Panel title="البائع على الفواتير" icon="storefront">
+      <form
+        className="grid gap-4 p-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!vatBad) onSave({ action: 'seller', ...f }, 'حفظنا بيانات البائع');
+        }}
+      >
+        <Field
+          label="اسم المنشأة"
+          value={f.name}
+          onChange={(e) => setF({ ...f, name: e.target.value })}
+        />
+        <Field
+          label="السجل التجاري"
+          dir="ltr"
+          inputMode="numeric"
+          value={f.crNumber}
+          onChange={(e) => setF({ ...f, crNumber: e.target.value })}
+        />
+        <Field
+          label="الرقم الضريبي"
+          dir="ltr"
+          inputMode="numeric"
+          value={f.vatNumber}
+          hint="اتركه فاضيًا حتى التسجيل في الضريبة. بعده تصير الفواتير ضريبية مبسطة بضريبة 15% ورمز QR."
+          error={vatBad ? '15 رقمًا، يبدأ وينتهي بـ 3' : undefined}
+          onChange={(e) =>
+            setF({ ...f, vatNumber: e.target.value.replace(/\D/g, '').slice(0, 15) })
+          }
+        />
+        <Field
+          label="العنوان"
+          value={f.address}
+          onChange={(e) => setF({ ...f, address: e.target.value })}
+        />
+        <Button type="submit" size="sm" className="justify-self-start rounded-xl" disabled={vatBad}>
+          احفظ
+        </Button>
+        <p className="text-caption text-muted">
+          التغيير يظهر على الفواتير الجديدة فقط؛ الفواتير الصادرة تبقى كما صدرت.
+        </p>
+      </form>
+    </Panel>
+  );
+}
+
+function Codes({ data }: { data: AdminBilling }) {
+  const label = { whatsapp: 'واتساب', sms: 'رسالة نصية', mock: 'تجريبي (في السجل)' } as const;
+  const total = data.codes.reduce((a, c) => a + c.sent, 0);
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {data.codes.map((c) => (
+          <div key={c.channel} className="grid gap-1 rounded-2xl border border-line/40 bg-card p-5">
+            <span className="flex items-center gap-2 text-caption text-muted">
+              <Icon
+                name={c.channel === 'whatsapp' ? 'chat' : c.channel === 'sms' ? 'sms' : 'terminal'}
+                className="text-[1.1rem] text-olive"
+              />
+              {label[c.channel]}
+            </span>
+            <span className="text-h2 font-bold tabular-nums text-forest">{num(c.sent)}</span>
+            <span className="text-caption text-muted">
+              {total ? `${Math.round((c.sent / total) * 100)}% من الرموز` : 'لا شيء بعد'}
+              {c.failed ? `، وتعذر ${num(c.failed)}` : ''}
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="rounded-xl border border-line/40 bg-card px-4 py-3 text-caption leading-relaxed text-ink-soft">
+        آخر 30 يومًا. الرمز يروح على واتساب أولًا، وإذا تعذر أو طلب الشخص الرمز مرة ثانية يروح
+        برسالة نصية. حتى تجهز الحسابات، الرموز تُكتب في سجل الخادم على بيئة التجربة فقط.
+      </p>
+    </div>
+  );
+}
+
+function Table({
+  head,
+  rows,
+  empty,
+}: {
+  head: string[];
+  rows: React.ReactNode[][];
+  empty?: string;
+}) {
+  if (!rows.length && empty)
+    return (
+      <p className="rounded-2xl border border-dashed border-line/70 bg-card/60 px-6 py-10 text-center text-body text-muted">
+        {empty}
+      </p>
+    );
   return (
     <div className="overflow-x-auto rounded-2xl border border-line/40 bg-card">
       <table className="w-full min-w-[40rem] text-body">

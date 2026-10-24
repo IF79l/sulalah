@@ -4,16 +4,21 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 url="${DATABASE_URL:?set DATABASE_URL to a Postgres you may create databases on}"
-db="sulalah_test_$$"
 
-psql "$url" -qc "create database $db" >/dev/null
-trap 'psql "$url" -qc "drop database if exists $db with (force)" >/dev/null' EXIT
-target="${url%/*}/$db"
-
-psql "$target" -q -v ON_ERROR_STOP=1 -f "$here/supabase-stub.sql"
-for f in "$here"/../migrations/*.sql; do
-  psql "$target" -q -v ON_ERROR_STOP=1 -f "$f"
+# Each test file gets its own fresh database, so files never lean on one another.
+for t in "$here"/*.sql; do
+  [ "$(basename "$t")" = supabase-stub.sql ] && continue
+  db="sulalah_test_$$_$(basename "$t" .sql)"
+  psql "$url" -qc "create database $db" >/dev/null
+  target="${url%/*}/$db"
+  psql "$target" -q -v ON_ERROR_STOP=1 -f "$here/supabase-stub.sql"
+  for f in "$here"/../migrations/*.sql; do
+    psql "$target" -q -v ON_ERROR_STOP=1 -f "$f"
+  done
+  ok=1
+  out="$(psql "$target" -q -v ON_ERROR_STOP=1 -f "$t" 2>&1 >/dev/null)" || ok=0
+  psql "$url" -qc "drop database if exists $db with (force)" >/dev/null
+  if [ $ok = 0 ]; then echo "$out"; exit 1; fi
+  echo "$out" | sed -n "s/.*NOTICE:  //p"
 done
-if ! out="$(psql "$target" -q -v ON_ERROR_STOP=1 -f "$here/policies.sql" 2>&1 >/dev/null)"; then echo "$out"; exit 1; fi
-echo "$out" | sed -n "s/.*NOTICE:  //p"
 echo "all policy tests passed"
