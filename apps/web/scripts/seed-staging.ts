@@ -1,13 +1,14 @@
 /**
  * Plants the sample family (آل السهلي) on the staging project, signed in as staging's test
- * number, through the same path the app uses: a bare tree record, then a sealed file.
+ * number, through the same path the app uses: a bare tree record and its key, then a sealed
+ * file.
  * Refuses to run anywhere but staging. Running it again leaves an existing demo tree alone.
  *
  *   SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... APP_ENV=staging \
  *   DEMO_PHONE=966500000001 DEMO_OTP=123456 [DEMO_TREE_KEY=...] pnpm seed:staging
  */
 import { createClient } from '@supabase/supabase-js';
-import { generateTreeKey, recoveryCode, sealTree, type TreeFile } from '@sulalah/domain';
+import { generateTreeKey, sealTree, type TreeFile } from '@sulalah/domain';
 import { demoAncestors, demoFamily, demoSpouses, demoUnions } from '@sulalah/tree-engine';
 import type { Database } from '../lib/supabase/types';
 
@@ -45,6 +46,8 @@ async function main() {
   const key = process.env.DEMO_TREE_KEY ?? generateTreeKey();
   const { data: treeId, error: e1 } = await db.rpc('create_tree', { requested: 'extended' });
   if (e1 || !treeId) throw e1 ?? new Error('no tree');
+  const { error: eKey } = await db.rpc('set_tree_key', { tree: treeId, new_key: key });
+  if (eKey) throw eKey;
   const file: TreeFile = {
     format: 'sulalah-tree',
     version: 1,
@@ -76,7 +79,6 @@ async function main() {
   if (e3) throw e3;
 
   console.log(`planted ${file.people.length} people in tree ${treeId}`);
-  console.log(`recovery code (type it on the tree page to open it): ${recoveryCode(key)}`);
 }
 
 main().catch((e) => {

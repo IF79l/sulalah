@@ -42,7 +42,7 @@
 - Environments: أنشئ `staging` و `production`، وفي كل منهما secret باسم `SUPABASE_DB_PASSWORD` (كلمة مرور قاعدة ذلك المشروع). في `production` فعّل **Required reviewers** وضع فيصل.
 - في `staging` أيضًا: `STAGING_DEMO_OTP` (رمز رقم الاختبار) واختياريًا `STAGING_DEMO_TREE_KEY`.
 
-لزرع العائلة التجريبية: **Actions > Database > Run workflow** مع خيار "Plant the sample family on staging". يطبع رمز الاسترجاع لفتح الشجرة.
+لزرع العائلة التجريبية: **Actions > Database > Run workflow** مع خيار "Plant the sample family on staging". تفتحها بعدها بالدخول برقم التجربة.
 
 ### Vercel
 

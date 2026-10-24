@@ -10,10 +10,8 @@ import {
 } from '@sulalah/domain';
 import { Button, Chip, Field, Icon, Logo, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { TREE_ID, names, newId, replaceTree, update } from '@/lib/demo-store';
-import { ProtectTree } from '@/components/tree/ProtectTree';
-import { loadKeyring } from '@/lib/passkey';
 import { plantTree } from '@/lib/tree-cloud';
 import { keepKey } from '@/lib/tree-keys';
 
@@ -100,13 +98,9 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
   const [plan, setPlan] = useState<PlanId>('extended');
   const [done, setDone] = useState(false);
   const [imported, setImported] = useState<Imported | null>(null);
-  const [planted, setPlanted] = useState<{ id: string; key: string }>();
+  const [planted, setPlanted] = useState<string>();
   const [planting, setPlanting] = useState(false);
   const [plantError, setPlantError] = useState<string>();
-  // Ready before the person taps, so the Face ID prompt can follow the tap at once.
-  useEffect(() => {
-    if (live) loadKeyring().catch(() => {});
-  }, [live]);
 
   const title = family.trim() ? `شجرة آل ${family.trim()}` : 'شجرة العائلة';
   const filled = ancestors.map((a) => a.trim()).filter(Boolean);
@@ -142,7 +136,7 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
         },
         key,
       );
-      setPlanted({ id, key });
+      setPlanted(id);
       setDone(true);
     } catch {
       setPlantError('ما قدرنا نزرع الشجرة. تأكد من اتصالك وحاول مرة ثانية.');
@@ -180,9 +174,8 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
               ? `نبتت بـ ${names(imported.people.length)} من ملفك. ادعُ عائلتك يكملون أغصانهم.`
               : 'الخطوة التالية: ادعُ عائلتك يختارون أغصانهم ويضيفون أبناءهم.'}
           </p>
-          {planted ? <ProtectTree treeId={planted.id} treeKey={planted.key} /> : null}
           <div className="grid w-full gap-2">
-            <Link href={`/trees/${planted?.id ?? TREE_ID}`} className={buttonClass('primary')}>
+            <Link href={`/trees/${planted ?? TREE_ID}`} className={buttonClass('primary')}>
               افتح الشجرة
               <Icon name="arrow_back" />
             </Link>

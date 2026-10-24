@@ -202,22 +202,29 @@ select tests.ok((select count(*) from public.trees) = 0, 'the owner deletes the 
 reset role;
 select tests.ok((select count(*) from public.tree_members) = 0, 'deleting a tree removes its members');
 
--- ---------- Sealed keys ----------
+-- ---------- Tree keys ----------
 
 reset role;
 set role authenticated;
 select tests.as_user('amal');
 insert into tests.vars values ('tree2', public.create_tree()::text);
-insert into public.user_keys (user_id, credential_id, wrapped_account_key) values (auth.uid(), 'cred-a', 'iv.sealed');
-insert into public.member_keys (tree_id, user_id, wrapped_key)
-select v::uuid, auth.uid(), 'iv.tree' from tests.vars where k = 'tree2';
-select tests.ok((select count(*) from public.member_keys) = 1, 'a member keeps their sealed tree key');
-select tests.fails(format($$ insert into public.member_keys (tree_id, user_id, wrapped_key)
-  values (%L, '00000000-0000-4000-8000-00000000000b', 'x') $$, v),
-  'nobody stores a key in someone else''s name') from tests.vars where k = 'tree2';
+select public.set_tree_key(v::uuid, repeat('k', 43)) from tests.vars where k = 'tree2';
+select tests.ok(public.tree_key(v::uuid) = repeat('k', 43), 'the owner gets the tree key back')
+  from tests.vars where k = 'tree2';
+select tests.fails(format($$ select public.set_tree_key(%L, %L) $$, v, repeat('x', 43)),
+  'a tree key is set once', 'already set') from tests.vars where k = 'tree2';
+select tests.fails($$ select key from public.tree_keys $$, 'nobody reads the keys table directly');
+
+reset role;
+insert into public.tree_members (tree_id, user_id, role)
+select v::uuid, '00000000-0000-4000-8000-00000000000c', 'contributor' from tests.vars where k = 'tree2';
+set role authenticated;
+select tests.as_user('chadi');
+select tests.ok(public.tree_key(v::uuid) = repeat('k', 43), 'a contributor gets the key after signing in')
+  from tests.vars where k = 'tree2';
 
 select tests.as_user('dana');
-select tests.fails(format($$ insert into public.member_keys (tree_id, user_id, wrapped_key)
-  values (%L, auth.uid(), 'x') $$, v), 'a stranger cannot attach a key to a tree') from tests.vars where k = 'tree2';
-select tests.ok((select count(*) from public.user_keys) = 0, 'nobody sees another person''s passkeys');
-select tests.ok((select count(*) from public.member_keys) = 0, 'nobody sees another person''s tree keys');
+select tests.fails(format($$ select public.tree_key(%L) $$, v), 'a stranger gets no key', 'not a member')
+  from tests.vars where k = 'tree2';
+select tests.fails(format($$ select public.set_tree_key(%L, %L) $$, v, repeat('x', 43)),
+  'a stranger cannot set a key', 'not allowed') from tests.vars where k = 'tree2';

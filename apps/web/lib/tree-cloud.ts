@@ -62,7 +62,7 @@ export async function saveTreeFile(
   return data;
 }
 
-/** Plants a tree: a bare record on the server, then its first sealed file. Answers its id. */
+/** Plants a tree: a bare record and its key on the server, then its first sealed file. */
 export async function plantTree(
   requested: PlanCode,
   build: (treeId: string) => TreeFile,
@@ -71,6 +71,8 @@ export async function plantTree(
   const db = supabase();
   const { data: treeId, error } = await db.rpc('create_tree', { requested });
   if (error || !treeId) throw error ?? new Error('no tree');
+  const { error: e2 } = await db.rpc('set_tree_key', { tree: treeId, new_key: key });
+  if (e2) throw e2;
   await saveTreeFile(treeId, 0, build(treeId), key);
   return treeId;
 }
