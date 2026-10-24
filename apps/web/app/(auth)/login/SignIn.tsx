@@ -31,7 +31,7 @@ export function SignIn({
   const [sending, setSending] = useState(false);
   const [code, setCode] = useState('');
   const [wait, setWait] = useState(RESEND_S);
-  const [name, setName] = useState({ first: '', father: '', family: '' });
+  const [name, setName] = useState({ first: '', father: '' });
   const [codeError, setCodeError] = useState<string>();
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -134,7 +134,6 @@ export function SignIn({
         .update({
           first_name: name.first.trim(),
           father_name: name.father.trim(),
-          family_name: name.family.trim(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -142,9 +141,7 @@ export function SignIn({
   };
 
   const shownPhone = `+966 ${phone.slice(0, 2)} ${phone.slice(2, 5)} ${phone.slice(5)}`;
-  const fullName = [name.first, name.father && `بن ${name.father}`, name.family]
-    .filter(Boolean)
-    .join(' ');
+  const fullName = [name.first, name.father && `بن ${name.father}`].filter(Boolean).join(' ');
 
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-ivory">
@@ -314,18 +311,12 @@ export function SignIn({
                   autoFocus
                   required
                 />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field
-                    label="اسم الأب"
-                    value={name.father}
-                    onChange={(e) => setName({ ...name, father: e.target.value })}
-                  />
-                  <Field
-                    label="العائلة"
-                    value={name.family}
-                    onChange={(e) => setName({ ...name, family: e.target.value })}
-                  />
-                </div>
+                {/* No family name: it can reveal tribal origin, which stays in the sealed tree files. */}
+                <Field
+                  label="اسم الأب"
+                  value={name.father}
+                  onChange={(e) => setName({ ...name, father: e.target.value })}
+                />
                 {fullName ? (
                   <p className="rounded-xl bg-surface-low px-4 py-2.5 text-body text-ink-soft">
                     يظهر اسمك: <span className="font-semibold text-forest">{fullName}</span>

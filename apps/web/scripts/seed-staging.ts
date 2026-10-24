@@ -34,10 +34,7 @@ async function main() {
   if (error || !data.user) throw error ?? new Error('no user');
   const me = data.user.id;
 
-  await db
-    .from('profiles')
-    .update({ first_name: 'فيصل', father_name: 'خالد', family_name: 'السهلي' })
-    .eq('id', me);
+  await db.from('profiles').update({ first_name: 'فيصل', father_name: 'خالد' }).eq('id', me);
 
   const { data: owned } = await db.from('trees').select('id').eq('owner_id', me);
   if (owned?.length) {

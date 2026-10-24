@@ -18,12 +18,15 @@ create type public.billing_cycle as enum ('monthly', 'annual');
 
 -- ---------- Accounts ----------
 
-/** One row per signed in person, made by the trigger below when they first verify a code. */
+/**
+ * One row per signed in person, made by the trigger below when they first verify a code.
+ * First and father's name only: a family name can reveal tribal origin, which PDPL treats as
+ * sensitive, so it lives only in the sealed tree files.
+ */
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   first_name text not null default '' check (char_length(first_name) <= 40),
   father_name text not null default '' check (char_length(father_name) <= 40),
-  family_name text not null default '' check (char_length(family_name) <= 40),
   notify text not null default 'app' check (notify in ('app', 'sms')),
   is_platform_admin boolean not null default false,
   created_at timestamptz not null default now(),
@@ -212,7 +215,7 @@ create policy "owner sees invoices" on public.invoices for select
 
 -- Columns a person may change on their own rows; everything else is fixed by the functions.
 revoke update on public.profiles from authenticated;
-grant update (first_name, father_name, family_name, notify, updated_at) on public.profiles to authenticated;
+grant update (first_name, father_name, notify, updated_at) on public.profiles to authenticated;
 revoke update on public.tree_members from authenticated;
 grant update (branch_person_id, scope_person_ids) on public.tree_members to authenticated;
 revoke update on public.invites from authenticated;

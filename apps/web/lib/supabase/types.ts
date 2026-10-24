@@ -23,7 +23,6 @@ export type ProfileRow = {
   id: string;
   first_name: string;
   father_name: string;
-  family_name: string;
   notify: 'app' | 'sms';
   is_platform_admin: boolean;
   created_at: string;
@@ -72,9 +71,7 @@ export type Database = {
       profiles: Table<
         ProfileRow,
         { id: string },
-        Partial<
-          Pick<ProfileRow, 'first_name' | 'father_name' | 'family_name' | 'notify' | 'updated_at'>
-        >
+        Partial<Pick<ProfileRow, 'first_name' | 'father_name' | 'notify' | 'updated_at'>>
       >;
       trees: Table<TreeRow, never, never>;
       tree_members: {
