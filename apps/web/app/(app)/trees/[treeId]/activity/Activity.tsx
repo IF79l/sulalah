@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { AppShell, EmptyState } from '@/components/AppShell';
 import { VineLeaf } from '@/components/Botanical';
-import { TREE_ID, allows, useDemo, type Action } from '@/lib/demo-store';
+import { currentTreeId, allows, useDemo, type Action } from '@/lib/demo-store';
 
 // Each kind of change is a leaf colour on the vine: new growth green, approval deep green,
 // edits and invites gold, removals withered.
@@ -42,7 +42,7 @@ export function Activity() {
       subtitle="كل إضافة وتعديل واعتماد في الشجرة، ومن سواه."
       back={
         allows(s, { type: 'tree.manage' })
-          ? { href: `/trees/${TREE_ID}/settings`, label: 'إعدادات الشجرة' }
+          ? { href: `/trees/${currentTreeId()}/settings`, label: 'إعدادات الشجرة' }
           : undefined
       }
     >
@@ -96,7 +96,7 @@ export function Activity() {
                   </div>
                   {l.personId ? (
                     <Link
-                      href={`/trees/${TREE_ID}?focus=${l.personId}`}
+                      href={`/trees/${currentTreeId()}?focus=${l.personId}`}
                       className="text-caption font-semibold text-olive hover:underline"
                     >
                       على الشجرة

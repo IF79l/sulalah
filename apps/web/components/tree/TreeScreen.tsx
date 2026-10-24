@@ -10,7 +10,7 @@ import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { StatePage } from '@/components/States';
 import { TreeExplorer } from '@/components/TreeExplorer';
 import {
-  TREE_ID,
+  currentTreeId,
   actAs,
   actingName,
   allows,
@@ -31,7 +31,7 @@ import { ShareSheet } from './ShareSheet';
 
 export type TreeMode = 'owner' | 'contribute' | 'visitor' | 'reviewer';
 
-const t = (p = '') => `/trees/${TREE_ID}${p}`;
+const t = (p = '') => `/trees/${currentTreeId()}${p}`;
 
 const viewerOf: Record<TreeMode, Viewer> = {
   owner: 'owner',

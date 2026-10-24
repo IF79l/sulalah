@@ -3,7 +3,7 @@
 import { viewerLabel, type Viewer } from '@sulalah/domain';
 import { Icon, cn } from '@sulalah/ui';
 import { useEffect, useRef, useState } from 'react';
-import { actAs, demoReviewer, useDemo } from '@/lib/demo-store';
+import { actAs, demoReviewer, liveTree, useDemo } from '@/lib/demo-store';
 
 const roles: { as: Viewer; icon: string; body: (scope: string) => string }[] = [
   { as: 'owner', icon: 'verified_user', body: () => 'يشوف كل شي ويعتمد ويدير الشجرة والباقة.' },
@@ -17,10 +17,15 @@ const roles: { as: Viewer; icon: string; body: (scope: string) => string }[] = [
 ];
 
 /**
- * Until accounts exist, one person tries every role: this switch shows the tree and every
- * page through that role's permissions.
+ * On the sample tree one person tries every role: this switch shows the tree and every page
+ * through that role's permissions. A real tree has the person's own role, so no switch.
  */
-export function RoleSwitcher({
+export function RoleSwitcher(props: { className?: string; dark?: boolean; up?: boolean }) {
+  useDemo();
+  return liveTree() ? null : <SampleRoleSwitcher {...props} />;
+}
+
+function SampleRoleSwitcher({
   className,
   dark,
   up,

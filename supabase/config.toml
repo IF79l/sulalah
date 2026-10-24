@@ -1,0 +1,64 @@
+# Local Supabase for development (`pnpm db:start`, needs Docker). Staging and production are
+# separate hosted projects configured in their dashboards; see docs/ENVIRONMENTS.md.
+project_id = "sulalah"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[db.seed]
+# Local only. The sample family is planted on staging by `pnpm seed:staging`, never in production.
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "5MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+
+[auth.email]
+# Phone only: no email or password accounts.
+enable_signup = false
+
+[auth.sms]
+enable_signup = true
+enable_confirmations = false
+template = "رمز سُلالة: {{ .Code }}"
+max_frequency = "45s"
+
+# Locally no SMS is sent: these numbers sign in with a fixed code.
+[auth.sms.test_otp]
+966500000001 = "123456"
+966500000002 = "123456"
+966500000003 = "123456"
+
+[auth.sms.twilio]
+enabled = false
+account_sid = ""
+message_service_sid = ""
+auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
+
+[auth.rate_limit]
+sms_sent = 30
+token_verifications = 30

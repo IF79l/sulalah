@@ -4,6 +4,8 @@ import { Button, Field, Icon, Logo, OtpField, PhoneField } from '@sulalah/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { safeNext } from '@/lib/backend';
+import { supabase } from '@/lib/supabase/client';
 
 type Step = 'phone' | 'code' | 'name';
 
@@ -11,9 +13,17 @@ const RESEND_S = 45;
 
 /**
  * Phone-only sign in: number, then a six-digit SMS code, then (first time only) a name.
- * The SMS provider is wired in batch 2; until then any code is accepted.
+ * With `live` the code goes through Supabase; without it (the demo build) any code is accepted.
  */
-export function SignIn({ invite }: { invite?: { from: string; tree: string } }) {
+export function SignIn({
+  invite,
+  next,
+  live,
+}: {
+  invite?: { from: string; tree: string; token?: string };
+  next?: string;
+  live?: boolean;
+}) {
   const router = useRouter();
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
@@ -22,6 +32,15 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
   const [code, setCode] = useState('');
   const [wait, setWait] = useState(RESEND_S);
   const [name, setName] = useState({ first: '', father: '', family: '' });
+  const [codeError, setCodeError] = useState<string>();
+  const [checking, setChecking] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const e164 = `+966${phone}`;
+
+  const finish = () => {
+    router.replace(invite?.token ? `/invite/${invite.token}` : safeNext(next));
+    router.refresh();
+  };
 
   useEffect(() => {
     if (step !== 'code' || wait <= 0) return;
@@ -30,22 +49,96 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
   }, [step, wait]);
 
   useEffect(() => {
-    if (step === 'code' && code.length === 6) setStep('name');
-  }, [step, code]);
+    if (step !== 'code' || code.length !== 6) return;
+    if (!live) {
+      setStep('name');
+      return;
+    }
+    let gone = false;
+    setChecking(true);
+    setCodeError(undefined);
+    (async () => {
+      const db = supabase();
+      const { data, error } = await db.auth.verifyOtp({ phone: e164, token: code, type: 'sms' });
+      if (gone) return;
+      if (error || !data.user) {
+        setChecking(false);
+        setCode('');
+        setCodeError(
+          error?.status === 429
+            ? 'محاولات كثيرة، انتظر دقيقة وحاول'
+            : 'الرمز غير صحيح أو انتهت صلاحيته',
+        );
+        return;
+      }
+      const { data: me } = await db
+        .from('profiles')
+        .select('first_name')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      if (gone) return;
+      setChecking(false);
+      if (me?.first_name) finish();
+      else setStep('name');
+    })();
+    return () => {
+      gone = true;
+    };
+    // finish and e164 follow from state already in the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, code, live]);
 
-  const send = () => {
+  const send = async () => {
     if (!/^5\d{8}$/.test(phone)) {
       setPhoneError('رقم الجوال يبدأ بـ 5 ويتكون من 9 أرقام');
       return;
     }
     setPhoneError(undefined);
     setSending(true);
-    setTimeout(() => {
+    if (live) {
+      const { error } = await supabase().auth.signInWithOtp({ phone: e164 });
       setSending(false);
-      setCode('');
-      setWait(RESEND_S);
-      setStep('code');
-    }, 600);
+      if (error) {
+        const text =
+          error.status === 429
+            ? 'طلبت رموز كثيرة، انتظر دقيقة وحاول'
+            : 'ما قدرنا نرسل الرمز، حاول بعد شوي';
+        if (step === 'code') setCodeError(text);
+        else setPhoneError(text);
+        return;
+      }
+    } else {
+      await new Promise((r) => setTimeout(r, 600));
+      setSending(false);
+    }
+    setCode('');
+    setCodeError(undefined);
+    setWait(RESEND_S);
+    setStep('code');
+  };
+
+  const saveName = async () => {
+    if (!name.first.trim()) return;
+    if (!live) {
+      router.push(invite ? '/trees/al-sahli/join' : '/trees');
+      return;
+    }
+    setSaving(true);
+    const db = supabase();
+    const {
+      data: { user },
+    } = await db.auth.getUser();
+    if (user)
+      await db
+        .from('profiles')
+        .update({
+          first_name: name.first.trim(),
+          father_name: name.father.trim(),
+          family_name: name.family.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+    finish();
   };
 
   const shownPhone = `+966 ${phone.slice(0, 2)} ${phone.slice(2, 5)} ${phone.slice(5)}`;
@@ -103,7 +196,7 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
                 className="grid gap-5"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  send();
+                  void send();
                 }}
               >
                 <div className="grid justify-items-center gap-1.5 text-center">
@@ -162,7 +255,20 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
                     </span>
                   </p>
                 </div>
-                <OtpField value={code} onChange={setCode} />
+                <OtpField value={code} onChange={setCode} invalid={!!codeError} />
+                {checking ? (
+                  <p
+                    role="status"
+                    className="flex items-center justify-center gap-2 text-caption text-muted"
+                  >
+                    <Icon name="progress_activity" className="animate-spin" />
+                    نتحقق من الرمز…
+                  </p>
+                ) : codeError ? (
+                  <p role="alert" className="text-caption font-medium text-danger">
+                    {codeError}
+                  </p>
+                ) : null}
                 <div className="flex items-center justify-between px-1 text-caption">
                   <button
                     type="button"
@@ -179,7 +285,8 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
                     <button
                       type="button"
                       className="font-medium text-forest hover:underline"
-                      onClick={() => setWait(RESEND_S)}
+                      disabled={sending}
+                      onClick={() => void send()}
                     >
                       أعد الإرسال
                     </button>
@@ -193,7 +300,7 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
                 className="grid gap-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (name.first.trim()) router.push(invite ? '/trees/al-sahli/join' : '/trees');
+                  void saveName();
                 }}
               >
                 <div className="grid gap-1 text-center">
@@ -224,8 +331,8 @@ export function SignIn({ invite }: { invite?: { from: string; tree: string } }) 
                     يظهر اسمك: <span className="font-semibold text-forest">{fullName}</span>
                   </p>
                 ) : null}
-                <Button type="submit" className="w-full" disabled={!name.first.trim()}>
-                  متابعة
+                <Button type="submit" className="w-full" disabled={!name.first.trim() || saving}>
+                  {saving ? 'نحفظ اسمك…' : 'متابعة'}
                 </Button>
               </form>
             ) : null}

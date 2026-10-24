@@ -108,7 +108,13 @@ export async function sealTree(file: TreeFile, key: string): Promise<SealedTree>
     await importKey(key),
     plain,
   );
-  return { format: 'sulalah-tree-sealed', version: 1, treeId: file.tree.id, iv: toB64url(iv), data: toB64url(new Uint8Array(data)) };
+  return {
+    format: 'sulalah-tree-sealed',
+    version: 1,
+    treeId: file.tree.id,
+    iv: toB64url(iv),
+    data: toB64url(new Uint8Array(data)),
+  };
 }
 
 export async function openTree(sealed: unknown, key: string): Promise<TreeFile> {
@@ -117,7 +123,11 @@ export async function openTree(sealed: unknown, key: string): Promise<TreeFile> 
   let plain: ArrayBuffer;
   try {
     plain = await subtle().decrypt(
-      { name: 'AES-GCM', iv: fromB64url(s.data.iv), additionalData: new TextEncoder().encode(s.data.treeId) },
+      {
+        name: 'AES-GCM',
+        iv: fromB64url(s.data.iv),
+        additionalData: new TextEncoder().encode(s.data.treeId),
+      },
       await importKey(key),
       fromB64url(s.data.data),
     );
@@ -128,6 +138,54 @@ export async function openTree(sealed: unknown, key: string): Promise<TreeFile> 
   const file = treeFileSchema.safeParse(JSON.parse(new TextDecoder().decode(plain)));
   if (!file.success) throw new TreeFileError('not-a-tree');
   return file.data;
+}
+
+// ---------- Two saves at once ----------
+
+/**
+ * Three-way merge for when someone saved the tree after this device last loaded it. `base` is
+ * the file this device last loaded or saved; whatever this device changed since wins, and
+ * everything else comes from `remote`. Nobody's new people are lost.
+ */
+export function mergeTreeFiles(base: TreeFile, local: TreeFile, remote: TreeFile): TreeFile {
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  function byKey<T>(key: (x: T) => string, b: T[], l: T[], r: T[]): T[] {
+    const bm = new Map(b.map((x) => [key(x), x]));
+    const lm = new Map(l.map((x) => [key(x), x]));
+    const out: T[] = [];
+    for (const x of r) {
+      const k = key(x);
+      const mine = lm.get(k);
+      const was = bm.get(k);
+      if (!mine) {
+        // Gone here: deleted on this device if it was there before, else simply new remotely.
+        if (!was || !same(was, x)) out.push(x);
+        continue;
+      }
+      out.push(was && same(was, mine) ? x : mine);
+    }
+    const rk = new Set(r.map(key));
+    // Added here, or still here after the other device deleted it while this one changed it.
+    for (const x of l)
+      if (!rk.has(key(x)) && (!bm.has(key(x)) || !same(bm.get(key(x)), x))) out.push(x);
+    return out;
+  }
+  const field = <K extends keyof TreeFile['tree']>(k: K) =>
+    same(local.tree[k], base.tree[k]) ? remote.tree[k] : local.tree[k];
+  return {
+    ...remote,
+    tree: {
+      id: remote.tree.id,
+      title: field('title'),
+      family: field('family'),
+      rootId: field('rootId'),
+      ancestors: field('ancestors'),
+    },
+    people: byKey((p) => p.id, base.people, local.people, remote.people),
+    unions: byKey((u) => `${u.aId}+${u.bId}`, base.unions, local.unions, remote.unions),
+    submissions: byKey((x) => x.id, base.submissions, local.submissions, remote.submissions),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 // ---------- Recovery code ----------
@@ -147,12 +205,9 @@ export function recoveryCode(key: string): string {
 }
 
 export function keyFromRecoveryCode(code: string): string {
-  const clean = code
-    .toUpperCase()
-    .replace(/[\s-]/g, '')
-    .replace(/[IL]/g, '1')
-    .replace(/O/g, '0');
-  if (clean.length !== 52 || [...clean].some((c) => !B32.includes(c))) throw new TreeFileError('bad-recovery-code');
+  const clean = code.toUpperCase().replace(/[\s-]/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
+  if (clean.length !== 52 || [...clean].some((c) => !B32.includes(c)))
+    throw new TreeFileError('bad-recovery-code');
   const bits = [...clean].map((c) => B32.indexOf(c).toString(2).padStart(5, '0')).join('');
   const bytes = new Uint8Array(32);
   for (let i = 0; i < 32; i++) bytes[i] = parseInt(bits.slice(i * 8, i * 8 + 8), 2);
@@ -244,7 +299,7 @@ Object.assign(headerAliases, {
   death_year: 'deathYear',
   الميلاد: 'birthYear',
   الوفاة: 'deathYear',
-  'رقم': 'id',
+  رقم: 'id',
 });
 
 const female = new Set(['أنثى', 'انثى', 'ابنة', 'بنت', 'female', 'f', 'ف']);
@@ -260,13 +315,20 @@ export interface CsvIssue {
  * Reads people from CSV (comma, tab or Arabic semicolon). Rows that cannot be placed are
  * reported with their line instead of being dropped quietly.
  */
-export function fromCsv(text: string): { people: TreeFilePerson[]; rootId?: string; issues: CsvIssue[] } {
+export function fromCsv(text: string): {
+  people: TreeFilePerson[];
+  rootId?: string;
+  issues: CsvIssue[];
+} {
   const rows = parseRows(text.replace(/^﻿/, ''));
   const issues: CsvIssue[] = [];
   if (!rows.length) return { people: [], issues: [{ line: 1, message: 'الملف فاضي' }] };
 
-  const header = rows[0]!.map((h) => headerAliases[h.trim().toLowerCase()] ?? headerAliases[h.trim()]);
-  if (!header.includes('name')) return { people: [], issues: [{ line: 1, message: 'ما لقينا عمود "الاسم"' }] };
+  const header = rows[0]!.map(
+    (h) => headerAliases[h.trim().toLowerCase()] ?? headerAliases[h.trim()],
+  );
+  if (!header.includes('name'))
+    return { people: [], issues: [{ line: 1, message: 'ما لقينا عمود "الاسم"' }] };
   const at = (row: string[], col: Column) => {
     const i = header.indexOf(col);
     return i >= 0 ? (row[i] ?? '').trim() : '';
@@ -312,15 +374,22 @@ export function fromCsv(text: string): { people: TreeFilePerson[]; rootId?: stri
 
   // Every father must exist and be a man, and nobody may be his own forefather.
   const byId = new Map(people.map((p) => [p.id, p]));
-  const lineOf = (id: string) => rows.findIndex((r, i) => i > 0 && (at(r, 'id') || `row-${i + 1}`) === id) + 1;
+  const lineOf = (id: string) =>
+    rows.findIndex((r, i) => i > 0 && (at(r, 'id') || `row-${i + 1}`) === id) + 1;
   for (const p of people) {
     if (!p.fatherId) continue;
     const f = byId.get(p.fatherId);
     if (!f) {
-      issues.push({ line: lineOf(p.id), message: `أب ${p.name} (${p.fatherId}) غير موجود في الملف` });
+      issues.push({
+        line: lineOf(p.id),
+        message: `أب ${p.name} (${p.fatherId}) غير موجود في الملف`,
+      });
       p.fatherId = null;
     } else if (f.gender === 'female') {
-      issues.push({ line: lineOf(p.id), message: `${f.name} مسجّلة أنثى ولا تكون أبًا لـ ${p.name}` });
+      issues.push({
+        line: lineOf(p.id),
+        message: `${f.name} مسجّلة أنثى ولا تكون أبًا لـ ${p.name}`,
+      });
       p.fatherId = null;
     }
   }
@@ -347,7 +416,8 @@ export function fromCsv(text: string): { people: TreeFilePerson[]; rootId?: stri
     });
   }
   // The root is whoever has the most descendants among those without a father.
-  const size = (id: string): number => 1 + people.filter((p) => p.fatherId === id).reduce((s, c) => s + size(c.id), 0);
+  const size = (id: string): number =>
+    1 + people.filter((p) => p.fatherId === id).reduce((s, c) => s + size(c.id), 0);
   const rootId = roots.sort((a, b) => size(b.id) - size(a.id))[0]?.id;
   return { people, rootId, issues };
 }

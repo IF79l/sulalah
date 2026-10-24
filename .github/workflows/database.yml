@@ -1,0 +1,63 @@
+name: Database
+# Migrations go to staging as soon as they reach main, and to production only after someone
+# approves the "production" environment in GitHub (Settings > Environments > production >
+# Required reviewers). Until a project's ref is set as a repository variable, its job is skipped.
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+  workflow_dispatch:
+    inputs:
+      seed_staging:
+        description: Plant the sample family on staging
+        type: boolean
+        default: false
+
+jobs:
+  staging:
+    if: vars.STAGING_PROJECT_REF != ''
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.120.0
+      - run: supabase link --project-ref ${{ vars.STAGING_PROJECT_REF }}
+      - run: supabase db push
+      - if: inputs.seed_staging
+        uses: pnpm/action-setup@v4
+      - if: inputs.seed_staging
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - if: inputs.seed_staging
+        run: pnpm install --frozen-lockfile && pnpm seed:staging
+        env:
+          APP_ENV: staging
+          SUPABASE_URL: https://${{ vars.STAGING_PROJECT_REF }}.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.STAGING_PUBLISHABLE_KEY }}
+          PRODUCTION_SUPABASE_URL: https://${{ vars.PRODUCTION_PROJECT_REF }}.supabase.co
+          DEMO_PHONE: ${{ vars.STAGING_DEMO_PHONE }}
+          DEMO_OTP: ${{ secrets.STAGING_DEMO_OTP }}
+          DEMO_TREE_KEY: ${{ secrets.STAGING_DEMO_TREE_KEY }}
+
+  production:
+    needs: staging
+    if: vars.PRODUCTION_PROJECT_REF != '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.120.0
+      - run: supabase link --project-ref ${{ vars.PRODUCTION_PROJECT_REF }}
+      - run: supabase db push

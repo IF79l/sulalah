@@ -2,13 +2,17 @@
 
 import { Button, Chip, Field, Icon, OtpField, PhoneField, Segmented } from '@sulalah/ui';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AppShell, Panel, Toast } from '@/components/AppShell';
-import { TREE_ID, update, useDemo } from '@/lib/demo-store';
+import { TREE_ID, closeLive, update, useDemo } from '@/lib/demo-store';
+import { stopSaving } from '@/lib/live-tree';
+import { supabase } from '@/lib/supabase/client';
 
 /** S23: my name, my number, my trees, and leaving. */
-export function Account() {
+export function Account({ live }: { live?: boolean }) {
   const s = useDemo();
+  const router = useRouter();
   const [first, setFirst] = useState(s.me.first);
   const [father, setFather] = useState(s.me.father);
   const [phone, setPhone] = useState<string | null>(null);
@@ -131,13 +135,22 @@ export function Account() {
         </Panel>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line/40 bg-card p-5">
-          <Link
-            href="/"
+          <button
+            type="button"
             className="inline-flex items-center gap-2 text-body font-semibold text-forest hover:underline"
+            onClick={async () => {
+              if (live) {
+                stopSaving();
+                closeLive();
+                await supabase().auth.signOut();
+              }
+              router.replace('/');
+              router.refresh();
+            }}
           >
             <Icon name="logout" />
             تسجيل الخروج
-          </Link>
+          </button>
         </div>
 
         <Panel title="حذف الحساب" icon="person_remove" tone="danger">

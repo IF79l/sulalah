@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { permissionTable, viewerLabel, type Viewer } from '@sulalah/domain';
 import { AppShell, Panel, Toast } from '@/components/AppShell';
 import {
-  TREE_ID,
+  currentTreeId,
   byId,
   childrenOf,
   joinedMembers,
@@ -36,7 +36,7 @@ export function Reviewers() {
       subtitle="المدقق يعتمد الإضافات في الأغصان اللي تحددها له فقط. وأنت المدقق الرئيسي على الشجرة كاملة."
       actions={
         full ? (
-          <Link href={`/trees/${TREE_ID}/plan`} className={buttonClass('quiet', 'sm')}>
+          <Link href={`/trees/${currentTreeId()}/plan`} className={buttonClass('quiet', 'sm')}>
             رقِّ الباقة لإضافة مدققين
           </Link>
         ) : (

@@ -9,7 +9,7 @@ import { DrawIn, Sapling, Sprig } from '@/components/Botanical';
 import { PlanArt } from '@/components/home/PlanArt';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
 import {
-  TREE_ID,
+  currentTreeId,
   actAs,
   allows,
   canReview,
@@ -28,7 +28,7 @@ export const meets = (s: DemoState, need?: Need) =>
     ? s.as !== 'visitor'
     : allows(s, { type: need } as Parameters<typeof allows>[1]));
 
-const t = (p: string) => `/trees/${TREE_ID}${p}`;
+const t = (p: string) => `/trees/${currentTreeId()}${p}`;
 
 /**
  * The frame for every page that is not the tree itself: a top bar with notifications and the

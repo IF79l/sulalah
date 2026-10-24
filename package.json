@@ -11,7 +11,13 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:start": "pnpm dlx supabase@2.120.0 start",
+    "db:stop": "pnpm dlx supabase@2.120.0 stop",
+    "db:reset": "pnpm dlx supabase@2.120.0 db reset",
+    "db:test": "supabase/tests/run.sh",
+    "db:types": "pnpm dlx supabase@2.120.0 gen types typescript --local > apps/web/lib/supabase/generated.ts",
+    "seed:staging": "pnpm --filter @sulalah/web seed:staging"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

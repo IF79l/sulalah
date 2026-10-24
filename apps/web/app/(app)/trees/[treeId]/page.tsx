@@ -2,12 +2,13 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { NoAccess } from '@/components/States';
 import { TreeScreen, type TreeMode } from '@/components/tree/TreeScreen';
+import { backendOn, isLiveTreeId } from '@/lib/backend';
 
 export const metadata: Metadata = { title: 'الشجرة | سُلالة', robots: { index: false } };
 
 const modes: TreeMode[] = ['owner', 'contribute', 'visitor', 'reviewer'];
 
-// Until trees are stored, every tree opens the sample family; `?as=` switches the demo's role.
+// Real trees open from their file (see layout.tsx); on the sample trees `?as=` switches the role.
 export default async function TreePage({
   params,
   searchParams,
@@ -17,9 +18,10 @@ export default async function TreePage({
 }) {
   const { treeId } = await params;
   if (treeId === 'private') return <NoAccess />;
-  if (treeId !== 'al-sahli' && treeId !== 'bani-khalid') notFound();
+  const live = backendOn && isLiveTreeId(treeId);
+  if (!live && treeId !== 'al-sahli' && treeId !== 'bani-khalid') notFound();
   const { as, review, focus } = await searchParams;
-  const mode = modes.includes(as as TreeMode) ? (as as TreeMode) : undefined;
+  const mode = !live && modes.includes(as as TreeMode) ? (as as TreeMode) : undefined;
   return (
     <main className="h-dvh overflow-hidden">
       <TreeScreen

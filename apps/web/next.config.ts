@@ -6,7 +6,6 @@ const config: NextConfig = {
     '@sulalah/tree-svg',
     '@sulalah/tree-engine',
     '@sulalah/domain',
-    '@sulalah/db',
   ],
 };
 
