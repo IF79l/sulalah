@@ -80,7 +80,10 @@ export function LiveTrees({ me, memberships }: { me: string; memberships: Member
         } catch (e) {
           const why = (e as { code?: string; message?: string }) ?? {};
           return appEnv === 'staging'
-            ? { ...base, note: `${base.note} (${why.code ?? why.message ?? 'خطأ'})` }
+            ? {
+                ...base,
+                note: `${base.note} (${[why.code, why.message].filter(Boolean).join(': ') || 'خطأ'})`,
+              }
             : base;
         }
       }),

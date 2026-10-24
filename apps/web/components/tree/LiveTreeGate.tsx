@@ -79,7 +79,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       setPhase('ready');
     } catch (e) {
       const err = e as { code?: string; message?: string };
-      setWhy(err.code ?? err.message);
+      setWhy([err.code, err.message].filter(Boolean).join(': '));
       setPhase('failed');
     }
   };

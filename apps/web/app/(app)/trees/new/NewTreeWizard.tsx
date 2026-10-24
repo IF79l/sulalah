@@ -143,7 +143,9 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
       const why = (e as { code?: string; message?: string }) ?? {};
       setPlantError(
         `ما قدرنا نزرع الشجرة. تأكد من اتصالك وحاول مرة ثانية.${
-          appEnv === 'staging' ? ` (${why.code ?? why.message ?? 'خطأ'})` : ''
+          appEnv === 'staging'
+            ? ` (${[why.code, why.message].filter(Boolean).join(': ') || 'خطأ'})`
+            : ''
         }`,
       );
     } finally {
