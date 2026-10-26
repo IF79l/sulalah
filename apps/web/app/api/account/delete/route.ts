@@ -1,12 +1,10 @@
+import { signedInWithin } from '@sulalah/domain';
 import { z } from 'zod';
 import { CONFIRM_DELETE } from '@/lib/account-confirm';
 import { TREE_BUCKET, VIEW_BUCKET } from '@/lib/backend';
 import { billingAsServer, billingAsUser, type ServerDb } from '@/server/billing/clients';
 import { fail, json, noBackend } from '@/server/billing/http';
 import { flushWhatsApp } from '@/server/whatsapp/send';
-
-/** Deleting needs a code entered within this many minutes. */
-const FRESH_MINUTES = 10;
 
 const body = z.object({ confirm: z.literal(CONFIRM_DELETE) });
 
@@ -52,11 +50,7 @@ export async function POST(req: Request) {
   const { data, error } = await (await billingAsUser()).auth.getClaims();
   const me = data?.claims.sub;
   if (error || !me) return fail(401, 'signed_out', 'سجّل دخولك أولًا');
-  const signedIn = Math.max(
-    0,
-    ...(data.claims.amr ?? []).map((a) => (typeof a === 'string' ? 0 : Number(a.timestamp) || 0)),
-  );
-  if (Date.now() / 1000 - signedIn > FRESH_MINUTES * 60)
+  if (!signedInWithin(data.claims.amr, Date.now() / 1000))
     return fail(403, 'not_fresh', 'أكّد برمز جديد من جوالك قبل الحذف');
 
   const db = billingAsServer();

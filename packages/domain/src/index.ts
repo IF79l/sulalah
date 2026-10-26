@@ -7,3 +7,4 @@ export * from './treefile';
 export * from './collab';
 export * from './guard';
 export * from './input';
+export * from './account';

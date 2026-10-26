@@ -38,6 +38,22 @@ begin
   return old;
 end $$;
 
+/**
+ * A person may read the name of whoever acted in one of their notifications. Names are
+ * otherwise shown only between people who share a tree, and "left" and "removed" arrive just
+ * after the two stopped sharing it, so without this the notice could not say who.
+ */
+create or replace function public.acted_for_me(other uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from public.notifications n where n.user_id = auth.uid() and n.actor_id = other
+  )
+$$;
+
+drop policy if exists "see who acted in my notices" on public.profiles;
+create policy "see who acted in my notices" on public.profiles for select
+  to authenticated using (public.acted_for_me(id));
+
 create or replace trigger tree_members_gone
   after delete on public.tree_members
   for each row execute function public.on_member_gone();
@@ -129,9 +145,9 @@ begin
     select x, false from unnest(rest) x;
 end $$;
 
-revoke execute on function public.on_member_gone, public.my_owned_trees, public.delete_account
-  from public, anon, authenticated;
-grant execute on function public.my_owned_trees to authenticated;
+revoke execute on function public.on_member_gone, public.my_owned_trees, public.delete_account,
+  public.acted_for_me from public, anon, authenticated;
+grant execute on function public.my_owned_trees, public.acted_for_me to authenticated;
 grant execute on function public.delete_account to service_role;
 
 -- ---------- 3. Grants and extensions ----------

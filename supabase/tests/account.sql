@@ -62,6 +62,8 @@ grant all on tests.vars to anon, authenticated, service_role;
 insert into auth.users (id, phone)
 select tests.id(n), '96650000000' || i
 from unnest(array['amal', 'badr', 'chadi', 'dana', 'eid']) with ordinality as x(n, i);
+update public.profiles set first_name = 'أمل' where id = tests.id('amal');
+update public.profiles set first_name = 'بدر' where id = tests.id('badr');
 
 -- Amal's tree, with Badr and Chadi in it.
 set role authenticated;
@@ -82,6 +84,12 @@ delete from public.tree_members where tree_id = tests.v('tree')::uuid and user_i
 select tests.ok(tests.notices('amal', 'left') = 1, 'the owner hears that a member left');
 select tests.ok(tests.queued('amal', 'member_left') = 1, 'and it goes out on WhatsApp');
 select tests.ok(tests.notices('badr', 'left') = 0, 'the one who left is not told of it');
+select tests.as_user('amal');
+select tests.ok((select first_name from public.profiles where id = tests.id('badr')) = 'بدر',
+  'the owner still reads the name of who left');
+select tests.as_user('dana');
+select tests.ok(not exists (select 1 from public.profiles where id = tests.id('badr')),
+  'a stranger does not');
 
 select tests.as_user('amal');
 delete from public.tree_members where tree_id = tests.v('tree')::uuid and user_id = tests.id('chadi');
@@ -92,6 +100,10 @@ select tests.ok(
   (select actor_id from public.notifications where kind::text = 'removed') = tests.id('amal'),
   'with who removed them');
 set role authenticated;
+
+select tests.as_user('chadi');
+select tests.ok((select first_name from public.profiles where id = tests.id('amal')) = 'أمل',
+  'a removed member still reads who removed them');
 
 select tests.as_user('amal');
 delete from public.trees where id = tests.v('spare')::uuid;
