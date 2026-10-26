@@ -5,7 +5,7 @@ import { billingAsServer, billingAsUser } from '@/server/billing/clients';
 import { fail, json, noBackend } from '@/server/billing/http';
 import { loadOffers } from '@/server/billing/store';
 import { invoiceView } from '@/server/billing/view';
-import { whatsapp } from '@/server/whatsapp/send';
+import { flushWhatsApp, whatsapp } from '@/server/whatsapp/send';
 
 /** Only accounts marked is_platform_admin, which nobody can set on themselves. */
 async function admin() {
@@ -32,7 +32,7 @@ export async function GET() {
   if (!me) return fail(404, 'not_found', 'غير موجود');
   const { db } = me;
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const [offers, settings, subs, invoices, checkouts, requests, codes, profiles, notices] =
+  const [offers, settings, subs, invoices, checkouts, requests, codes, profiles, notices, changes] =
     await Promise.all([
       loadOffers(db),
       db.from('billing_settings').select('*').single(),
@@ -51,6 +51,7 @@ export async function GET() {
         .gte('created_at', since)
         .order('updated_at', { ascending: false })
         .limit(10_000),
+      db.from('subscription_changes').select('*').order('created_at', { ascending: false }).limit(100),
     ]);
   const wa = notices.data ?? [];
   const among = (...s: string[]) => wa.filter((r) => s.includes(r.status)).length;
@@ -99,6 +100,19 @@ export async function GET() {
       from: t.plan,
       to: t.requested_plan!,
     })),
+    changes: (changes.data ?? []).map((c) => ({
+      id: c.id,
+      treeId: c.tree_id,
+      owner: c.tree_id ? ownerOf(c.tree_id) : '',
+      kind: c.kind,
+      plan: c.plan,
+      days: c.days,
+      oldEnd: c.old_end,
+      newEnd: c.new_end,
+      reason: c.reason,
+      by: name(profiles.data?.find((p) => p.id === c.admin_id)) || 'مدير المنصة',
+      at: c.created_at,
+    })),
     codes: (['whatsapp', 'sms', 'mock'] as const).map((channel) => ({
       channel,
       sent: (codes.data ?? []).filter((r) => r.channel === channel && r.ok).length,
@@ -140,7 +154,23 @@ const action = z.discriminatedUnion('action', [
     plan,
     until: z.iso.datetime().nullable(),
   }),
+  z.object({
+    action: z.literal('extend'),
+    treeId: z.uuid(),
+    days: z.number().int().min(1).max(366),
+    reason: z.string().trim().min(3).max(300),
+  }),
 ]);
+
+/** The database's refusals, in words for the desk. */
+const refusal = (message: string) =>
+  /extend it instead/.test(message)
+    ? 'على الشجرة اشتراك مدفوع شغال، فما ينمنح فوقه. مدّده من تبويب الاشتراكات بدل المنح.'
+    : /no running plan/.test(message)
+      ? 'ما على الشجرة اشتراك شغال يتمدد. إذا انتهى، امنحها باقة بدلًا من التمديد.'
+      : /open ended/.test(message)
+        ? 'هذي الباقة مفتوحة بلا تاريخ انتهاء، فما تحتاج تمديد.'
+        : 'ما انحفظ التغيير';
 
 export async function POST(req: Request) {
   const off = noBackend();
@@ -172,7 +202,21 @@ export async function POST(req: Request) {
               updated_at: new Date().toISOString(),
             })
             .eq('id', true)
-        : await me.db.rpc('billing_grant_manual', { tree: a.treeId, plan: a.plan, until: a.until });
-  if (error) return fail(409, 'refused', error.message);
+        : a.action === 'grant'
+          ? await me.db.rpc('billing_grant_manual', {
+              tree: a.treeId,
+              plan: a.plan,
+              until: a.until,
+              admin: me.userId,
+            })
+          : await me.db.rpc('billing_extend', {
+              tree: a.treeId,
+              days: a.days,
+              reason: a.reason,
+              admin: me.userId,
+            });
+  if (error) return fail(409, 'refused', refusal(error.message));
+  // The owner's WhatsApp note goes now; if it cannot, the daily job sends it.
+  if (a.action === 'extend') await flushWhatsApp().catch(() => {});
   return json({ ok: true });
 }

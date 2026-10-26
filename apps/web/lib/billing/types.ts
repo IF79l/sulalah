@@ -102,6 +102,20 @@ export interface AdminBilling {
     createdAt: string;
   }[];
   requests: { treeId: string; owner: string; from: PlanId; to: PlanId }[];
+  /** Plans changed by hand: extensions and grants, newest first. */
+  changes: {
+    id: string;
+    treeId: string | null;
+    owner: string;
+    kind: 'extend' | 'grant';
+    plan: PlanId;
+    days: number | null;
+    oldEnd: string | null;
+    newEnd: string | null;
+    reason: string;
+    by: string;
+    at: string;
+  }[];
   codes: { channel: 'whatsapp' | 'sms' | 'mock'; sent: number; failed: number }[];
   /** WhatsApp notices over the last 30 days (docs/WHATSAPP.md). */
   whatsapp: {
@@ -119,4 +133,5 @@ export interface AdminBilling {
 export type AdminAction =
   | { action: 'prices'; plan: PlanId; monthly: number | null; annual: number | null }
   | { action: 'seller'; name: string; vatNumber: string; crNumber: string; address: string }
-  | { action: 'grant'; treeId: string; plan: PlanId; until: string | null };
+  | { action: 'grant'; treeId: string; plan: PlanId; until: string | null }
+  | { action: 'extend'; treeId: string; days: number; reason: string };

@@ -154,5 +154,14 @@ export function describe(n: Notice): { text: string; icon: string; href: string 
       return { icon: 'person', text: `صرت مساهمًا في ${tree} بعد ما كنت مدققًا`, href: t() };
     case 'owner_now':
       return { icon: 'key', text: `نقل لك ${n.actor} ملكية ${tree}`, href: t('/settings') };
+    case 'left':
+      return {
+        icon: 'person_remove',
+        text: n.actorGone ? `غادر أحد الأعضاء ${tree} وحذف حسابه` : `غادر ${n.actor} ${tree}`,
+        href: t('/reviewers'),
+      };
+    case 'removed':
+      // They can no longer open the tree, so the link goes to their own trees.
+      return { icon: 'person_off', text: `أزالك ${n.actor} من ${tree}`, href: '/trees' };
   }
 }

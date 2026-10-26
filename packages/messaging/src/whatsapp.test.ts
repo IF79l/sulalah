@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   additions,
   classifyMetaError,
+  daysLabel,
   flushOutbox,
   intentOf,
   messagingConfig,
@@ -52,6 +53,29 @@ describe('templates', () => {
       '11 إضافة',
       '1,200 إضافة',
     ]);
+  });
+
+  it('tell the owner how long a plan was extended', () => {
+    expect([1, 2, 7, 30].map(daysLabel)).toEqual(['يومًا واحدًا', 'يومين', '7 أيام', '30 يومًا']);
+    const out = render(
+      'plan_extended',
+      {
+        actor: '',
+        count: 30,
+        treeId,
+        data: { days: 30, plan: 'family', cycle: 'monthly', period_end: '2026-10-29T12:00:00Z' },
+      },
+      'https://sulalah.sa',
+    );
+    expect(out.text).toContain('أضفنا 30 يومًا إلى باقة العائلة الشهرية');
+    expect(out.text).toContain('29 أكتوبر');
+    expect(out.link).toBe(`https://sulalah.sa/trees/${treeId}/plan`);
+  });
+
+  it('send a removed member to their own trees', () => {
+    const out = render('member_removed', { actor: 'فيصل بن خالد', count: 1, treeId, data: {} });
+    expect(out.text).toContain('أزالك فيصل بن خالد');
+    expect(out.link).toBe('/trees');
   });
 
   it('render the words and the link a person gets', () => {

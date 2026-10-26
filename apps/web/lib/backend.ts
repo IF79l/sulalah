@@ -21,6 +21,9 @@ export const backendOn =
   !!supabaseUrl &&
   !!supabaseKey;
 
+/** Where privacy requests go (PDPL): an email address, set once the domain is live. */
+export const privacyEmail = process.env.NEXT_PUBLIC_PRIVACY_EMAIL ?? '';
+
 export const TREE_BUCKET = 'tree-files';
 
 /** Real trees have uuid ids; the sample trees have readable ones like `al-sahli`. */

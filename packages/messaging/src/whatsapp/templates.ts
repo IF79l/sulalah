@@ -24,10 +24,13 @@ export type TemplateKey =
   | 'made_reviewer'
   | 'made_contributor'
   | 'owner_now'
+  | 'member_left'
+  | 'member_removed'
   | 'payment_received'
   | 'renewal_failed'
   | 'plan_ending'
-  | 'plan_ended';
+  | 'plan_ended'
+  | 'plan_extended';
 
 /** One message waiting to go, as the outbox hands it over. */
 export interface MessageInput {
@@ -80,6 +83,14 @@ export function planLabel(plan: unknown, cycle?: unknown) {
   const name = planNames[plan as keyof typeof planNames] ?? 'سُلالة';
   const c = cycle === 'annual' ? ' السنوية' : cycle === 'monthly' ? ' الشهرية' : '';
   return `باقة ${name}${c}`;
+}
+
+/** "يومًا واحدًا", "يومين", "7 أيام", "30 يومًا". */
+export function daysLabel(n: number) {
+  if (n <= 1) return 'يومًا واحدًا';
+  if (n === 2) return 'يومين';
+  if (n <= 10) return `${digits(n)} أيام`;
+  return `${digits(n)} يومًا`;
 }
 
 /** Halalas as riyals: 4900 → "49", 4950 → "49.50". */
@@ -237,6 +248,30 @@ const defs: TemplateDef[] = [
     link: (m) => tree(m),
   },
   {
+    key: 'member_left',
+    name: 'sulalah_member_left',
+    category: 'UTILITY',
+    topic: 'members',
+    body: 'غادر {{1}} شجرة العائلة في سُلالة، وما عاد يقدر يفتحها أو يرسل إضافات.',
+    button: { text: 'أعضاء الشجرة' },
+    examples: ['محمد بن سعد'],
+    buttonExample: 'trees/00000000-0000-4000-8000-000000000000/reviewers',
+    params: (m) => [who(m)],
+    link: (m) => tree(m, '/reviewers'),
+  },
+  {
+    key: 'member_removed',
+    name: 'sulalah_member_removed',
+    category: 'UTILITY',
+    topic: 'members',
+    body: 'أزالك {{1}} من شجرة العائلة في سُلالة. إذا كان ذلك بالخطأ، اطلب منه رابط دعوة جديد.',
+    button: { text: 'أشجاري' },
+    examples: ['فيصل بن خالد'],
+    buttonExample: 'trees',
+    params: (m) => [who(m)],
+    link: () => 'trees',
+  },
+  {
     key: 'payment_received',
     name: 'sulalah_payment_received',
     category: 'UTILITY',
@@ -287,6 +322,22 @@ const defs: TemplateDef[] = [
     examples: ['باقة العائلة السنوية'],
     buttonExample: 'trees/00000000-0000-4000-8000-000000000000/plan',
     params: (m) => [planLabel(m.data.plan, m.data.cycle)],
+    link: (m) => tree(m, '/plan'),
+  },
+  {
+    key: 'plan_extended',
+    name: 'sulalah_plan_extended',
+    category: 'UTILITY',
+    topic: 'billing',
+    body: 'أضفنا {{1}} إلى {{2}} على شجرتك في سُلالة بدون أي رسوم، وصارت تنتهي يوم {{3}}. شكرًا لصبرك.',
+    button: { text: 'صفحة الباقة' },
+    examples: ['30 يومًا', 'باقة العائلة الشهرية', 'الخميس 29 أكتوبر'],
+    buttonExample: 'trees/00000000-0000-4000-8000-000000000000/plan',
+    params: (m) => [
+      daysLabel(Number(m.data.days) || m.count),
+      planLabel(m.data.plan, m.data.cycle),
+      day(m.data.period_end),
+    ],
     link: (m) => tree(m, '/plan'),
   },
 ];

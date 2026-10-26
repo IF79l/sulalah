@@ -149,6 +149,20 @@ export type WaOutboxRow = {
   read_at: string | null;
 };
 
+/** A plan changed by hand on the admin's desk, and why. */
+export type SubscriptionChangeRow = {
+  id: string;
+  tree_id: string | null;
+  kind: 'extend' | 'grant';
+  plan: PlanCode;
+  days: number | null;
+  old_end: string | null;
+  new_end: string | null;
+  reason: string;
+  admin_id: string | null;
+  created_at: string;
+};
+
 type Rel = {
   foreignKeyName: string;
   columns: string[];
@@ -178,6 +192,7 @@ export type BillingDatabase = {
         Pick<OtpSendRow, 'phone_hash' | 'channel' | 'ok'> & { error?: string | null }
       >;
       wa_outbox: Table<WaOutboxRow, never, Partial<WaOutboxRow>>;
+      subscription_changes: Table<SubscriptionChangeRow, never, never>;
       trees: {
         Row: {
           id: string;
@@ -233,8 +248,22 @@ export type BillingDatabase = {
       };
       billing_expire: { Args: Record<never, never>; Returns: number };
       billing_grant_manual: {
-        Args: { tree: string; plan: PlanCode; until: string | null };
+        Args: {
+          tree: string;
+          plan: PlanCode;
+          until: string | null;
+          reason?: string;
+          admin?: string | null;
+        };
         Returns: undefined;
+      };
+      billing_extend: {
+        Args: { tree: string; days: number; reason: string; admin?: string | null };
+        Returns: string;
+      };
+      delete_account: {
+        Args: { member: string };
+        Returns: { tree_id: string; deleted: boolean }[];
       };
       billing_cancel: { Args: { tree: string }; Returns: undefined };
       billing_resume: { Args: { tree: string }; Returns: undefined };
