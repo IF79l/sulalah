@@ -39,7 +39,7 @@ export interface Reply {
   wants: 'stop' | 'start' | null;
 }
 
-const STOP = ['إيقاف', 'ايقاف', 'وقف', 'الغاء', 'إلغاء', 'stop', 'unsubscribe'];
+const STOP = ['إيقاف', 'ايقاف', 'وقف', 'توقف', 'أوقف', 'اوقف', 'الغاء', 'إلغاء', 'stop', 'unsubscribe'];
 const START = ['تشغيل', 'start', 'subscribe'];
 
 /** "إيقاف", "ايقاف التنبيهات", "STOP" all ask to stop; anything else is just a reply. */

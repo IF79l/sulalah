@@ -1,11 +1,14 @@
 import 'server-only';
 import type { BillingView, CheckoutView, InvoiceView, SubscriptionView } from '@/lib/billing/types';
 import type { CheckoutRow, InvoiceRow, SubscriptionRow } from '@/lib/supabase/billing-types';
-import { billingAsUser } from './clients';
+import { billingAsServer, billingAsUser } from './clients';
 import { appUrl, payMode, publishableKey } from './env';
 import { loadOffers } from './store';
 
 type UserDb = Awaited<ReturnType<typeof billingAsUser>>;
+
+/** How long a checkout's price holds. */
+const CHECKOUT_TTL_MS = 60 * 60_000;
 
 /** Who is asking about this tree's billing; only its owner may. */
 export async function ownerOf(treeId: string): Promise<{ db: UserDb; userId: string } | null> {
@@ -116,8 +119,23 @@ export function checkoutView(
 export async function ownCheckout(checkoutId: string) {
   if (!/^[0-9a-f-]{36}$/.test(checkoutId)) return null;
   const db = await billingAsUser();
-  const { data: c } = await db.from('checkouts').select('*').eq('id', checkoutId).maybeSingle();
-  if (!c) return null;
+  const { data: found } = await db.from('checkouts').select('*').eq('id', checkoutId).maybeSingle();
+  if (!found) return null;
+  let c = found;
+  // A price is good for an hour: the credit for unused days and the period it buys were
+  // worked out when it opened. After that the owner starts again and gets a fresh price.
+  if (
+    c.kind !== 'renewal' &&
+    (c.status === 'open' || c.status === 'failed') &&
+    Date.now() - Date.parse(c.created_at) > CHECKOUT_TTL_MS
+  ) {
+    await billingAsServer()
+      .from('checkouts')
+      .update({ status: 'expired' })
+      .eq('id', c.id)
+      .in('status', ['open', 'failed']);
+    c = { ...c, status: 'expired' };
+  }
   const [sub, settings] = await Promise.all([
     db.from('subscriptions').select('payment_method_id').eq('tree_id', c.tree_id).maybeSingle(),
     db.from('billing_settings').select('vat_number, vat_rate_bp').maybeSingle(),

@@ -25,6 +25,7 @@ import {
   type Person,
   type Submission,
 } from '@/lib/demo-store';
+import { afterSave } from '@/lib/live-tree';
 
 /** Splits the unsent drafts by the approved person each group hangs from. */
 function draftGroups(people: Person[], drafts: string[]) {
@@ -56,7 +57,11 @@ export async function sendDrafts(): Promise<number> {
     ? st.submissions.find((x) => x.id === st.draftReplaces)
     : undefined;
 
+  // One failed upload stops the rest, but what already went out is recorded below, so a
+  // second try does not send it twice.
+  let failure: unknown;
   for (const [fatherId, people] of groups) {
+    if (failure) break;
     const id = newId('sub').replace(/[^A-Za-z0-9_-]/g, '');
     const replaces = replaced && replaced.fatherId === fatherId ? replaced.id : undefined;
     // A contributor cannot write the tree file: their additions travel as a sealed file.
@@ -83,7 +88,12 @@ export async function sendDrafts(): Promise<number> {
         at: stamp(),
         replaces,
       };
-      await sendSubmission(live.treeId, st.treeKey!, file);
+      try {
+        await sendSubmission(live.treeId, st.treeKey!, file);
+      } catch (e) {
+        failure = e;
+        break;
+      }
     }
     sent.push({
       id,
@@ -96,7 +106,10 @@ export async function sendDrafts(): Promise<number> {
       replaces,
     });
   }
-  if (!sent.length) return 0;
+  if (!sent.length) {
+    if (failure) throw failure;
+    return 0;
+  }
 
   const m = byId(st.people);
   const n = sent.reduce((a, x) => a + x.personIds.length, 0);
@@ -146,6 +159,7 @@ export async function sendDrafts(): Promise<number> {
         pathTo(st.people, x.fatherId).map((p) => p.id),
         x.personIds.length,
       ).catch(() => {});
+  if (failure) throw failure;
   return n;
 }
 
@@ -188,5 +202,7 @@ export function tellContributor(
 ) {
   const live = liveTree();
   if (!live || !sub.by) return;
-  void notifyMember(live.treeId, sub.by, what, kept, sub.fatherId).catch(() => {});
+  const to = sub.by;
+  // Only once the server took the review: a refused one must not reach the contributor.
+  afterSave(() => void notifyMember(live.treeId, to, what, kept, sub.fatherId).catch(() => {}));
 }

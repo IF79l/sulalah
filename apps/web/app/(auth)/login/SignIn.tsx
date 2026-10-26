@@ -9,6 +9,9 @@ import { supabase } from '@/lib/supabase/client';
 
 type Step = 'phone' | 'code' | 'name';
 
+/** One space between words, none at the ends: "  محمد   علي " is "محمد علي". */
+const cleanName = (v: string) => v.replace(/\s+/g, ' ').trim();
+
 const RESEND_S = 45;
 
 /**
@@ -36,6 +39,7 @@ export function SignIn({
   const [codeError, setCodeError] = useState<string>();
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState<string>();
   const e164 = `+966${phone}`;
 
   const finish = () => {
@@ -129,20 +133,28 @@ export function SignIn({
     const {
       data: { user },
     } = await db.auth.getUser();
-    if (user)
-      await db
-        .from('profiles')
-        .update({
-          first_name: name.first.trim(),
-          father_name: name.father.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+    const { error } = user
+      ? await db
+          .from('profiles')
+          .update({
+            first_name: cleanName(name.first),
+            father_name: cleanName(name.father),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id)
+      : { error: new Error('signed out') };
+    if (error) {
+      setSaving(false);
+      setNameError('ما قدرنا نحفظ اسمك، حاول مرة ثانية');
+      return;
+    }
     finish();
   };
 
   const shownPhone = `+966 ${phone.slice(0, 2)} ${phone.slice(2, 5)} ${phone.slice(5)}`;
-  const fullName = [name.first, name.father && `بن ${name.father}`].filter(Boolean).join(' ');
+  const fullName = [cleanName(name.first), cleanName(name.father) && `بن ${cleanName(name.father)}`]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-ivory">
@@ -309,7 +321,13 @@ export function SignIn({
                 <Field
                   label="الاسم الأول"
                   value={name.first}
-                  onChange={(e) => setName({ ...name, first: e.target.value })}
+                  onChange={(e) => {
+                    setName({ ...name, first: e.target.value });
+                    setNameError(undefined);
+                  }}
+                  maxLength={40}
+                  autoComplete="given-name"
+                  error={nameError}
                   autoFocus
                   required
                 />
@@ -318,6 +336,7 @@ export function SignIn({
                   label="اسم الأب"
                   value={name.father}
                   onChange={(e) => setName({ ...name, father: e.target.value })}
+                  maxLength={40}
                 />
                 {fullName ? (
                   <p className="rounded-xl bg-surface-low px-4 py-2.5 text-body text-ink-soft">

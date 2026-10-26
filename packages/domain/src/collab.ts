@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { normalizeArabic } from './arabic';
 import { countedNames } from './guard';
+import { cleanName, nameProblem, yearsProblem } from './input';
 import {
   TreeFileError,
   defaultTreeSettings,
@@ -176,20 +177,23 @@ export function takeIn(
   file: TreeFile,
   sub: SubmissionFile,
   by: string,
-  opts: { branch?: string | null; limit?: number } = {},
+  opts: { branch?: string | null; branchRoot?: string | null; limit?: number } = {},
 ): { file: TreeFile; problem?: undefined } | { problem: IntakeProblem; file?: undefined } {
   if (file.submissions.some((x) => x.id === sub.id)) return { problem: 'known' };
   const byId = new Map(file.people.map((p) => [p.id, p]));
   const father = byId.get(sub.fatherId);
   if (!father || father.status !== 'approved' || father.gender !== 'male')
     return { problem: 'no-father' };
-  if (opts.branch !== undefined) {
-    if (!opts.branch) return { problem: 'outside-branch' };
-    let inside = false;
+  const under = (branch: string) => {
     for (let p: TreeFilePerson | undefined = father; p; p = p.fatherId ? byId.get(p.fatherId) : undefined)
-      if (p.id === opts.branch) inside = true;
-    if (!inside) return { problem: 'outside-branch' };
+      if (p.id === branch) return true;
+    return false;
+  };
+  if (opts.branch !== undefined) {
+    if (!opts.branch || !under(opts.branch)) return { problem: 'outside-branch' };
   }
+  // The branch the sender's invite link was for: their own pick must stay inside it.
+  if (opts.branchRoot && !under(opts.branchRoot)) return { problem: 'outside-branch' };
 
   // A correction replaces the earlier submission still waiting or sent back.
   const old = sub.replaces
@@ -204,7 +208,9 @@ export function takeIn(
   if (ours.size !== sub.people.length) return { problem: 'taken-id' };
   for (const p of sub.people) {
     if (byId.has(p.id) && !freed.has(p.id)) return { problem: 'taken-id' };
-    if (!p.fatherId) return { problem: 'bad-person' };
+    // A death year left over on someone marked alive is dropped below, not held against them.
+    const years = { ...p, deathYear: p.deceased ? p.deathYear : undefined };
+    if (!p.fatherId || nameProblem(p.name) || yearsProblem(years)) return { problem: 'bad-person' };
     const f = p.fatherId === sub.fatherId ? father : ours.get(p.fatherId);
     if (!f || f.gender !== 'male') return { problem: 'bad-person' };
   }
@@ -242,13 +248,13 @@ export function takeIn(
         ...sub.people.map(
           (p): TreeFilePerson => ({
             id: p.id,
-            name: p.name.trim().slice(0, 60),
+            name: cleanName(p.name),
             gender: p.gender,
             fatherId: p.fatherId,
             status: 'proposed',
             deceased: p.deceased,
             birthYear: p.birthYear,
-            deathYear: p.deathYear,
+            deathYear: p.deceased ? p.deathYear : undefined,
             kunya: p.kunya?.slice(0, 60),
             bio: p.bio?.slice(0, 2000),
             addedBy: sub.contributor,

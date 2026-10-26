@@ -1,6 +1,9 @@
 'use client';
 
 import {
+  NAME_MAX,
+  cleanName,
+  countedNames,
   defaultPlanLimits,
   fromCsv,
   generateTreeKey,
@@ -13,7 +16,8 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { TREE_ID, names, newId, replaceTree, update } from '@/lib/demo-store';
 import { appEnv } from '@/lib/backend';
-import { plantTree } from '@/lib/tree-cloud';
+import { supabase } from '@/lib/supabase/client';
+import { SaveRefused, plantTree } from '@/lib/tree-cloud';
 import { keepKey } from '@/lib/tree-keys';
 
 const steps = [
@@ -103,22 +107,38 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
   const [planting, setPlanting] = useState(false);
   const [plantError, setPlantError] = useState<string>();
 
-  const title = family.trim() ? `شجرة آل ${family.trim()}` : 'شجرة العائلة';
-  const filled = ancestors.map((a) => a.trim()).filter(Boolean);
+  const title = cleanName(family) ? `شجرة آل ${cleanName(family)}` : 'شجرة العائلة';
+  const filled = ancestors.map(cleanName).filter(Boolean);
   const canNext = step === 0 ? !!family.trim() : step === 1 ? !!founder.trim() : true;
 
   const plantLive = async () => {
     setPlanting(true);
     setPlantError(undefined);
-    const key = generateTreeKey();
     const rootId = imported?.rootId ?? newId('p');
     const people: TreeFilePerson[] = imported
       ? imported.people.map((p) => ({
           ...p,
           status: 'approved' as const,
-          ...(p.id === rootId ? { name: founder.trim() } : {}),
+          ...(p.id === rootId ? { name: cleanName(founder) } : {}),
         }))
-      : [{ id: rootId, name: founder.trim(), gender: 'male', fatherId: null, status: 'approved' }];
+      : [{ id: rootId, name: cleanName(founder), gender: 'male', fatherId: null, status: 'approved' }];
+    // Every tree starts on the first plan until the one chosen is activated, and the server
+    // refuses a first file larger than that plan, so say so here instead of failing there.
+    const { data: start } = await supabase()
+      .from('plans')
+      .select('max_persons')
+      .eq('id', 'family')
+      .maybeSingle();
+    const cap = start?.max_persons ?? defaultPlanLimits.family.maxPersons;
+    const count = countedNames(people, rootId);
+    if (count > cap) {
+      setPlanting(false);
+      setPlantError(
+        `كل شجرة تبدأ بباقة "العائلة" (حتى ${num(cap)} فرد) إلى أن تتفعل الباقة اللي اخترتها، وملفك فيه ${num(count)}. ازرعها الآن بدون الملف أو بملف أصغر، وتكمّل الأسماء بعد تفعيل الباقة.`,
+      );
+      return;
+    }
+    const key = generateTreeKey();
     try {
       const id = await plantTree(
         plan,
@@ -128,7 +148,7 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
           return {
             format: 'sulalah-tree',
             version: 1,
-            tree: { id: treeId, title, family: family.trim(), rootId, ancestors: filled },
+            tree: { id: treeId, title, family: cleanName(family), rootId, ancestors: filled },
             people,
             unions: [],
             submissions: [],
@@ -141,6 +161,10 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
       setDone(true);
     } catch (e) {
       const why = (e as { code?: string; message?: string }) ?? {};
+      if (e instanceof SaveRefused) {
+        setPlantError(`ما قدرنا نزرع الشجرة: ${e.message}`);
+        return;
+      }
       setPlantError(
         `ما قدرنا نزرع الشجرة. تأكد من اتصالك وحاول مرة ثانية.${
           appEnv === 'staging'
@@ -279,6 +303,7 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
                 <Field
                   label="اسم العائلة"
                   placeholder="السهلي"
+                  maxLength={40}
                   value={family}
                   onChange={(e) => setFamily(e.target.value)}
                   icon="family_restroom"
@@ -311,6 +336,7 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
                 <Field
                   label="الاسم الكامل"
                   placeholder="محمد بن عبدالله"
+                  maxLength={NAME_MAX}
                   value={founder}
                   onChange={(e) => setFounder(e.target.value)}
                   icon="park"
@@ -326,7 +352,8 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
                   if (root) setFounder(root.name);
                 }}
                 onClear={() => setImported(null)}
-                maxPersons={defaultPlanLimits[plan].maxPersons}
+                maxPersons={defaultPlanLimits[live ? 'family' : plan].maxPersons}
+                live={live}
               />
               <Card>
                 <div className="flex items-start justify-between gap-2">
@@ -348,6 +375,7 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
                       <Field
                         className="flex-1"
                         label={above(i, founder.trim().split(' ')[0] ?? '')}
+                        maxLength={NAME_MAX}
                         value={a}
                         onChange={(e) =>
                           setAncestors(ancestors.map((x, j) => (j === i ? e.target.value : x)))
@@ -532,11 +560,13 @@ function CsvImport({
   onImport,
   onClear,
   maxPersons,
+  live,
 }: {
   imported: Imported | null;
   onImport: (r: Imported) => void;
   onClear: () => void;
   maxPersons: number;
+  live?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [failed, setFailed] = useState<{ file: string; issues: CsvIssue[] } | null>(null);
@@ -602,9 +632,11 @@ function CsvImport({
               {imported.dropped ? ` تركنا ${num(imported.dropped)} ما لهم صلة بالجد المؤسس.` : ''}
             </span>
           </p>
-          {imported.people.length > maxPersons ? (
+          {countedNames(imported.people, imported.rootId) > maxPersons ? (
             <p className="text-caption text-pending">
-              العدد أكبر من حد الباقة ({num(maxPersons)} فرد). اختر باقة أكبر في الخطوة الجاية.
+              {live
+                ? `العدد أكبر من حد باقة "العائلة" (${num(maxPersons)} فرد)، وكل شجرة تبدأ بها حتى تتفعل باقتها. خفّف الملف أو ازرعها بدونه الآن.`
+                : `العدد أكبر من حد الباقة (${num(maxPersons)} فرد). اختر باقة أكبر في الخطوة الجاية.`}
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">

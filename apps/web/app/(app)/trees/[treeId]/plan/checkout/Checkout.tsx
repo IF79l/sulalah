@@ -1,7 +1,7 @@
 'use client';
 
 import { splitVat, type BillingCycle, type PlanId } from '@sulalah/domain';
-import { Button, Field, Icon } from '@sulalah/ui';
+import { Button, Field, Icon, latinDigits } from '@sulalah/ui';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { AppShell, Panel } from '@/components/AppShell';
@@ -210,8 +210,16 @@ function TestCardForm({
   const [fail, setFail] = useState<string | null>(null);
 
   const digits = number.replace(/\D/g, '');
-  const ready =
-    digits.length >= 15 && /^\d{2}\/\d{2}$/.test(exp) && /^\d{3,4}$/.test(cvc) && name.trim();
+  // MM/YY, a real month, and not already past.
+  const [mm, yy] = exp.split('/').map(Number);
+  const now = new Date();
+  const expOk =
+    /^\d{2}\/\d{2}$/.test(exp) &&
+    mm! >= 1 &&
+    mm! <= 12 &&
+    2000 + yy! >= now.getFullYear() &&
+    (2000 + yy! > now.getFullYear() || mm! >= now.getMonth() + 1);
+  const ready = digits.length >= 15 && expOk && /^\d{3,4}$/.test(cvc) && name.trim();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,7 +277,7 @@ function TestCardForm({
         value={number}
         onChange={(e) =>
           setNumber(
-            e.target.value
+            latinDigits(e.target.value)
               .replace(/\D/g, '')
               .slice(0, 19)
               .replace(/(\d{4})(?=\d)/g, '$1 '),
@@ -284,8 +292,9 @@ function TestCardForm({
           autoComplete="cc-exp"
           placeholder="MM/YY"
           value={exp}
+          error={exp.length === 5 && !expOk ? 'تاريخ الانتهاء غير صحيح أو منتهي' : undefined}
           onChange={(e) => {
-            const d = e.target.value.replace(/\D/g, '').slice(0, 4);
+            const d = latinDigits(e.target.value).replace(/\D/g, '').slice(0, 4);
             setExp(d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d);
           }}
         />
@@ -296,7 +305,7 @@ function TestCardForm({
           autoComplete="cc-csc"
           placeholder="CVC"
           value={cvc}
-          onChange={(e) => setCvc(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          onChange={(e) => setCvc(latinDigits(e.target.value).replace(/\D/g, '').slice(0, 4))}
         />
       </div>
       <Field

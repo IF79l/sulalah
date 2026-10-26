@@ -69,6 +69,8 @@ export type MemberRow = {
   user_id: string;
   role: TreeRole;
   branch_person_id: string | null;
+  /** The branch the contributor's invite link was for; set by accept_invite only. */
+  branch_root: string | null;
   scope_person_ids: string[];
   invited_by: string | null;
   created_at: string;

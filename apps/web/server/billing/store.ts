@@ -83,6 +83,16 @@ export function supabaseStore(db: ServerDb): BillingStore {
       return row ? toCheckout(row) : null;
     },
     async openCheckout(c) {
+      // One checkout open per tree: an older one, priced before this, can no longer be paid.
+      if (c.kind !== 'renewal')
+        must(
+          await db
+            .from('checkouts')
+            .update({ status: 'expired' })
+            .eq('tree_id', c.treeId)
+            .in('kind', ['new', 'upgrade'])
+            .in('status', ['open', 'failed']),
+        );
       const row = got(
         await db
           .from('checkouts')

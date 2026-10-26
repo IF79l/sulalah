@@ -144,7 +144,7 @@ describe('who may change what', () => {
   });
   it('lets a whole-tree reviewer approve and add anywhere', () => {
     expect(checkSave(base, approve(base, 'sub-a'), wholeTree)).toBeNull();
-    expect(checkSave(base, withPeople(base, person('c1', 'n')), wholeTree)).toBeNull();
+    expect(checkSave(base, withPeople(base, person('c1', 'a')), wholeTree)).toBeNull();
   });
 });
 
@@ -167,7 +167,7 @@ describe("a reviewer's branch", () => {
   });
 
   it('refuses adding straight into the tree outside it', () => {
-    expect(checkSave(base, withPeople(base, person('c1', 'n')), reviewer)).toBe('outside_scope');
+    expect(checkSave(base, withPeople(base, person('c1', 'a')), reviewer)).toBe('outside_scope');
     expect(checkSave(base, withPeople(base, person('c1', 'm')), reviewer)).toBe('outside_scope');
   });
 
@@ -224,5 +224,29 @@ describe("a reviewer's branch", () => {
   it('refuses moving a bud out of it', () => {
     const moved = { ...base, people: base.people.map((p) => (p.id === 'bs' ? { ...p, fatherId: 'a' } : p)) };
     expect(checkSave(base, moved, reviewer)).toBe('outside_scope');
+  });
+});
+
+describe('a file that no longer makes one tree', () => {
+  it('is never stored', () => {
+    const orphan = withPeople(base, person('c1', 'gone'));
+    expect(checkSave(base, orphan, owner)).toBe('broken_tree');
+    const blank = withPeople(base, person('c1', 'a', { name: '  ' }));
+    expect(checkSave(base, blank, owner)).toBe('broken_tree');
+    const underDaughter = withPeople(base, person('c1', 'n'));
+    expect(checkSave(base, underDaughter, owner)).toBe('broken_tree');
+    const loop = { ...base, people: base.people.map((p) => (p.id === 'a' ? { ...p, fatherId: 'old' } : p.id === 's' ? { ...p, fatherId: 'a' } : p)) };
+    expect(checkSave(base, loop, owner)).toBe('broken_tree');
+    const twice = withPeople(base, person('a', 'm'));
+    expect(checkSave(base, twice, owner)).toBe('broken_tree');
+    const rootMoved = { ...base, people: base.people.map((p) => (p.id === 'm' ? { ...p, fatherId: 'a' } : p)) };
+    expect(checkSave(base, rootMoved, owner)).toBe('broken_tree');
+    expect(checkSave(null, orphan, owner)).toBe('broken_tree');
+  });
+
+  it('can still be tidied when it was already broken', () => {
+    const orphan = withPeople(base, person('c1', 'gone'));
+    const renamed = { ...orphan, tree: { ...orphan.tree, title: 'شجرة آل السهلي' } };
+    expect(checkSave(orphan, renamed, owner)).toBeNull();
   });
 });

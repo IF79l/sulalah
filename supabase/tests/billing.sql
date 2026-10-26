@@ -206,6 +206,18 @@ select tests.ok(true, 'additions are sent again once the plan is back');
 reset role;
 set role service_role;
 
+-- ---------- A failed renewal with no card left ----------
+
+reset role;
+update public.subscriptions set status = 'past_due', provider = 'sandbox', payment_method_id = null,
+  next_retry_at = now() + interval '1 day', retry_count = 1;
+set role service_role;
+select tests.ok(public.billing_expire() = 1, 'a failed renewal with no card to retry lapses');
+select tests.ok((select status from public.subscriptions) = 'expired', 'and the plan ends');
+reset role;
+select public.billing_grant_manual(v::uuid, 'tribe', null) from tests.vars where k = 'btree';
+set role service_role;
+
 -- ---------- Invoices outlive the tree ----------
 
 reset role;

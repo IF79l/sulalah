@@ -188,6 +188,8 @@ export interface Member {
   name: string;
   role: TreeRole;
   branch: string | null;
+  /** The branch the contributor's invite link was for; their branch stays inside it. */
+  branchRoot: string | null;
   scope: string[];
   joinedAt: string;
 }
@@ -196,7 +198,7 @@ export async function listMembers(treeId: string): Promise<Member[]> {
   const { data, error } = await supabase()
     .from('tree_members')
     .select(
-      'user_id, role, branch_person_id, scope_person_ids, created_at, profile:profiles!tree_members_user_id_fkey(first_name, father_name)',
+      'user_id, role, branch_person_id, branch_root, scope_person_ids, created_at, profile:profiles!tree_members_user_id_fkey(first_name, father_name)',
     )
     .eq('tree_id', treeId)
     .order('created_at');
@@ -205,6 +207,7 @@ export async function listMembers(treeId: string): Promise<Member[]> {
     user_id: string;
     role: TreeRole;
     branch_person_id: string | null;
+    branch_root: string | null;
     scope_person_ids: string[];
     created_at: string;
     profile: { first_name: string; father_name: string } | null;
@@ -214,6 +217,7 @@ export async function listMembers(treeId: string): Promise<Member[]> {
     name: fullName(r.profile) || 'فرد من العائلة',
     role: r.role,
     branch: r.branch_person_id,
+    branchRoot: r.branch_root ?? null,
     scope: r.scope_person_ids,
     joinedAt: r.created_at,
   }));

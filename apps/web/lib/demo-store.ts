@@ -604,7 +604,11 @@ let seq = 0;
 export const newId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
 
-export const myName = (s: DemoState) => `${s.me.first} بن ${s.me.father}`;
+/** "فيصل بن خالد", or just "فيصل" when the account has no father's name. */
+export const myName = (s: DemoState) =>
+  [s.me.first.trim() || 'فرد من العائلة', s.me.father.trim() && `بن ${s.me.father.trim()}`]
+    .filter(Boolean)
+    .join(' ');
 
 // ---------- Changing the tree ----------
 
@@ -777,7 +781,8 @@ export function actorOf(s: DemoState): Actor {
 
 /** The name written in the log and on submissions for whoever is acting. */
 export const actingName = (s: DemoState) =>
-  s.as === 'reviewer' ? (demoReviewer(s)?.name ?? myName(s)) : myName(s);
+  // On a real tree a reviewer is the signed in person; the sample plays its first reviewer.
+  s.as === 'reviewer' && !live ? (demoReviewer(s)?.name ?? myName(s)) : myName(s);
 
 export const allows = (s: DemoState, action: PermissionAction) => can(actorOf(s), action);
 

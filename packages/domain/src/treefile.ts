@@ -4,6 +4,7 @@
  * storage holds only a sealed file. The same people can be exported to and read from CSV.
  */
 import { z } from 'zod';
+import { NAME_MAX, YEAR_MIN, cleanName, latinDigits } from './input';
 
 // ---------- The file ----------
 
@@ -274,7 +275,11 @@ const columns = [
 ] as const;
 type Column = (typeof columns)[number][0];
 
-const quote = (v: string) => (/[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+const quote = (raw: string) => {
+  // A cell starting with = + - @ runs as a formula in Excel; a leading apostrophe keeps it text.
+  const v = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+};
 
 /** Approved people only: what is waiting on review is not yet part of the family's record. */
 export function toCsv(people: TreeFilePerson[]): string {
@@ -379,8 +384,8 @@ export function fromCsv(text: string): {
   };
   const year = (v: string, line: number, label: string) => {
     if (!v) return undefined;
-    const n = Number(v.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))));
-    if (!Number.isInteger(n) || n < 1 || n > 3000) {
+    const n = Number(latinDigits(v));
+    if (!Number.isInteger(n) || n < YEAR_MIN || n > new Date().getUTCFullYear()) {
       issues.push({ line, message: `${label} غير صحيحة: ${v}` });
       return undefined;
     }
@@ -391,9 +396,13 @@ export function fromCsv(text: string): {
   const seen = new Set<string>();
   rows.slice(1).forEach((row, k) => {
     const line = k + 2;
-    const name = at(row, 'name');
+    const name = cleanName(at(row, 'name'));
     if (!name) {
       issues.push({ line, message: 'صف بدون اسم' });
+      return;
+    }
+    if (name.length > NAME_MAX) {
+      issues.push({ line, message: `الاسم أطول من ${NAME_MAX} حرفًا: ${name.slice(0, 20)}…` });
       return;
     }
     const id = at(row, 'id') || `row-${line}`;
@@ -402,15 +411,22 @@ export function fromCsv(text: string): {
       return;
     }
     seen.add(id);
+    const birthYear = year(at(row, 'birthYear'), line, 'سنة الميلاد');
+    let deathYear = year(at(row, 'deathYear'), line, 'سنة الوفاة');
+    if (birthYear !== undefined && deathYear !== undefined && deathYear < birthYear) {
+      issues.push({ line, message: `سنة الوفاة قبل سنة الميلاد لـ ${name}` });
+      deathYear = undefined;
+    }
     people.push({
       id,
       name,
       gender: female.has(at(row, 'gender').toLowerCase()) ? 'female' : 'male',
       fatherId: at(row, 'fatherId') || null,
       status: 'approved',
-      deceased: yes.has(at(row, 'deceased').toLowerCase()) || undefined,
-      birthYear: year(at(row, 'birthYear'), line, 'سنة الميلاد'),
-      deathYear: year(at(row, 'deathYear'), line, 'سنة الوفاة'),
+      // A death year says as much as the "متوفى" column does.
+      deceased: yes.has(at(row, 'deceased').toLowerCase()) || deathYear !== undefined || undefined,
+      birthYear,
+      deathYear,
       kunya: at(row, 'kunya') || undefined,
       bio: at(row, 'bio') || undefined,
     });
@@ -460,8 +476,16 @@ export function fromCsv(text: string): {
     });
   }
   // The root is whoever has the most descendants among those without a father.
-  const size = (id: string): number =>
-    1 + people.filter((p) => p.fatherId === id).reduce((s, c) => s + size(c.id), 0);
-  const rootId = roots.sort((a, b) => size(b.id) - size(a.id))[0]?.id;
+  const kids = new Map<string, string[]>();
+  for (const p of people)
+    if (p.fatherId) kids.set(p.fatherId, [...(kids.get(p.fatherId) ?? []), p.id]);
+  const size = (id: string) => {
+    let n = 0;
+    for (const stack = [id]; stack.length; n++) stack.push(...(kids.get(stack.pop()!) ?? []));
+    return n;
+  };
+  const rootId = roots
+    .map((r) => ({ id: r.id, n: size(r.id) }))
+    .sort((a, b) => b.n - a.n)[0]?.id;
   return { people, rootId, issues };
 }

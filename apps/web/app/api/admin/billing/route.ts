@@ -92,7 +92,8 @@ export async function GET() {
       provider: c.provider,
       createdAt: c.created_at,
     })),
-    requests: (requests.data ?? []).map((t) => ({
+    // A tree asking for the plan it already has is not a request.
+    requests: (requests.data ?? []).filter((t) => t.requested_plan !== t.plan).map((t) => ({
       treeId: t.id,
       owner: name(profiles.data?.find((p) => p.id === t.owner_id)),
       from: t.plan,

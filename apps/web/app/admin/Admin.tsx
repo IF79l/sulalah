@@ -1,7 +1,7 @@
 'use client';
 
 import { planIds, testPlanPrices, validVatNumber, type PlanId } from '@sulalah/domain';
-import { Button, Chip, Field, Icon, Logo, Medallion, buttonClass, cn } from '@sulalah/ui';
+import { Button, Chip, Field, Icon, Logo, Medallion, buttonClass, cn, latinDigits } from '@sulalah/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Panel, Tabs, Toast } from '@/components/AppShell';
@@ -502,7 +502,7 @@ function Prices({
                   dir="ltr"
                   value={d.m}
                   error={bad(d.m) ? 'رقم غير صحيح' : undefined}
-                  onChange={(e) => setDraft({ ...draft, [id]: { ...d, m: e.target.value } })}
+                  onChange={(e) => setDraft({ ...draft, [id]: { ...d, m: latinDigits(e.target.value).replace('٫', '.') } })}
                 />
                 <Field
                   label="سنوي"
@@ -510,7 +510,7 @@ function Prices({
                   dir="ltr"
                   value={d.a}
                   error={bad(d.a) ? 'رقم غير صحيح' : undefined}
-                  onChange={(e) => setDraft({ ...draft, [id]: { ...d, a: e.target.value } })}
+                  onChange={(e) => setDraft({ ...draft, [id]: { ...d, a: latinDigits(e.target.value).replace('٫', '.') } })}
                 />
               </div>
               <Button
@@ -568,7 +568,7 @@ function SellerForm({
           dir="ltr"
           inputMode="numeric"
           value={f.crNumber}
-          onChange={(e) => setF({ ...f, crNumber: e.target.value })}
+          onChange={(e) => setF({ ...f, crNumber: latinDigits(e.target.value).replace(/\D/g, '') })}
         />
         <Field
           label="الرقم الضريبي"
@@ -578,7 +578,7 @@ function SellerForm({
           hint="اتركه فاضيًا حتى التسجيل في الضريبة. بعده تصير الفواتير ضريبية مبسطة بضريبة 15% ورمز QR."
           error={vatBad ? '15 رقمًا، يبدأ وينتهي بـ 3' : undefined}
           onChange={(e) =>
-            setF({ ...f, vatNumber: e.target.value.replace(/\D/g, '').slice(0, 15) })
+            setF({ ...f, vatNumber: latinDigits(e.target.value).replace(/\D/g, '').slice(0, 15) })
           }
         />
         <Field

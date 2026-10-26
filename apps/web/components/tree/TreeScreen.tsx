@@ -269,9 +269,18 @@ export function TreeScreen({
         <Button
           size="sm"
           className="rounded-xl"
-          onClick={() =>
-            setForm({ father: (current as Person) ?? m.get(s.tree.rootId)!, gender: 'male' })
-          }
+          onClick={() => {
+            // Children go under a man of the line; anyone else selected falls back to the root.
+            const picked = current ? m.get(current.id) : undefined;
+            const father =
+              picked &&
+              picked.gender === 'male' &&
+              (picked.id === s.tree.rootId || picked.fatherId) &&
+              (owner || canAddUnder(s, picked.id))
+                ? picked
+                : m.get(s.tree.rootId)!;
+            setForm({ father, gender: 'male' });
+          }}
         >
           <Icon name="person_add" />
           <span className="hidden sm:inline">إضافة فرد</span>

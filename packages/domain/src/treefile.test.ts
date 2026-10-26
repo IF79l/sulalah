@@ -121,6 +121,18 @@ describe('csv', () => {
     expect(r.rootId).toBe('1');
   });
 
+  it('reads Persian digits, refuses impossible years, and keeps formulas out of Excel', () => {
+    const r = fromCsv(
+      'id,name,father_id,birth_year,death_year\n1,محمد,,۱۹۲۱,1998\n2,عبدالله,1,2990,\n3,سعد,1,1980,1970\n',
+    );
+    expect(r.people[0]).toMatchObject({ birthYear: 1921, deathYear: 1998, deceased: true });
+    expect(r.people[1]!.birthYear).toBeUndefined();
+    expect(r.people[2]!.deathYear).toBeUndefined();
+    expect(r.issues.map((i) => i.line)).toEqual([3, 4]);
+    const csv = toCsv([{ id: 'x', name: '=HYPERLINK("http://x")', gender: 'male', status: 'approved' }]);
+    expect(csv).toContain(`"'=HYPERLINK(""http://x"")"`);
+  });
+
   it('catches a lineage that loops back on itself', () => {
     const r = fromCsv('id,name,father_id\n1,أ,\n2,ب,3\n3,ج,2\n');
     expect(r.issues.some((i) => i.message.includes('يرجع لنفسه'))).toBe(true);

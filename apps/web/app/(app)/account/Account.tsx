@@ -33,7 +33,9 @@ export function Account({ live }: { live?: boolean }) {
             <p className="rounded-xl bg-surface-low px-4 py-2.5 text-body text-ink-soft sm:col-span-2">
               يظهر اسمك:{' '}
               <strong className="text-forest">
-                {first} بن {father} {s.tree.family}
+                {[first.trim(), father.trim() && `بن ${father.trim()}`, s.tree.family]
+                  .filter(Boolean)
+                  .join(' ')}
               </strong>
             </p>
             <Button

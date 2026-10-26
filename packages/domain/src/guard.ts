@@ -5,6 +5,7 @@
  * branches a reviewer covers. The screens ask the same questions before offering a button,
  * but only this check decides.
  */
+import { treeProblem } from './input';
 import type { TreeRole } from './permissions';
 import {
   defaultTreeSettings,
@@ -31,6 +32,7 @@ export interface SaveContext {
 
 export type SaveProblem =
   | 'not_allowed'
+  | 'broken_tree'
   | 'plan_paused'
   | 'plan_full'
   | 'owner_only'
@@ -39,6 +41,7 @@ export type SaveProblem =
 /** What the person saving is told, in the app's words. */
 export const saveProblemText: Record<SaveProblem, string> = {
   not_allowed: 'ما عندك صلاحية تحفظ هذي الشجرة',
+  broken_tree: 'هذا التعديل يكسر ترتيب الشجرة (اسم فاضي أو أب غير موجود)، فما حفظناه',
   plan_paused: 'انتهت باقة الشجرة، والإضافات والاعتماد متوقفة حتى يجدد المالك',
   plan_full: 'وصلت الشجرة لحد باقتها. يرفعها المالك من صفحة الباقة',
   owner_only: 'هذا التعديل للمالك وحده',
@@ -96,6 +99,9 @@ export function checkSave(
 ): SaveProblem | null {
   if (ctx.role === 'contributor') return 'not_allowed';
   if (!before && ctx.role !== 'owner') return 'not_allowed';
+  // A file that no longer makes one tree is never stored, unless it was already so before
+  // this change: an old slip must not lock the family out of tidying it.
+  if (treeProblem(after) && (!before || !treeProblem(before))) return 'broken_tree';
 
   // ---------- The plan ----------
   const was = byId(before?.people ?? []);

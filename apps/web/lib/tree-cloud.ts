@@ -66,7 +66,9 @@ export async function saveTreeFile(
     error?: { code: string; message: string };
   };
   if (res.status === 409) throw new SaveConflict();
-  if (res.status === 403 && body.error) throw new SaveRefused(body.error.code, body.error.message);
+  // Refused, or a file the server will never take: trying the same change again cannot help.
+  if ((res.status === 403 || res.status === 400) && body.error)
+    throw new SaveRefused(body.error.code, body.error.message);
   throw new Error(body.error?.code ?? `save failed (${res.status})`);
 }
 
@@ -79,8 +81,15 @@ export async function plantTree(
   const db = supabase();
   const { data: treeId, error } = await db.rpc('create_tree', { requested });
   if (error || !treeId) throw error ?? new Error('no tree');
-  const { error: e2 } = await db.rpc('set_tree_key', { tree: treeId, new_key: key });
-  if (e2) throw e2;
-  await saveTreeFile(treeId, 0, build(treeId), key);
+  try {
+    const { error: e2 } = await db.rpc('set_tree_key', { tree: treeId, new_key: key });
+    if (e2) throw e2;
+    await saveTreeFile(treeId, 0, build(treeId), key);
+  } catch (e) {
+    // A tree that never got its first file is of no use: take the empty record back, so a
+    // second try does not leave a trail of empty trees counting against the owner's ten.
+    await db.from('trees').delete().eq('id', treeId);
+    throw e;
+  }
   return treeId;
 }

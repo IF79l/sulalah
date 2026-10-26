@@ -153,7 +153,14 @@ export function LiveInvite({ token }: { token: string }) {
   const [phase, setPhase] = useState<
     | { at: 'loading' }
     | { at: 'problem'; problem: Problem; from: string }
-    | { at: 'ready'; kind: 'contribute' | 'review'; from: string; signedIn: boolean }
+    | {
+        at: 'ready';
+        kind: 'contribute' | 'review';
+        from: string;
+        signedIn: boolean;
+        /** Why the link stopped working, for when joining turns out not to be a return. */
+        problem?: Problem;
+      }
   >({ at: 'loading' });
   const [joining, setJoining] = useState(false);
 
@@ -173,7 +180,13 @@ export function LiveInvite({ token }: { token: string }) {
         // the problem.
         if (!row.valid && !me)
           return setPhase({ at: 'problem', problem: row.problem ?? 'stopped', from });
-        setPhase({ at: 'ready', kind: row.kind, from, signedIn: !!me });
+        setPhase({
+          at: 'ready',
+          kind: row.kind,
+          from,
+          signedIn: !!me,
+          ...(row.valid ? {} : { problem: (row.problem as Problem | null) ?? 'stopped' }),
+        });
       } catch {
         if (!gone) setPhase({ at: 'problem', problem: 'failed', from: '' });
       }
@@ -200,7 +213,7 @@ export function LiveInvite({ token }: { token: string }) {
         problem: /reviewer limit/.test(text)
           ? 'full'
           : /not valid/.test(text)
-            ? 'expired'
+            ? ((phase.at === 'ready' && phase.problem) || 'expired')
             : 'failed',
         from: phase.at === 'ready' ? phase.from : '',
       });

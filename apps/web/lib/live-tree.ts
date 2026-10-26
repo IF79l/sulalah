@@ -64,6 +64,16 @@ export function useSaveStatus() {
   );
 }
 
+/**
+ * Work that may only happen once the server took the change just made, such as telling a
+ * contributor their additions were approved. Dropped if the server refuses the change.
+ */
+let waiting: (() => void)[] = [];
+export function afterSave(fn: () => void) {
+  if (!session) return fn();
+  waiting.push(fn);
+}
+
 interface Session {
   treeId: string;
   key: string;
@@ -126,6 +136,7 @@ export function startSaving(treeId: string, key: string, version: number, file: 
 
 export function stopSaving() {
   if (!session) return;
+  waiting = [];
   clearTimeout(session.timer);
   session.stops.forEach((stop) => stop());
   session = null;
@@ -145,12 +156,17 @@ async function flush(s: Session) {
     for (let attempt = 0; attempt < 3; attempt++) {
       const now = parts();
       const file = toTreeFile(getState());
+      // What waits on this save: anything queued before the file was taken from the store.
+      const due = waiting;
+      waiting = [];
       try {
         s.version = await saveTreeFile(s.treeId, s.version, file, s.key);
         s.base = file;
         s.seen = now;
+        due.forEach((fn) => fn());
         break;
       } catch (e) {
+        if (!(e instanceof SaveRefused)) waiting = [...due, ...waiting];
         if (e instanceof SaveRefused) {
           // The change is not allowed: go back to the tree as the server has it.
           const remote = await loadTreeFile(s.treeId, s.key);
@@ -257,6 +273,7 @@ export async function syncIncoming(s: Session | null = session): Promise<number>
         if (!m || !mine(sub.fatherId)) continue;
         const r = takeIn(file, sub, by, {
           branch: m.role === 'contributor' ? m.branch : undefined,
+          branchRoot: m.role === 'contributor' ? m.branchRoot : undefined,
           limit: planLimits(st).maxPersons,
         });
         if (r.file) {
