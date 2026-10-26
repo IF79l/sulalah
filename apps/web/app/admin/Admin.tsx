@@ -77,16 +77,46 @@ const users = [
   { name: 'ماجد بن سالم', phone: '54 •••• 772', trees: 1, joined: 'أكتوبر 2026', role: 'مساهم' },
 ];
 
+/** Extensions made on the sample desk, kept while the page is open. */
+let demoChanges: AdminBilling['changes'] = [];
+
+function demoExtend(subs: AdminBilling['subscriptions'], treeId: string, days: number, reason: string) {
+  const x = subs.find((y) => y.treeId === treeId);
+  if (!x?.periodEnd) return;
+  const from = Math.max(new Date(x.periodEnd).getTime(), Date.now());
+  demoChanges = [
+    {
+      id: newId('c'),
+      treeId,
+      owner: x.owner,
+      kind: 'extend',
+      plan: x.plan,
+      days,
+      oldEnd: x.periodEnd,
+      newEnd: new Date(from + days * 86_400_000).toISOString(),
+      reason,
+      by: 'أنت',
+      at: new Date().toISOString(),
+    },
+    ...demoChanges,
+  ];
+}
+
 function demoAdmin(s: ReturnType<typeof useDemo>): AdminBilling {
   const v = demoView();
   const seller = demoSeller();
+  const extended = (x: AdminBilling['subscriptions'][number]) => {
+    const last = demoChanges.find((c) => c.treeId === x.treeId && c.kind === 'extend');
+    return last ? { ...x, periodEnd: last.newEnd, status: 'active' as const } : x;
+  };
   return {
     offers: v.offers,
     seller: { ...seller, vatRateBp: 1500 },
     subscriptions: [
       ...(v.subscription ? [{ treeId: TREE_ID, owner: myName(s), ...v.subscription }] : []),
       ...others,
-    ],
+    ].map(extended),
+    changes: demoChanges,
     invoices: demoInvoices().map((i) => ({ ...i, treeId: TREE_ID })),
     payments: [
       ...demoPayments(),
@@ -139,6 +169,10 @@ function demoAdmin(s: ReturnType<typeof useDemo>): AdminBilling {
   };
 }
 
+/** "يوم", "يومين", "7 أيام", "30 يومًا". */
+const dayCount = (n: number) =>
+  n === 1 ? 'يوم' : n === 2 ? 'يومين' : n <= 10 ? `${num(n)} أيام` : `${num(n)} يومًا`;
+
 const statusTone = (s: string) =>
   s === 'active' || s === 'paid'
     ? 'success'
@@ -154,6 +188,7 @@ export function Admin({ live }: { live: boolean }) {
   const [toast, setToast] = useState<string | null>(null);
   const [data, setData] = useState<AdminBilling | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [extending, setExtending] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!live) return setData(demoAdmin(s));
@@ -173,10 +208,12 @@ export function Admin({ live }: { live: boolean }) {
       });
       if (!r.ok) {
         const b = (await r.json().catch(() => ({}))) as { error?: { message: string } };
-        return setToast(b.error?.message ?? 'ما انحفظ التغيير');
+        setToast(b.error?.message ?? 'ما انحفظ التغيير');
+        return false;
       }
     } else if (a.action === 'prices')
       demoSetPrices(a.plan, { monthly: a.monthly, annual: a.annual });
+    else if (a.action === 'extend') demoExtend(data?.subscriptions ?? [], a.treeId, a.days, a.reason);
     else if (a.action === 'seller')
       demoSetSeller({
         name: a.name,
@@ -203,6 +240,7 @@ export function Admin({ live }: { live: boolean }) {
       }));
     setToast(done);
     load();
+    return true;
   };
 
   const subs = data?.subscriptions ?? [];
@@ -310,28 +348,55 @@ export function Admin({ live }: { live: boolean }) {
         />
 
         {!data ? null : tab === 'subscriptions' ? (
-          <Table
-            head={['الشجرة', 'المالك', 'الباقة', 'الحالة', 'التجديد', 'الدفع']}
-            rows={subs.map((x) => [
-              <span key="id" dir="ltr" className="font-mono text-caption text-ink">
-                {x.treeId.slice(0, 13)}
-              </span>,
-              x.owner,
-              <span key="p">
-                {planName[x.plan]}، {cycleName[x.cycle]}
-                {x.scheduledPlan ? (
-                  <span className="block text-caption text-muted">
-                    ينزل إلى {planName[x.scheduledPlan]}
-                  </span>
-                ) : null}
-              </span>,
-              <Chip key="st" tone={statusTone(x.status)}>
-                {x.cancelAtPeriodEnd ? 'لن يتجدد' : statusName[x.status]}
-              </Chip>,
-              x.periodEnd ? day(x.periodEnd) : 'مفتوح',
-              x.provider === 'manual' ? 'يدوي' : x.provider === 'moyasar' ? 'ميسّر' : 'تجريبي',
-            ])}
-          />
+          <div className="grid gap-6">
+            {extending ? (
+              <Extend
+                sub={subs.find((x) => x.treeId === extending)!}
+                onCancel={() => setExtending(null)}
+                onSave={async (days, reason) => {
+                  const ok = await act(
+                    { action: 'extend', treeId: extending, days, reason },
+                    `مدّدنا الاشتراك ${dayCount(days)}، ووصل المالك إشعار`,
+                  );
+                  if (ok) setExtending(null);
+                }}
+              />
+            ) : null}
+            <Table
+              head={['الشجرة', 'المالك', 'الباقة', 'الحالة', 'التجديد', 'الدفع', '']}
+              rows={subs.map((x) => [
+                <span key="id" dir="ltr" className="font-mono text-caption text-ink">
+                  {x.treeId.slice(0, 13)}
+                </span>,
+                x.owner,
+                <span key="p">
+                  {planName[x.plan]}، {cycleName[x.cycle]}
+                  {x.scheduledPlan ? (
+                    <span className="block text-caption text-muted">
+                      ينزل إلى {planName[x.scheduledPlan]}
+                    </span>
+                  ) : null}
+                </span>,
+                <Chip key="st" tone={statusTone(x.status)}>
+                  {x.cancelAtPeriodEnd ? 'لن يتجدد' : statusName[x.status]}
+                </Chip>,
+                x.periodEnd ? day(x.periodEnd) : 'مفتوح',
+                x.provider === 'manual' ? 'يدوي' : x.provider === 'moyasar' ? 'ميسّر' : 'تجريبي',
+                x.periodEnd && (x.status === 'active' || x.status === 'past_due') ? (
+                  <button
+                    key="x"
+                    type="button"
+                    className="inline-flex items-center gap-1 text-caption font-semibold text-olive hover:underline"
+                    onClick={() => setExtending(x.treeId)}
+                  >
+                    <Icon name="more_time" className="text-[1rem]" />
+                    مدّد
+                  </button>
+                ) : null,
+              ])}
+            />
+            <Changes changes={data.changes} />
+          </div>
         ) : tab === 'payments' ? (
           <Table
             head={['العملية', 'الشجرة', 'النوع', 'المبلغ', 'الحالة', 'التاريخ']}
@@ -459,6 +524,118 @@ export function Admin({ live }: { live: boolean }) {
         )}
       </main>
       {toast ? <Toast text={toast} onDone={() => setToast(null)} /> : null}
+    </div>
+  );
+}
+
+/**
+ * Compensation: moves a running plan's end date on. A plan given by hand never goes over a paid
+ * one, so this is how a paying family is made whole.
+ */
+function Extend({
+  sub,
+  onSave,
+  onCancel,
+}: {
+  sub: AdminBilling['subscriptions'][number];
+  onSave: (days: number, reason: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [days, setDays] = useState('30');
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const n = Number(latinDigits(days));
+  const badDays = !Number.isInteger(n) || n < 1 || n > 366;
+  const from = Math.max(new Date(sub.periodEnd!).getTime(), Date.now());
+  return (
+    <Panel title={`تمديد اشتراك ${sub.owner || 'الشجرة'}`} icon="more_time">
+      <form
+        className="grid gap-4 p-5 sm:grid-cols-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (badDays || reason.trim().length < 3) return;
+          setBusy(true);
+          await onSave(n, reason.trim());
+          setBusy(false);
+        }}
+      >
+        <p className="text-caption leading-relaxed text-muted sm:col-span-2">
+          باقة {planName[sub.plan]}، تنتهي الآن {day(sub.periodEnd!)}. التمديد يغيّر تاريخ الانتهاء فقط
+          بدون دفع، ويوصل المالك إشعار على واتساب.
+          {sub.status === 'past_due' ? ' التجديد متعثر، فالأيام تُحسب من اليوم ويتوقف تكرار المحاولة.' : ''}
+        </p>
+        <div className="grid gap-2">
+          <Field
+            label="عدد الأيام"
+            inputMode="numeric"
+            dir="ltr"
+            value={days}
+            error={badDays ? 'من يوم إلى 366 يومًا' : undefined}
+            hint={badDays ? undefined : `ينتهي بعده ${day(new Date(from + n * 86_400_000).toISOString())}`}
+            onChange={(e) => setDays(latinDigits(e.target.value).replace(/\D/g, '').slice(0, 3))}
+          />
+          <span className="flex flex-wrap gap-2">
+            {[7, 14, 30, 90].map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={cn(
+                  'rounded-full border px-3 py-1 text-caption font-semibold',
+                  n === d ? 'border-forest bg-forest text-ivory' : 'border-line/70 text-ink-soft',
+                )}
+                onClick={() => setDays(String(d))}
+              >
+                {dayCount(d)}
+              </button>
+            ))}
+          </span>
+        </div>
+        <Field
+          label="السبب"
+          value={reason}
+          maxLength={300}
+          placeholder="مثلًا: تعويض عن توقف الخدمة يومين"
+          hint="يُحفظ في السجل مع اسمك"
+          onChange={(e) => setReason(e.target.value)}
+        />
+        <span className="flex flex-wrap gap-2 sm:col-span-2">
+          <Button
+            type="submit"
+            size="sm"
+            className="rounded-xl"
+            disabled={busy || badDays || reason.trim().length < 3}
+          >
+            {busy ? 'نمدّد…' : 'مدّد الاشتراك'}
+          </Button>
+          <Button type="button" size="sm" variant="ghost" className="rounded-xl" onClick={onCancel}>
+            إلغاء
+          </Button>
+        </span>
+      </form>
+    </Panel>
+  );
+}
+
+function Changes({ changes }: { changes: AdminBilling['changes'] }) {
+  if (!changes.length) return null;
+  return (
+    <div className="grid gap-3">
+      <h3 className="text-title font-bold text-forest">سجل التمديد والمنح</h3>
+      <Table
+        head={['الشجرة', 'المالك', 'التغيير', 'السبب', 'بواسطة', 'التاريخ']}
+        rows={changes.map((c) => [
+          <span key="id" dir="ltr" className="font-mono text-caption">
+            {c.treeId ? c.treeId.slice(0, 13) : 'محذوفة'}
+          </span>,
+          c.owner,
+          c.kind === 'extend'
+            ? `تمديد ${dayCount(c.days ?? 0)}${c.newEnd ? ` حتى ${day(c.newEnd)}` : ''}`
+            : `منح ${planName[c.plan]}${c.newEnd ? ` حتى ${day(c.newEnd)}` : ''}`,
+          c.reason,
+          c.by,
+          day(c.at),
+        ])}
+      />
     </div>
   );
 }

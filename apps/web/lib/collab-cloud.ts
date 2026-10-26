@@ -401,6 +401,8 @@ export interface Notice {
   treeId: string;
   kind: NoticeKind;
   actor: string;
+  /** The one who acted has deleted their account since. */
+  actorGone: boolean;
   count: number;
   ref: string | null;
   read: boolean;
@@ -429,6 +431,7 @@ export async function listNotices(limit = 50): Promise<Notice[]> {
     treeId: r.tree_id,
     kind: r.kind,
     actor: fullName(r.actor) || 'فرد من العائلة',
+    actorGone: !r.actor,
     count: r.count,
     ref: r.ref,
     read: !!r.read_at,

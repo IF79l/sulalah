@@ -9,6 +9,7 @@ import { closeLive } from '@/lib/demo-store';
 import { stopSaving } from '@/lib/live-tree';
 import { supabase } from '@/lib/supabase/client';
 import { forgetKeys } from '@/lib/tree-keys';
+import { DeleteAccount } from './DeleteAccount';
 import { NoticeSettings } from './NoticeSettings';
 
 const cleanName = (v: string) => v.replace(/\s+/g, ' ').trim();
@@ -251,14 +252,19 @@ export function LiveAccount() {
         </div>
 
         <Panel title="حذف الحساب" icon="person_remove" tone="danger">
-          <p className="p-5 text-body leading-relaxed text-ink-soft">
-            قبل حذف حسابك، انقل ملكية كل شجرة تملكها لأحد من أهلها أو احذفها من إعداداتها، عشان ما
-            تضيع على العائلة. بعدها اطلب حذف الحساب من قناة التواصل المذكورة في{' '}
-            <Link href="/privacy" className="font-semibold text-olive hover:underline">
-              سياسة الخصوصية
-            </Link>
-            ، ويُحذف خلال 30 يومًا.
-          </p>
+          {loaded ? (
+            <DeleteAccount
+              phone={phone}
+              onDeleted={async () => {
+                stopSaving();
+                closeLive();
+                forgetKeys();
+                await supabase().auth.signOut({ scope: 'local' });
+                router.replace('/');
+                router.refresh();
+              }}
+            />
+          ) : null}
         </Panel>
       </div>
       {toast ? <Toast text={toast} onDone={() => setToast(null)} /> : null}

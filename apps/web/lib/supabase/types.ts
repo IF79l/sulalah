@@ -18,7 +18,9 @@ export type NoticeKind =
   | 'joined'
   | 'made_reviewer'
   | 'made_contributor'
-  | 'owner_now';
+  | 'owner_now'
+  | 'left'
+  | 'removed';
 
 /** What a person can mute on WhatsApp (packages/messaging/src/whatsapp/templates.ts). */
 export type NoticeTopic = 'review' | 'members' | 'billing';
@@ -203,6 +205,10 @@ export type Database = {
       notify_submission: {
         Args: { tree: string; anchor_path: string[]; n: number };
         Returns: undefined;
+      };
+      my_owned_trees: {
+        Args: Record<never, never>;
+        Returns: { tree_id: string; others: number; paid: boolean }[];
       };
       notify_member: {
         Args: { tree: string; member: string; what: NoticeKind; n: number; at?: string | null };
