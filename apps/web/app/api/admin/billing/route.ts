@@ -110,7 +110,7 @@ export async function GET() {
       oldEnd: c.old_end,
       newEnd: c.new_end,
       reason: c.reason,
-      by: name(profiles.data?.find((p) => p.id === c.admin_id)),
+      by: name(profiles.data?.find((p) => p.id === c.admin_id)) || 'مدير المنصة',
       at: c.created_at,
     })),
     codes: (['whatsapp', 'sms', 'mock'] as const).map((channel) => ({
