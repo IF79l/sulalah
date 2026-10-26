@@ -45,7 +45,6 @@ jobs:
           PRODUCTION_SUPABASE_URL: https://${{ vars.PRODUCTION_PROJECT_REF }}.supabase.co
           DEMO_PHONE: ${{ vars.STAGING_DEMO_PHONE }}
           DEMO_OTP: ${{ secrets.STAGING_DEMO_OTP }}
-          DEMO_TREE_KEY: ${{ secrets.STAGING_DEMO_TREE_KEY }}
 
   production:
     needs: staging

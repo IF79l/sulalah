@@ -23,7 +23,6 @@ import {
   clearSubmissionFiles,
   listMembers,
   loadSubmissions,
-  publishView,
 } from '@/lib/collab-cloud';
 import {
   canReview,
@@ -194,8 +193,8 @@ async function flush(s: Session) {
       }
     }
     if (session === s) setStatus(changed(parts(), s.seen) ? 'saving' : 'saved');
+    // The server builds the visitors' copy after each save by itself.
     if (changed(parts(), s.seen)) s.timer = setTimeout(() => void flush(s), 600);
-    else if (getState().settings.viewers === 'link') void republishView();
   } catch {
     if (session === s) setStatus(navigator.onLine ? 'failed' : 'offline');
   } finally {
@@ -229,20 +228,6 @@ export function retrySave() {
 
 /** Whether leaving now would lose a change that has not reached the server. */
 export const unsaved = () => status === 'saving' || status === 'failed' || status === 'offline';
-
-/**
- * Seals the visitors' copy of the tree as last saved and points view links at it. Called
- * after every save while the tree is open to view links, and when a view link is stopped.
- */
-export async function republishView() {
-  const s = session;
-  if (!s || !reviewing()) return;
-  try {
-    await publishView(s.treeId, s.key, s.base, s.version);
-  } catch {
-    // The copy catches up on the next save.
-  }
-}
 
 // ---------- Taking submissions in ----------
 

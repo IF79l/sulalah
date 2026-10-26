@@ -5,10 +5,10 @@
  * Refuses to run anywhere but staging. Running it again leaves an existing demo tree alone.
  *
  *   SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... APP_URL=https://<staging site> APP_ENV=staging \
- *   DEMO_PHONE=966500000001 DEMO_OTP=123456 [DEMO_TREE_KEY=...] pnpm seed:staging
+ *   DEMO_PHONE=966500000001 DEMO_OTP=123456 pnpm seed:staging
  */
 import { createClient } from '@supabase/supabase-js';
-import { generateTreeKey, sealTree, type TreeFile } from '@sulalah/domain';
+import { sealTree, type TreeFile } from '@sulalah/domain';
 import { demoAncestors, demoFamily, demoSpouses, demoUnions } from '@sulalah/tree-engine';
 import type { Database } from '../lib/supabase/types';
 
@@ -43,11 +43,16 @@ async function main() {
     return;
   }
 
-  const key = process.env.DEMO_TREE_KEY ?? generateTreeKey();
   const { data: treeId, error: e1 } = await db.rpc('create_tree', { requested: 'extended' });
   if (e1 || !treeId) throw e1 ?? new Error('no tree');
-  const { error: eKey } = await db.rpc('set_tree_key', { tree: treeId, new_key: key });
-  if (eKey) throw eKey;
+  const session = data.session;
+  if (!session) throw new Error('no session');
+  const app = env('APP_URL').replace(/\/$/, '');
+  const auth = { authorization: `Bearer ${session.access_token}` };
+  // The app makes the key and keeps it wrapped; the database never sees it plain.
+  const made = await fetch(`${app}/api/trees/${treeId}/key`, { method: 'POST', headers: auth });
+  if (!made.ok) throw new Error(`making the tree key failed: ${made.status} ${await made.text()}`);
+  const { key } = (await made.json()) as { key: string };
   const file: TreeFile = {
     format: 'sulalah-tree',
     version: 1,
@@ -71,11 +76,9 @@ async function main() {
     updatedAt: new Date().toISOString(),
   };
   // Saves go through the app, which checks every change before storing it.
-  const session = data.session;
-  if (!session) throw new Error('no session');
-  const res = await fetch(`${env('APP_URL').replace(/\/$/, '')}/api/trees/${treeId}/file`, {
+  const res = await fetch(`${app}/api/trees/${treeId}/file`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${session.access_token}` },
+    headers: { 'content-type': 'application/json', ...auth },
     body: JSON.stringify({ from: 0, sealed: await sealTree(file, key) }),
   });
   if (!res.ok) throw new Error(`saving the tree failed: ${res.status} ${await res.text()}`);

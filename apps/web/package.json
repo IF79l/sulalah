@@ -14,6 +14,7 @@
   "dependencies": {
     "@sulalah/billing": "workspace:*",
     "@sulalah/domain": "workspace:*",
+    "@sulalah/keys": "workspace:*",
     "@sulalah/messaging": "workspace:*",
     "@sulalah/tree-engine": "workspace:*",
     "@sulalah/tree-svg": "workspace:*",

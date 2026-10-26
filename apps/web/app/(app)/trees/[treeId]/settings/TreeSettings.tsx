@@ -20,7 +20,7 @@ import {
   useDemo,
   type Settings,
 } from '@/lib/demo-store';
-import { republishView, stopSaving } from '@/lib/live-tree';
+import { stopSaving } from '@/lib/live-tree';
 import { forgetKey } from '@/lib/tree-keys';
 
 function Toggle({
@@ -106,7 +106,6 @@ export function TreeSettings() {
     try {
       await setViewOpen(live.treeId, viewers === 'link');
       update((st) => ({ ...st, settings: { ...st.settings, viewers } }));
-      if (viewers === 'link') await republishView();
       setToast(viewers === 'link' ? 'فتحنا الشجرة لروابط المشاهدة' : 'قفلنا الشجرة على أهلها، وتوقفت روابط المشاهدة');
     } catch {
       setToast('ما قدرنا نحفظ الإعداد، حاول مرة ثانية');

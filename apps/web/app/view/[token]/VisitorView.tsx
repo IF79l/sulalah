@@ -3,10 +3,9 @@
 import type { TreeFile } from '@sulalah/domain';
 import { Chip, buttonClass, cn } from '@sulalah/ui';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { Sprouting, StatePage } from '@/components/States';
+import { StatePage } from '@/components/States';
 import { TreeExplorer } from '@/components/TreeExplorer';
-import { openViewLink, type ViewProblem } from '@/lib/collab-cloud';
+import type { ViewProblem } from '@/server/trees/view';
 
 const problems: Record<ViewProblem | 'failed', [string, string, string]> = {
   stopped: ['link_off', 'هذا الرابط موقوف', 'أوقفه صاحب الشجرة. اطلب منه رابطًا جديدًا.'],
@@ -28,21 +27,14 @@ const problems: Record<ViewProblem | 'failed', [string, string, string]> = {
 };
 
 /**
- * S22 on a real tree: a visitor's read-only look. The link is a plain token; the server hands
- * out the copy's key with its path. The copy was filtered by the tree's privacy settings before it was sealed.
+ * S22 on a real tree: a visitor's read-only look. The link is a plain token; the server opens
+ * the copy, which was filtered by the tree's privacy settings when it was built.
  */
-export function VisitorView({ token }: { token: string }) {
-  const [state, setState] = useState<{ file: TreeFile } | { problem: ViewProblem | 'failed' } | null>(
-    null,
-  );
-
-  useEffect(() => {
-    openViewLink(token)
-      .then(setState)
-      .catch(() => setState({ problem: 'failed' }));
-  }, [token]);
-
-  if (!state) return <Sprouting />;
+export function VisitorView({
+  state,
+}: {
+  state: { file: TreeFile } | { problem: ViewProblem | 'failed' };
+}) {
   if ('problem' in state) {
     const [icon, title, body] = problems[state.problem];
     return (

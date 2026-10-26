@@ -5,7 +5,7 @@
 \set QUIET 1
 
 create schema tests;
-grant usage on schema tests to anon, authenticated;
+grant usage on schema tests to anon, authenticated, service_role;
 
 create function tests.ok(cond boolean, what text) returns void language plpgsql as $$
 begin
@@ -46,8 +46,8 @@ create table tests.vars (k text primary key, v text);
 create function tests.v(key text) returns text language sql stable as $$
   select v from tests.vars where k = key
 $$;
-grant execute on all functions in schema tests to anon, authenticated;
-grant all on tests.vars to anon, authenticated;
+grant execute on all functions in schema tests to anon, authenticated, service_role;
+grant all on tests.vars to anon, authenticated, service_role;
 
 insert into auth.users (id) select tests.id(n) from unnest(array['amal', 'badr', 'chadi', 'dana', 'eid']) n;
 update public.profiles set first_name = 'أمل', father_name = 'سعد' where id = tests.id('amal');
@@ -56,7 +56,9 @@ update public.profiles set first_name = 'بدر' where id = tests.id('badr');
 set role authenticated;
 select tests.as_user('amal');
 insert into tests.vars values ('tree', public.create_tree()::text);
-select public.set_tree_key(tests.v('tree')::uuid, 'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk');
+reset role;
+insert into public.tree_keys (tree_id, key) values (tests.v('tree')::uuid, 'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk');
+set role authenticated;
 insert into public.invites (tree_id, kind, token_hash, branch_person_id, expires_at, created_by, token_sealed)
 values (tests.v('tree')::uuid, 'contribute', public.hash_token('tok-c'), 'p-saad', now() + interval '7 days',
   auth.uid(), 'sealed-token');
@@ -188,9 +190,13 @@ select tests.ok((select count(*) from public.notifications where kind = 'made_re
 
 -- ---------- View links ----------
 
+-- Only the server opens view links now; it hands visitors the filtered tree, never a key.
 select tests.as_user('amal');
 reset role;
 set role anon;
+select tests.fails($$ select * from public.open_view('tok-v') $$, 'a visitor cannot ask the database for the copy directly');
+reset role;
+set role service_role;
 select tests.ok((select problem from public.open_view('tok-v')) = 'closed', 'a closed tree answers view links with closed');
 select tests.ok((select count(*) from public.open_view('nonsense')) = 0, 'a made up view link shows nothing');
 reset role;
@@ -203,53 +209,70 @@ insert into tests.vars values ('slug', public.set_view_open(tests.v('tree')::uui
 select tests.ok(tests.v('slug') ~ '^[0-9a-f]{32}$', 'opening makes a random folder');
 select tests.ok(public.set_view_open(tests.v('tree')::uuid, true) = tests.v('slug'), 'opening again keeps it');
 reset role;
-set role anon;
+set role service_role;
 select tests.ok((select problem from public.open_view('tok-v')) = 'not-ready', 'before a copy is published it says so');
 reset role;
 set role authenticated;
 
-select tests.as_user('badr');
-select tests.fails(format($$ insert into storage.objects (bucket_id, name) values ('tree-views', %L) $$,
-  tests.v('tree') || '/' || tests.v('slug') || '/v1.json'), 'a contributor cannot publish the visitors'' copy');
 select tests.as_user('chadi');
 select tests.fails(format($$ insert into storage.objects (bucket_id, name) values ('tree-views', %L) $$,
-  tests.v('tree') || '/0123456789abcdef0123456789abcdef/v1.json'), 'a copy only goes in the current folder');
-insert into storage.objects (bucket_id, name) values ('tree-views', tests.v('tree') || '/' || tests.v('slug') || '/v1.json');
-select tests.fails(format($$ select public.publish_view(%L, %L, 'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk') $$, tests.v('tree'), tests.v('tree') || '/' || tests.v('slug') || '/v2.json'),
-  'only an uploaded copy is published', 'file missing');
-select public.publish_view(tests.v('tree')::uuid, tests.v('tree') || '/' || tests.v('slug') || '/v1.json', 'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv');
-select tests.as_user('badr');
-select tests.fails(format($$ select public.publish_view(%L, %L, 'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv') $$, tests.v('tree'), tests.v('tree') || '/' || tests.v('slug') || '/v1.json'),
-  'a contributor cannot point visitors anywhere', 'not allowed');
+  tests.v('tree') || '/' || tests.v('slug') || '/v1.json'), 'even a reviewer cannot upload the visitors'' copy now');
+select tests.fails(format($$ select public.publish_view(%L, %L) $$, tests.v('tree'), tests.v('tree') || '/' || tests.v('slug') || '/v1.json'),
+  'nor point visitors at one');
+select tests.fails(format($$ select * from public.claim_view_key(%L, %L, 'w', 'local:k1') $$, tests.v('tree'), tests.v('slug')),
+  'nor set the copy''s key');
+select tests.as_user('amal');
+select tests.fails(format($$ select public.publish_view(%L, %L) $$, tests.v('tree'), tests.v('tree') || '/' || tests.v('slug') || '/v1.json'),
+  'nor the owner');
 
 reset role;
-set role anon;
-select tests.ok((select path from public.open_view('tok-v')) = tests.v('tree') || '/' || tests.v('slug') || '/v1.json',
+set role service_role;
+insert into storage.objects (bucket_id, name) values ('tree-views', tests.v('tree') || '/' || tests.v('slug') || '/v1.json');
+insert into storage.objects (bucket_id, name) values ('tree-views', tests.v('tree') || '/' || tests.v('slug') || '/v3.json');
+select tests.fails(format($$ select public.publish_view(%L, %L) $$, tests.v('tree'), tests.v('tree') || '/' || tests.v('slug') || '/v2.json'),
+  'only an uploaded copy is published', 'file missing');
+select tests.fails(format($$ select public.publish_view(%L, %L) $$, tests.v('tree'), tests.v('tree') || '/0123456789abcdef0123456789abcdef/v1.json'),
+  'a copy only goes in the current folder', 'bad path');
+select tests.ok(public.publish_view(tests.v('tree')::uuid, tests.v('tree') || '/' || tests.v('slug') || '/v3.json')
+  = tests.v('tree') || '/' || tests.v('slug') || '/v3.json', 'the server points visitors at the copy');
+select tests.ok(public.publish_view(tests.v('tree')::uuid, tests.v('tree') || '/' || tests.v('slug') || '/v1.json')
+  = tests.v('tree') || '/' || tests.v('slug') || '/v3.json', 'an older copy finishing late does not replace a newer one');
+select tests.ok((select view_key_wrapped from public.claim_view_key(tests.v('tree')::uuid, tests.v('slug'), 'first', 'local:k1')) = 'first',
+  'the first key claimed for a folder is kept');
+select tests.ok((select view_key_wrapped from public.claim_view_key(tests.v('tree')::uuid, tests.v('slug'), 'second', 'local:k1')) = 'first',
+  'a second copy built at once gets the same key');
+select tests.fails(format($$ select * from public.claim_view_key(%L, 'nope', 'w', 'local:k1') $$, tests.v('tree')),
+  'no key for a folder that is not current', 'closed');
+select tests.ok((select path from public.open_view('tok-v')) = tests.v('tree') || '/' || tests.v('slug') || '/v3.json',
   'a visitor with the link finds the copy');
-select tests.ok((select view_key from public.open_view('tok-v')) = 'vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv', 'and the key the copy is sealed with');
-select tests.fails($$ select view_key from public.tree_keys $$, 'nobody reads the keys table directly');
+select tests.ok((select tree_id from public.open_view('tok-v')) = tests.v('tree')::uuid, 'and its tree');
+reset role;
+set role anon;
+select tests.fails($$ select view_key_wrapped from public.tree_keys $$, 'nobody reads the keys table directly');
+reset role;
+set role authenticated;
+select tests.fails($$ select view_key_wrapped from public.tree_keys $$, 'not even a member');
 reset role;
 select tests.ok((select use_count from public.invites where token_hash = public.hash_token('tok-v')) = 2,
   'each opening counts');
+select tests.ok((select public from storage.buckets where id = 'tree-views') = false, 'the copies are not public');
 set role authenticated;
 
 select tests.as_user('amal');
 select tests.ok(public.set_view_open(tests.v('tree')::uuid, true, true) <> tests.v('slug'),
   'stopping a link moves the copy to a new folder');
 reset role;
-set role anon;
+select tests.ok((select view_key_wrapped from public.tree_keys where tree_id = tests.v('tree')::uuid) is null,
+  'and forgets the old folder''s key');
+set role service_role;
 select tests.ok((select problem from public.open_view('tok-v')) = 'not-ready', 'and the old path is gone');
 reset role;
 set role authenticated;
 select tests.as_user('amal');
 select public.set_view_open(tests.v('tree')::uuid, false);
 reset role;
-set role anon;
+set role service_role;
 select tests.ok((select problem from public.open_view('tok-v')) = 'closed', 'closing the tree closes every view link');
-reset role;
-select tests.ok((select view_key from public.tree_keys where tree_id = tests.v('tree')::uuid) is null,
-  'and forgets the copy''s key');
-set role anon;
 reset role;
 set role authenticated;
 

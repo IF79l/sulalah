@@ -24,7 +24,7 @@ import { TREE_ID, myName, newId, num, planName, update, useDemo } from '@/lib/de
  * the family.
  */
 
-type Tab = 'requests' | 'subscriptions' | 'payments' | 'invoices' | 'prices' | 'codes' | 'users';
+type Tab = 'requests' | 'subscriptions' | 'payments' | 'invoices' | 'prices' | 'codes' | 'keys' | 'users';
 
 // The sample platform's other families, so the desk has something to show without accounts.
 const others: AdminBilling['subscriptions'] = [
@@ -343,6 +343,7 @@ export function Admin({ live }: { live: boolean }) {
             { value: 'requests', label: 'طلبات التفعيل', count: data?.requests.length ?? 0 },
             { value: 'prices', label: 'الأسعار والبائع' },
             { value: 'codes', label: 'واتساب والرموز' },
+            ...(live ? [{ value: 'keys' as const, label: 'المفاتيح' }] : []),
             ...(live ? [] : [{ value: 'users' as const, label: 'الحسابات', count: users.length }]),
           ]}
         />
@@ -505,6 +506,8 @@ export function Admin({ live }: { live: boolean }) {
           </div>
         ) : tab === 'codes' ? (
           <Codes data={data} />
+        ) : tab === 'keys' ? (
+          <Keys onToast={setToast} />
         ) : (
           <Table
             head={['الاسم', 'الجوال', 'الأشجار', 'الدور الأبرز', 'انضم']}
@@ -818,6 +821,123 @@ function Notices({ wa }: { wa: AdminBilling['whatsapp'] }) {
           ])}
         />
       ) : null}
+    </div>
+  );
+}
+
+interface KeyStatus {
+  provider: string;
+  active: string;
+  known: string[];
+  trees: number;
+  plain: number;
+  stale: number;
+  byKek: Record<string, number>;
+}
+
+const providerName: Record<string, string> = {
+  local: 'مفتاح في إعدادات الخادم',
+  gcp: 'Google Cloud KMS',
+  aws: 'AWS KMS',
+  vault: 'Vault',
+};
+
+/**
+ * Tree keys: which wrapping key is in use and how many keys still wait for it. After a new
+ * wrapping key is set (a rotation, or a move to a key service), "wrap again" moves them all.
+ */
+function Keys({ onToast }: { onToast: (t: string) => void }) {
+  const [st, setSt] = useState<KeyStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    fetch('/api/admin/keys', { cache: 'no-store' })
+      .then(async (r) => {
+        const b = await r.json();
+        if (!r.ok) throw new Error(b.error?.message ?? String(r.status));
+        setSt(b);
+        setError(null);
+      })
+      .catch((e: Error) => setError(e.message));
+  }, []);
+  useEffect(load, [load]);
+
+  const run = async (action: 'rewrap' | 'rebuild-views') => {
+    setBusy(action);
+    try {
+      const r = await fetch('/api/admin/keys', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const b = await r.json();
+      if (!r.ok) throw new Error(b.error?.message ?? String(r.status));
+      if (action === 'rewrap') {
+        const moved = b.wrapped + b.rewrapped + b.views;
+        onToast(
+          b.failed.length
+            ? `تعذّر تغليف ${num(b.failed.length)}، والباقي تم`
+            : moved
+              ? `غلّفنا ${num(moved)} مفتاح بالمفتاح الحالي`
+              : 'كل المفاتيح مغلّفة بالمفتاح الحالي',
+        );
+      } else onToast(`جهّزنا نسخة الزوار لـ ${num(b.built)} من ${num(b.open)} شجرة مفتوحة`);
+      load();
+    } catch (e) {
+      onToast((e as Error).message || 'ما تم، حاول مرة ثانية');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (error) return <p className="text-body text-danger">ما قدرنا نقرأ حالة المفاتيح: {error}</p>;
+  if (!st) return null;
+  const waiting = st.plain + st.stale;
+  const tiles: [string, string, number, string][] = [
+    ['account_tree', 'أشجار لها مفتاح', st.trees, ''],
+    ['lock', 'مغلّفة بالمفتاح الحالي', st.byKek[st.active] ?? 0, ''],
+    ['hourglass_top', 'تنتظر التغليف', waiting, waiting ? 'اضغط "غلّف من جديد"' : 'لا شيء'],
+  ];
+  return (
+    <div className="grid gap-4">
+      <p className="flex flex-wrap items-center gap-2 rounded-xl border border-line/40 bg-card px-4 py-3 text-body text-ink-soft">
+        <Icon name="key" className="text-olive" />
+        مفاتيح الأشجار مغلّفة بـ: {providerName[st.provider] ?? st.provider}
+        <code dir="ltr" className="text-caption">
+          {st.active}
+        </code>
+        {st.active === 'local:derived' ? (
+          <Chip tone="neutral" icon="science">
+            مؤقت للتجربة
+          </Chip>
+        ) : null}
+      </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {tiles.map(([icon, label, n, hint]) => (
+          <div key={label} className="grid gap-1 rounded-2xl border border-line/40 bg-card p-5">
+            <span className="flex items-center gap-2 text-caption text-muted">
+              <Icon name={icon} className="text-[1.1rem] text-olive" />
+              {label}
+            </span>
+            <span className="text-h2 font-bold tabular-nums text-forest">{num(n)}</span>
+            {hint ? <span className="text-caption text-muted">{hint}</span> : null}
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Button disabled={!!busy} onClick={() => run('rewrap')}>
+          {busy === 'rewrap' ? 'نغلّف…' : 'غلّف من جديد'}
+        </Button>
+        <Button variant="quiet" disabled={!!busy} onClick={() => run('rebuild-views')}>
+          {busy === 'rebuild-views' ? 'نجهّز…' : 'جهّز نسخ الزوار من جديد'}
+        </Button>
+      </div>
+      <p className="rounded-xl border border-line/40 bg-card px-4 py-3 text-caption leading-relaxed text-ink-soft">
+        قاعدة البيانات ما فيها إلا مفاتيح مغلّفة، والمفتاح اللي يفتحها خارجها. لما يتغير مفتاح
+        التغليف (تدوير، أو انتقال إلى خدمة مفاتيح داخل المملكة) اضغط "غلّف من جديد"، والمفاتيح
+        القديمة تبقى تنفتح إلى أن تتغلف. التفاصيل في docs/KEYS.md.
+      </p>
     </div>
   );
 }
