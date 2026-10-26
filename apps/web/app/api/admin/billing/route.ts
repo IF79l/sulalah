@@ -5,6 +5,7 @@ import { billingAsServer, billingAsUser } from '@/server/billing/clients';
 import { fail, json, noBackend } from '@/server/billing/http';
 import { loadOffers } from '@/server/billing/store';
 import { invoiceView } from '@/server/billing/view';
+import { whatsapp } from '@/server/whatsapp/send';
 
 /** Only accounts marked is_platform_admin, which nobody can set on themselves. */
 async function admin() {
@@ -31,7 +32,7 @@ export async function GET() {
   if (!me) return fail(404, 'not_found', 'غير موجود');
   const { db } = me;
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const [offers, settings, subs, invoices, checkouts, requests, codes, profiles] =
+  const [offers, settings, subs, invoices, checkouts, requests, codes, profiles, notices] =
     await Promise.all([
       loadOffers(db),
       db.from('billing_settings').select('*').single(),
@@ -44,7 +45,15 @@ export async function GET() {
         .not('requested_plan', 'is', null),
       db.from('otp_sends').select('channel, ok').gte('created_at', since).limit(10_000),
       db.from('profiles').select('id, first_name, father_name'),
+      db
+        .from('wa_outbox')
+        .select('template, status, last_error, updated_at')
+        .gte('created_at', since)
+        .order('updated_at', { ascending: false })
+        .limit(10_000),
     ]);
+  const wa = notices.data ?? [];
+  const among = (...s: string[]) => wa.filter((r) => s.includes(r.status)).length;
   const trees = await db.from('trees').select('id, owner_id');
   const ownerOf = (treeId: string) => {
     const t = trees.data?.find((x) => x.id === treeId);
@@ -94,6 +103,18 @@ export async function GET() {
       sent: (codes.data ?? []).filter((r) => r.channel === channel && r.ok).length,
       failed: (codes.data ?? []).filter((r) => r.channel === channel && !r.ok).length,
     })),
+    whatsapp: {
+      mode: whatsapp.mode,
+      waiting: among('queued', 'sending'),
+      sent: among('sent', 'delivered', 'read'),
+      read: among('read'),
+      failed: among('failed'),
+      dropped: among('expired', 'skipped'),
+      failures: wa
+        .filter((r) => r.status === 'failed')
+        .slice(0, 8)
+        .map((r) => ({ template: r.template, error: r.last_error ?? '', at: r.updated_at })),
+    },
   };
   return json(body);
 }

@@ -103,6 +103,17 @@ export interface AdminBilling {
   }[];
   requests: { treeId: string; owner: string; from: PlanId; to: PlanId }[];
   codes: { channel: 'whatsapp' | 'sms' | 'mock'; sent: number; failed: number }[];
+  /** WhatsApp notices over the last 30 days (docs/WHATSAPP.md). */
+  whatsapp: {
+    mode: 'meta' | 'mock' | 'off';
+    waiting: number;
+    sent: number;
+    read: number;
+    failed: number;
+    /** Dropped unsent: too old, or turned off before it went. */
+    dropped: number;
+    failures: { template: string; error: string; at: string }[];
+  };
 }
 
 export type AdminAction =

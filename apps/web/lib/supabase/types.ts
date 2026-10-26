@@ -20,6 +20,9 @@ export type NoticeKind =
   | 'made_contributor'
   | 'owner_now';
 
+/** What a person can mute on WhatsApp (packages/messaging/src/whatsapp/templates.ts). */
+export type NoticeTopic = 'review' | 'members' | 'billing';
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -37,7 +40,11 @@ export type ProfileRow = {
   id: string;
   first_name: string;
   father_name: string;
-  notify: 'app' | 'sms';
+  /** WhatsApp notices on or off; the app's own list always has everything. */
+  notify: 'app' | 'whatsapp';
+  notify_muted: NoticeTopic[];
+  whatsapp_opt_in_at: string | null;
+  whatsapp_opt_out_at: string | null;
   is_platform_admin: boolean;
   created_at: string;
   updated_at: string;
@@ -100,7 +107,9 @@ export type Database = {
       profiles: Table<
         ProfileRow,
         { id: string },
-        Partial<Pick<ProfileRow, 'first_name' | 'father_name' | 'notify' | 'updated_at'>>
+        Partial<
+          Pick<ProfileRow, 'first_name' | 'father_name' | 'notify' | 'notify_muted' | 'updated_at'>
+        >
       >;
       trees: Table<TreeRow, never, never>;
       tree_members: {

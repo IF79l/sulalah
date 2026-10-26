@@ -4,6 +4,7 @@ import { backendOn } from '@/lib/backend';
 import { billingAsServer } from '@/server/billing/clients';
 import { appUrl, paymentProvider } from '@/server/billing/env';
 import { supabaseStore } from '@/server/billing/store';
+import { flushWhatsApp } from '@/server/whatsapp/send';
 
 /**
  * The daily billing job (vercel.json crons): ends plans that are due, renews with saved cards,
@@ -23,6 +24,11 @@ export async function GET(req: Request) {
     now: new Date(),
     callbackUrl: `${appUrl}/trees`,
   });
-  console.info('[billing job]', report);
-  return Response.json(report);
+  // Renewal receipts go now; the night's other notices wait for the morning in the queue.
+  const whatsapp = await flushWhatsApp().catch((e) => {
+    console.error('[whatsapp] flush failed', e);
+    return null;
+  });
+  console.info('[billing job]', report, whatsapp);
+  return Response.json({ ...report, whatsapp });
 }

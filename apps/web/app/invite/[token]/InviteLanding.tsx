@@ -11,7 +11,11 @@ import { generations, lineage, num, useDemo } from '@/lib/demo-store';
 type Problem = 'expired' | 'used-up' | 'full' | 'stopped' | 'missing' | 'failed';
 
 const problems = (from: string): Record<Problem, [string, string, string]> => ({
-  expired: ['timer_off', 'انتهت صلاحية هذا الرابط', `اطلب رابطًا جديدًا من ${from} في قروب العائلة.`],
+  expired: [
+    'timer_off',
+    'انتهت صلاحية هذا الرابط',
+    `اطلب رابطًا جديدًا من ${from} في قروب العائلة.`,
+  ],
   'used-up': [
     'link_off',
     'هذا الرابط استُخدم بالكامل',
@@ -131,7 +135,7 @@ export function InviteLanding({ state }: { state: 'ok' | 'expired' | 'used-up' |
             انضم برقم جوالك
           </Link>
           <p className="text-center text-caption text-muted">
-            ما تحتاج كلمة مرور. يوصلك رمز برسالة نصية.
+            ما تحتاج كلمة مرور. يوصلك رمز على واتساب.
           </p>
         </div>
       )}
@@ -167,7 +171,8 @@ export function LiveInvite({ token }: { token: string }) {
         }
         // A member who opens an old link is let back into their tree, so only strangers see
         // the problem.
-        if (!row.valid && !me) return setPhase({ at: 'problem', problem: row.problem ?? 'stopped', from });
+        if (!row.valid && !me)
+          return setPhase({ at: 'problem', problem: row.problem ?? 'stopped', from });
         setPhase({ at: 'ready', kind: row.kind, from, signedIn: !!me });
       } catch {
         if (!gone) setPhase({ at: 'problem', problem: 'failed', from: '' });
@@ -192,7 +197,11 @@ export function LiveInvite({ token }: { token: string }) {
       setJoining(false);
       setPhase({
         at: 'problem',
-        problem: /reviewer limit/.test(text) ? 'full' : /not valid/.test(text) ? 'expired' : 'failed',
+        problem: /reviewer limit/.test(text)
+          ? 'full'
+          : /not valid/.test(text)
+            ? 'expired'
+            : 'failed',
         from: phase.at === 'ready' ? phase.from : '',
       });
     }
@@ -247,7 +256,7 @@ export function LiveInvite({ token }: { token: string }) {
               انضم برقم جوالك
             </Link>
             <p className="text-center text-caption text-muted">
-              ما تحتاج كلمة مرور. يوصلك رمز برسالة نصية.
+              ما تحتاج كلمة مرور. يوصلك رمز على واتساب.
             </p>
           </>
         )}

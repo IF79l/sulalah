@@ -148,7 +148,14 @@ export interface DemoState {
   settings: Settings;
   plan: PlanId;
   upgradeRequested?: PlanId;
-  me: { first: string; father: string; phone: string; notify: 'app' | 'sms' };
+  me: {
+    first: string;
+    father: string;
+    phone: string;
+    /** WhatsApp notices on or off, and the topics turned off (packages/messaging templates). */
+    notify: 'app' | 'whatsapp';
+    muted: ('review' | 'members' | 'billing')[];
+  };
   /** Invites to other trees the person chose to ignore. */
   ignoredInvites?: string[];
   /** Set once the owner hands the tree to someone else. */
@@ -355,7 +362,7 @@ function seed(): DemoState {
       showBirthYears: true,
     },
     plan: 'extended',
-    me: { first: 'فيصل', father: 'خالد', phone: '551234567', notify: 'app' },
+    me: { first: 'فيصل', father: 'خالد', phone: '551234567', notify: 'whatsapp', muted: [] },
     drafts: [],
     members: [],
   };
@@ -373,6 +380,12 @@ function load(): DemoState {
     const saved = raw ? (JSON.parse(raw) as DemoState) : null;
     // A state saved before the tree had its own field carries the sample tree.
     state = saved ? { ...seed(), ...saved, tree: saved.tree ?? seed().tree } : seed();
+    // Saved when notices could still go by SMS: WhatsApp replaced it.
+    state.me = {
+      ...state.me,
+      notify: state.me.notify === 'app' ? 'app' : 'whatsapp',
+      muted: state.me.muted ?? [],
+    };
   } catch {
     state = seed();
   }
@@ -439,7 +452,11 @@ export function openLive(
     invites: [],
     notices: [],
     log: (file.log ?? []) as LogEntry[],
-    settings: { ...defaultTreeSettings, ...file.settings, viewers: info.viewOpen ? 'link' : 'members' },
+    settings: {
+      ...defaultTreeSettings,
+      ...file.settings,
+      viewers: info.viewOpen ? 'link' : 'members',
+    },
     plan: info.plan,
     me: info.me,
     myBranch: info.branch,
@@ -506,7 +523,6 @@ export function when(at: string) {
   for (const [u, n] of steps) if (Math.abs(s) >= n) [unit, size] = [u, n];
   return ago.format(Math.round(s / size), unit);
 }
-
 
 /** "اسم واحد", "اسمان", "5 أسماء", "88 اسمًا": the counted noun as Arabic grammar wants it. */
 export const names = (n: number) =>
@@ -594,9 +610,7 @@ export function approve(submissionId: string, keep: string[], by: string) {
             : p,
         ),
       submissions: s.submissions.map((x) =>
-        x.id === submissionId
-          ? { ...x, status: 'approved', personIds: keep, reviewedBy: by }
-          : x,
+        x.id === submissionId ? { ...x, status: 'approved', personIds: keep, reviewedBy: by } : x,
       ),
       log: [
         {

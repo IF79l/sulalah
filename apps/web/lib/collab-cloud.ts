@@ -27,6 +27,14 @@ import type { InviteKind, NoticeKind, TreeRole } from '@/lib/supabase/types';
 const fullName = (p?: { first_name: string; father_name: string } | null) =>
   p ? [p.first_name, p.father_name && `بن ${p.father_name}`].filter(Boolean).join(' ') : '';
 
+/**
+ * Asks the server to send the WhatsApp messages this action just queued, so they go now and
+ * not with the daily job. Never waits and never fails the action: the queue keeps them.
+ */
+export function sendQueuedMessages() {
+  void fetch('/api/whatsapp/flush', { method: 'POST', keepalive: true }).catch(() => {});
+}
+
 /** The signed in account's id, or null. */
 export async function myUserId(): Promise<string | null> {
   const {
@@ -169,6 +177,7 @@ export async function previewInvite(token: string) {
 export async function acceptInvite(token: string): Promise<string> {
   const { data, error } = await supabase().rpc('accept_invite', { token });
   if (error) throw error;
+  sendQueuedMessages();
   return data;
 }
 
@@ -223,6 +232,7 @@ export async function setMemberRole(
     scope,
   });
   if (error) throw error;
+  sendQueuedMessages();
 }
 
 export async function removeMember(treeId: string, userId: string) {
@@ -237,6 +247,7 @@ export async function removeMember(treeId: string, userId: string) {
 export async function transferTree(treeId: string, userId: string) {
   const { error } = await supabase().rpc('transfer_ownership', { tree: treeId, member: userId });
   if (error) throw error;
+  sendQueuedMessages();
 }
 
 /** A contributor's own place in the tree. */
@@ -272,7 +283,9 @@ async function listAll(bucket: string, prefix: string): Promise<string[]> {
 
 async function removeAll(bucket: string, paths: string[]) {
   for (let i = 0; i < paths.length; i += 100) {
-    const { error } = await supabase().storage.from(bucket).remove(paths.slice(i, i + 100));
+    const { error } = await supabase()
+      .storage.from(bucket)
+      .remove(paths.slice(i, i + 100));
     if (error) throw error;
   }
 }
@@ -327,7 +340,11 @@ export interface Incoming {
   sub: SubmissionFile;
 }
 
-const fileId = (path: string) => path.split('/').pop()!.replace(/\.json$/, '');
+const fileId = (path: string) =>
+  path
+    .split('/')
+    .pop()!
+    .replace(/\.json$/, '');
 
 /**
  * Submission files waiting in the tree's folder. Files whose ids are in `known` are not
@@ -357,7 +374,10 @@ export async function loadSubmissions(
     try {
       const { data, error } = await supabase().storage.from(TREE_BUCKET).download(path);
       if (error) throw error;
-      incoming.push({ by, sub: await openSubmission(unwrap(await data.text()), key, treeId, by, id) });
+      incoming.push({
+        by,
+        sub: await openSubmission(unwrap(await data.text()), key, treeId, by, id),
+      });
     } catch {
       unreadable++;
     }
@@ -422,7 +442,10 @@ export async function unreadNotices(): Promise<number> {
 }
 
 export async function markNoticesRead(ids?: string[]) {
-  let q = supabase().from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null);
+  let q = supabase()
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .is('read_at', null);
   if (ids) q = q.in('id', ids);
   const { error } = await q;
   if (error) throw error;
@@ -430,8 +453,13 @@ export async function markNoticesRead(ids?: string[]) {
 
 /** Tells the owner and the reviewers covering `path` (root → father) that additions arrived. */
 export async function notifySubmission(treeId: string, path: string[], n: number) {
-  const { error } = await supabase().rpc('notify_submission', { tree: treeId, anchor_path: path, n });
+  const { error } = await supabase().rpc('notify_submission', {
+    tree: treeId,
+    anchor_path: path,
+    n,
+  });
   if (error) throw error;
+  sendQueuedMessages();
 }
 
 export async function notifyMember(
@@ -449,6 +477,7 @@ export async function notifyMember(
     at: at ?? null,
   });
   if (error) throw error;
+  sendQueuedMessages();
 }
 
 // ---------- The visitors' copy ----------
@@ -495,10 +524,13 @@ export async function publishView(treeId: string, key: string, file: TreeFile, v
   if (old.length) await removeAll(VIEW_BUCKET, old);
 }
 
-export type ViewProblem = 'stopped' | 'expired' | 'used-up' | 'closed' | 'not-ready' | 'missing' | 'wrong-key';
+export type ViewProblem =
+  'stopped' | 'expired' | 'used-up' | 'closed' | 'not-ready' | 'missing' | 'wrong-key';
 
 /** What a visitor with a view link gets: the filtered copy, or why not. */
-export async function openViewLink(token: string): Promise<{ file: TreeFile } | { problem: ViewProblem }> {
+export async function openViewLink(
+  token: string,
+): Promise<{ file: TreeFile } | { problem: ViewProblem }> {
   const { data, error } = await supabase().rpc('open_view', { token });
   if (error) throw error;
   const row = data?.[0];
