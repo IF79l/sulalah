@@ -5,6 +5,8 @@
  * on production.
  */
 
+import { templates } from './whatsapp/templates';
+
 export type Channel = 'whatsapp' | 'sms' | 'mock';
 
 export interface Attempt {
@@ -15,7 +17,13 @@ export interface Attempt {
 
 export interface MessagingConfig {
   /** Meta WhatsApp Cloud API: an approved "authentication" template with one code parameter. */
-  whatsapp?: { token: string; phoneNumberId: string; template: string; language?: string };
+  whatsapp?: {
+    token: string;
+    phoneNumberId: string;
+    template: string;
+    language?: string;
+    apiVersion?: string;
+  };
   /** Unifonic: the app id and a sender name registered with CST. */
   sms?: { appSid: string; senderId: string };
   /** Production never falls back to the log. */
@@ -71,29 +79,32 @@ async function whatsapp(
   code: string,
   fetcher: typeof fetch,
 ) {
-  const res = await fetcher(`https://graph.facebook.com/v21.0/${c.phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${c.token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to,
-      type: 'template',
-      template: {
-        name: c.template,
-        language: { code: c.language ?? 'ar' },
-        components: [
-          { type: 'body', parameters: [{ type: 'text', text: code }] },
-          // Authentication templates carry a "copy code" button that takes the code too.
-          {
-            type: 'button',
-            sub_type: 'url',
-            index: '0',
-            parameters: [{ type: 'text', text: code }],
-          },
-        ],
-      },
-    }),
-  });
+  const res = await fetcher(
+    `https://graph.facebook.com/${c.apiVersion ?? 'v21.0'}/${c.phoneNumberId}/messages`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${c.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: {
+          name: c.template,
+          language: { code: c.language ?? 'ar' },
+          components: [
+            { type: 'body', parameters: [{ type: 'text', text: code }] },
+            // Authentication templates carry a "copy code" button that takes the code too.
+            {
+              type: 'button',
+              sub_type: 'url',
+              index: '0',
+              parameters: [{ type: 'text', text: code }],
+            },
+          ],
+        },
+      }),
+    },
+  );
   if (!res.ok) throw new Error(`whatsapp answered ${res.status}`);
 }
 
@@ -125,13 +136,15 @@ async function unifonic(
 /** Reads the channels from the environment; a channel without all its keys stays off. */
 export function messagingConfig(env: Record<string, string | undefined>): MessagingConfig {
   return {
-    ...(env.WHATSAPP_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID && env.WHATSAPP_TEMPLATE
+    // The same Sulalah number that sends every other notice (whatsapp/templates.ts).
+    ...(env.WHATSAPP_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID && env.WHATSAPP_MODE !== 'off'
       ? {
           whatsapp: {
             token: env.WHATSAPP_TOKEN,
             phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID,
-            template: env.WHATSAPP_TEMPLATE,
+            template: env.WHATSAPP_TEMPLATE || templates.login_code.name,
             ...(env.WHATSAPP_TEMPLATE_LANG ? { language: env.WHATSAPP_TEMPLATE_LANG } : {}),
+            ...(env.WHATSAPP_API_VERSION ? { apiVersion: env.WHATSAPP_API_VERSION } : {}),
           },
         }
       : {}),

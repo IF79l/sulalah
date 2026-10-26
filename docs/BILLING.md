@@ -52,6 +52,8 @@
 
 ## رموز الدخول: واتساب ثم رسالة نصية
 
+واتساب هو قناة سُلالة الوحيدة للتنبيهات، ومعها رمز الدخول (docs/WHATSAPP.md). الرسالة النصية احتياط لرمز الدخول فقط.
+
 Supabase يولّد الرمز، ونحن نرسله عبر **Send SMS Hook** إلى `/api/auth/sms-hook`:
 
 - أول إرسال يروح على واتساب. إذا فشل، أو طلب الشخص الرمز مرة ثانية خلال 10 دقائق، يروح برسالة نصية عبر يونيفونك.
@@ -61,12 +63,12 @@ Supabase يولّد الرمز، ونحن نرسله عبر **Send SMS Hook** إ
 الإعداد لما تجهز الحسابات:
 
 1. **Supabase > Authentication > Hooks > Send SMS**: نوع HTTPS، الرابط `https://<الدومين>/api/auth/sms-hook`، وانسخ السر الذي يولّده إلى `SEND_SMS_HOOK_SECRET` في Vercel.
-2. واتساب (Meta WhatsApp Cloud API): قالب من نوع Authentication بالعربية فيه الرمز وزر نسخ، ثم `WHATSAPP_TOKEN` و `WHATSAPP_PHONE_NUMBER_ID` و `WHATSAPP_TEMPLATE`.
+2. واتساب (Meta WhatsApp Cloud API): نفس رقم سُلالة ومفاتيحه في docs/WHATSAPP.md، وقالب الرمز `sulalah_login_code` (Authentication بالعربية فيه زر نسخ) ينرسل مع باقي القوالب.
 3. الرسائل النصية (يونيفونك): اسم مرسل مسجّل لدى هيئة الاتصالات (يحتاج السجل التجاري)، ثم `UNIFONIC_APP_SID` و `UNIFONIC_SENDER_ID`.
 
 أي قناة ناقصة مفاتيحها تبقى مطفأة، والباقي يشتغل.
 
 ## الاختبارات
 
-- `pnpm test`: قواعد التسعير والضريبة وQR (`packages/domain`)، والـ checkout والـ webhook والتجديد (`packages/billing`)، والقنوات وتوقيع الـ hook (`packages/messaging`).
+- `pnpm test`: قواعد التسعير والضريبة وQR (`packages/domain`)، والـ checkout والـ webhook والتجديد (`packages/billing`)، والقنوات وتوقيع الـ hook وتنبيهات واتساب (`packages/messaging`).
 - `pnpm db:test`: صلاحيات وجداول الفوترة على Postgres حقيقي (`supabase/tests/billing.sql`).

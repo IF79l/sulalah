@@ -12,7 +12,8 @@ type Step = 'phone' | 'code' | 'name';
 const RESEND_S = 45;
 
 /**
- * Phone-only sign in: number, then a six-digit SMS code, then (first time only) a name.
+ * Phone-only sign in: number, then a six-digit code (WhatsApp, SMS as fallback), then (first
+ * time only) a name.
  * With `live` the code goes through Supabase; without it (the demo build) any code is accepted.
  */
 export function SignIn({
@@ -207,7 +208,7 @@ export function SignIn({
                   value={phone}
                   onChange={setPhone}
                   error={phoneError}
-                  hint="يوصلك الرمز في رسالة نصية"
+                  hint="يوصلك الرمز على واتساب"
                 />
                 <Button type="submit" disabled={sending} className="w-full">
                   {sending ? (
@@ -231,6 +232,7 @@ export function SignIn({
                   <Link href="/privacy" className="font-semibold text-olive hover:underline">
                     سياسة الخصوصية
                   </Link>
+                  ، وعلى وصول تنبيهات سُلالة على واتساب، وتقدر توقفها من حسابك متى شئت.
                 </p>
               </form>
             ) : null}

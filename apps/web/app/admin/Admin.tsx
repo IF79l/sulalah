@@ -121,6 +121,21 @@ function demoAdmin(s: ReturnType<typeof useDemo>): AdminBilling {
       { channel: 'sms', sent: 23, failed: 0 },
       { channel: 'mock', sent: 0, failed: 0 },
     ],
+    whatsapp: {
+      mode: 'mock',
+      waiting: 2,
+      sent: 412,
+      read: 351,
+      failed: 3,
+      dropped: 6,
+      failures: [
+        {
+          template: 'additions_submitted',
+          error: 'meta 400 #131026: Message undeliverable',
+          at: '2026-06-02T09:00:00Z',
+        },
+      ],
+    },
   };
 }
 
@@ -289,7 +304,7 @@ export function Admin({ live }: { live: boolean }) {
             { value: 'invoices', label: 'الفواتير', count: data?.invoices.length ?? 0 },
             { value: 'requests', label: 'طلبات التفعيل', count: data?.requests.length ?? 0 },
             { value: 'prices', label: 'الأسعار والبائع' },
-            { value: 'codes', label: 'رموز الدخول' },
+            { value: 'codes', label: 'واتساب والرموز' },
             ...(live ? [] : [{ value: 'users' as const, label: 'الحسابات', count: users.length }]),
           ]}
         />
@@ -582,11 +597,61 @@ function SellerForm({
   );
 }
 
+function Notices({ wa }: { wa: AdminBilling['whatsapp'] }) {
+  const mode = {
+    meta: 'متصل برقم سُلالة على واتساب',
+    mock: 'تجريبي: الرسائل تُكتب في سجل الخادم',
+    off: 'متوقف: مفاتيح واتساب ناقصة، والرسائل تنتظر في الطابور',
+  }[wa.mode];
+  const tiles: [string, string, number, string][] = [
+    ['schedule_send', 'تنتظر الإرسال', wa.waiting, ''],
+    ['done_all', 'أُرسلت', wa.sent, wa.sent ? `قُرئ منها ${num(wa.read)}` : 'لا شيء بعد'],
+    ['error', 'تعذّرت', wa.failed, ''],
+    ['block', 'لم تُرسل', wa.dropped, 'قديمة، أو أوقف صاحبها التنبيهات'],
+  ];
+  return (
+    <div className="grid gap-4">
+      <p className="flex items-center gap-2 rounded-xl border border-line/40 bg-card px-4 py-3 text-body text-ink-soft">
+        <Icon name="chat" className="text-olive" />
+        تنبيهات واتساب: {mode}
+      </p>
+      <div className="grid gap-3 sm:grid-cols-4">
+        {tiles.map(([icon, label, n, hint]) => (
+          <div key={label} className="grid gap-1 rounded-2xl border border-line/40 bg-card p-5">
+            <span className="flex items-center gap-2 text-caption text-muted">
+              <Icon name={icon} className="text-[1.1rem] text-olive" />
+              {label}
+            </span>
+            <span className="text-h2 font-bold tabular-nums text-forest">{num(n)}</span>
+            {hint ? <span className="text-caption text-muted">{hint}</span> : null}
+          </div>
+        ))}
+      </div>
+      {wa.failures.length ? (
+        <Table
+          head={['الرسالة', 'السبب', 'الوقت']}
+          rows={wa.failures.map((f) => [
+            <code key="t" className="text-caption">
+              {f.template}
+            </code>,
+            <span key="e" dir="ltr" className="text-caption">
+              {f.error}
+            </span>,
+            new Date(f.at).toLocaleString('ar-SA-u-nu-latn'),
+          ])}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function Codes({ data }: { data: AdminBilling }) {
   const label = { whatsapp: 'واتساب', sms: 'رسالة نصية', mock: 'تجريبي (في السجل)' } as const;
   const total = data.codes.reduce((a, c) => a + c.sent, 0);
   return (
     <div className="grid gap-4">
+      <Notices wa={data.whatsapp} />
+      <h3 className="mt-2 text-title font-bold text-forest">رموز الدخول</h3>
       <div className="grid gap-3 sm:grid-cols-3">
         {data.codes.map((c) => (
           <div key={c.channel} className="grid gap-1 rounded-2xl border border-line/40 bg-card p-5">

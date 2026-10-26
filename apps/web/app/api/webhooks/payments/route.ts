@@ -1,8 +1,10 @@
 import { handleWebhook } from '@sulalah/billing';
+import { after } from 'next/server';
 import { backendOn } from '@/lib/backend';
 import { billingAsServer } from '@/server/billing/clients';
 import { liveMode, paymentProvider, webhookSecret } from '@/server/billing/env';
 import { supabaseStore } from '@/server/billing/store';
+import { flushWhatsApp } from '@/server/whatsapp/send';
 
 /**
  * Payment webhook. Subscriptions activate only here: the shared secret is checked, the payment
@@ -21,6 +23,8 @@ export async function POST(req: Request) {
       live: liveMode,
     });
     if (result.outcome !== 'applied') console.info(`[payments webhook] ${result.outcome}`);
+    // The receipt the payment queued goes on WhatsApp once Moyasar has its answer.
+    else after(() => flushWhatsApp().catch((e) => console.error('[whatsapp] flush failed', e)));
     return Response.json({ outcome: result.outcome }, { status: result.status });
   } catch (e) {
     // Moyasar delivers again on any error answer.

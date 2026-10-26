@@ -59,7 +59,11 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
         .eq('user_id', user.id)
         .maybeSingle(),
       db.from('trees').select('plan, view_slug').eq('id', treeId).maybeSingle(),
-      db.from('profiles').select('first_name, father_name, notify').eq('id', user.id).maybeSingle(),
+      db
+        .from('profiles')
+        .select('first_name, father_name, notify, notify_muted')
+        .eq('id', user.id)
+        .maybeSingle(),
       db.from('plans').select('id, max_persons, max_reviewers'),
       db.rpc('tree_paused', { tree: treeId }),
     ]);
@@ -91,7 +95,8 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
             first: profile.data?.first_name ?? '',
             father: profile.data?.father_name ?? '',
             phone: (user.phone ?? '').slice(-9),
-            notify: profile.data?.notify ?? 'app',
+            notify: profile.data?.notify ?? 'whatsapp',
+            muted: profile.data?.notify_muted ?? [],
           },
         },
         loaded.file,

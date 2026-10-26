@@ -123,6 +123,32 @@ export type OtpSendRow = {
   created_at: string;
 };
 
+export type WaStatus =
+  'queued' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | 'expired' | 'skipped';
+
+export type WaOutboxRow = {
+  id: string;
+  user_id: string;
+  tree_id: string | null;
+  template: string;
+  topic: 'review' | 'members' | 'billing';
+  actor_id: string | null;
+  count: number;
+  data: Record<string, unknown>;
+  dedupe_key: string | null;
+  status: WaStatus;
+  attempts: number;
+  next_attempt_at: string;
+  locked_until: string | null;
+  provider_message_id: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  sent_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
+};
+
 type Rel = {
   foreignKeyName: string;
   columns: string[];
@@ -151,6 +177,7 @@ export type BillingDatabase = {
         OtpSendRow,
         Pick<OtpSendRow, 'phone_hash' | 'channel' | 'ok'> & { error?: string | null }
       >;
+      wa_outbox: Table<WaOutboxRow, never, Partial<WaOutboxRow>>;
       trees: {
         Row: {
           id: string;
@@ -216,8 +243,32 @@ export type BillingDatabase = {
         Returns: undefined;
       };
       my_role: { Args: { tree: string }; Returns: 'owner' | 'reviewer' | 'contributor' | null };
+      wa_claim: {
+        Args: { batch?: number };
+        Returns: {
+          id: string;
+          template: string;
+          phone: string | null;
+          actor: string;
+          count: number;
+          tree_id: string | null;
+          data: Record<string, unknown>;
+          attempts: number;
+        }[];
+      };
+      wa_delivery: {
+        Args: { message: string; what: WaStatus; at: string; error?: string | null };
+        Returns: undefined;
+      };
+      wa_set_by_phone: { Args: { number: string; wanted: boolean }; Returns: number };
+      wa_plan_reminders: { Args: Record<never, never>; Returns: number };
     };
-    Enums: { plan_id: PlanCode; billing_cycle: Cycle; subscription_status: SubStatus };
+    Enums: {
+      plan_id: PlanCode;
+      billing_cycle: Cycle;
+      subscription_status: SubStatus;
+      wa_status: WaStatus;
+    };
     CompositeTypes: Record<never, never>;
   };
 };
