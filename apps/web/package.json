@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "seed:staging": "tsx scripts/seed-staging.ts"
+    "seed:staging": "tsx scripts/seed-staging.ts",
+    "whatsapp:templates": "tsx scripts/whatsapp-templates.ts"
   },
   "dependencies": {
     "@sulalah/billing": "workspace:*",

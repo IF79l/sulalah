@@ -84,6 +84,13 @@ set role authenticated;
 select tests.as_user('chadi');
 select tests.fails($$ select public.accept_invite('tok-v') $$, 'a view link does not make a member', 'not valid');
 select tests.ok(public.accept_invite('tok-c')::text = tests.v('tree'), 'a contributor joins');
+select tests.ok((select branch_root from public.tree_members where user_id = auth.uid()) = 'p-saad',
+  'a contributor keeps the branch their link was for');
+update public.tree_members set branch_person_id = 'p-saad-son' where user_id = auth.uid();
+select tests.ok((select branch_person_id from public.tree_members where user_id = auth.uid()) = 'p-saad-son',
+  'and may pick their own place inside it');
+select tests.fails($$ update public.tree_members set branch_root = null where user_id = auth.uid() $$,
+  'but cannot lift the branch the link was for', 'permission denied');
 select tests.as_user('badr');
 select tests.ok(public.accept_invite('tok-r')::text = tests.v('tree'), 'a reviewer joins');
 select tests.ok((select scope_person_ids from public.tree_members where user_id = auth.uid()) = '{p-saad}',
@@ -265,10 +272,24 @@ select tests.ok((select count(*) from storage.objects where name like '%/submiss
 select tests.as_user('chadi');
 select tests.fails(format($$ select public.transfer_ownership(%L, %L) $$, tests.v('tree'), tests.id('chadi')),
   'only the owner hands the tree over', 'not allowed');
+-- Amal pays with her card; the card must not follow the tree to its new owner.
+reset role;
+insert into public.payment_methods (owner_id, provider, token) values (tests.id('amal'), 'sandbox', 'tok-card');
+insert into public.subscriptions (tree_id, plan, status, cycle, period_start, period_end, provider, payment_method_id)
+select tests.v('tree')::uuid, 'family', 'active', 'monthly', now(), now() + interval '20 days', 'sandbox', id
+from public.payment_methods where token = 'tok-card';
+set role authenticated;
 select tests.as_user('amal');
 select tests.fails(format($$ select public.transfer_ownership(%L, %L) $$, tests.v('tree'), tests.id('dana')),
   'the tree goes only to a member', 'not a member');
 select public.transfer_ownership(tests.v('tree')::uuid, tests.id('badr'));
+reset role;
+select tests.ok((select payment_method_id from public.subscriptions where tree_id = tests.v('tree')::uuid) is null,
+  'the old owner''s card no longer renews a tree that is not theirs');
+select tests.ok((select status from public.subscriptions where tree_id = tests.v('tree')::uuid) = 'active',
+  'the plan runs on to the end of what was paid');
+set role authenticated;
+select tests.as_user('amal');
 select tests.ok(public.my_role(tests.v('tree')::uuid) = 'reviewer', 'the old owner stays on as a reviewer');
 select tests.ok((select owner_id from public.trees) = tests.id('badr'), 'the tree records its new owner');
 select tests.fails(format($$ select public.set_view_open(%L, true) $$, tests.v('tree')),

@@ -129,6 +129,26 @@ describe('submissions', () => {
     expect(takeIn(file, sub(), 'u1', { limit: 7 }).problem).toBe('too-many');
   });
 
+  it('refuse a blank name or impossible years, and drop a stray death year', () => {
+    const one = (p: Partial<SubmissionFile['people'][number]>) =>
+      sub({ people: [{ id: 'p1', name: 'فهد', gender: 'male', fatherId: 's', status: 'proposed', ...p }] });
+    expect(takeIn(file, one({ name: '   ' }), 'u1').problem).toBe('bad-person');
+    expect(takeIn(file, one({ birthYear: 3000 }), 'u1').problem).toBe('bad-person');
+    expect(takeIn(file, one({ deceased: true, birthYear: 1990, deathYear: 1980 }), 'u1').problem).toBe(
+      'bad-person',
+    );
+    const alive = takeIn(file, one({ name: '  فهد   بن  سعد ', deathYear: 2001 }), 'u1').file!;
+    const p1 = alive.people.find((p) => p.id === 'p1')!;
+    expect(p1.deathYear).toBeUndefined();
+    expect(p1.name).toBe('فهد بن سعد');
+  });
+
+  it('keep a contributor inside the branch their link was for', () => {
+    // Joined on a link for عبدالله's branch, then picked سعد as their own place.
+    expect(takeIn(file, sub(), 'u1', { branch: 's', branchRoot: 'a' }).problem).toBe('outside-branch');
+    expect(takeIn(file, sub(), 'u1', { branch: 's', branchRoot: 'm' }).problem).toBeUndefined();
+  });
+
   it('warn about a sibling with the same name', () => {
     const r = takeIn(
       file,

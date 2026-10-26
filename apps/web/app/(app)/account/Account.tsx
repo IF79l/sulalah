@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Chip, Field, Icon, OtpField, PhoneField, Segmented } from '@sulalah/ui';
+import { Button, Chip, Field, Icon, OtpField, PhoneField } from '@sulalah/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -9,6 +9,7 @@ import { TREE_ID, closeLive, update, useDemo } from '@/lib/demo-store';
 import { stopSaving } from '@/lib/live-tree';
 import { supabase } from '@/lib/supabase/client';
 import { forgetKeys } from '@/lib/tree-keys';
+import { NoticeSettings } from './NoticeSettings';
 
 /** S23: my name, my number, my trees, and leaving. */
 export function Account({ live }: { live?: boolean }) {
@@ -32,7 +33,9 @@ export function Account({ live }: { live?: boolean }) {
             <p className="rounded-xl bg-surface-low px-4 py-2.5 text-body text-ink-soft sm:col-span-2">
               يظهر اسمك:{' '}
               <strong className="text-forest">
-                {first} بن {father} {s.tree.family}
+                {[first.trim(), father.trim() && `بن ${father.trim()}`, s.tree.family]
+                  .filter(Boolean)
+                  .join(' ')}
               </strong>
             </p>
             <Button
@@ -119,20 +122,7 @@ export function Account({ live }: { live?: boolean }) {
         </Panel>
 
         <Panel title="الإشعارات" icon="notifications">
-          <div className="grid gap-2 p-5">
-            <span className="text-body text-ink-soft">كيف يوصلك خبر الإضافات والاعتماد؟</span>
-            <div className="max-w-sm">
-              <Segmented
-                label="طريقة الإشعار"
-                value={s.me.notify}
-                onChange={(v) => update((st) => ({ ...st, me: { ...st.me, notify: v } }))}
-                options={[
-                  { value: 'app', label: 'داخل التطبيق' },
-                  { value: 'sms', label: 'رسالة نصية' },
-                ]}
-              />
-            </div>
-          </div>
+          <NoticeSettings live={live} onSaved={() => setToast('حفظنا اختيارك')} />
         </Panel>
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line/40 bg-card p-5">

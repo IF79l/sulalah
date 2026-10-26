@@ -20,6 +20,8 @@ const payload = z.object({
   sms: z.object({ otp: z.string().regex(/^[0-9]{4,10}$/) }).passthrough(),
 });
 
+const MAX_SENDS = 5;
+
 /** Supabase shows this message on a failed send. */
 const refuse = (status: number, message: string) =>
   Response.json({ error: { http_code: status, message } }, { status });
@@ -32,6 +34,9 @@ export async function POST(req: Request) {
   const parsed = payload.safeParse(JSON.parse(raw || 'null'));
   if (!parsed.success) return refuse(400, 'bad payload');
   const phone = parsed.data.user.phone.replace(/^\+/, '');
+  // Saudi mobiles only, as the sign in screen allows: a script calling the auth API with other
+  // numbers must not make us pay for codes sent abroad.
+  if (!/^9665\d{8}$/.test(phone)) return refuse(400, 'only Saudi mobile numbers');
 
   const config = messagingConfig(process.env);
   // The phone is kept only as a keyed hash, enough to tell a resend from a first send.
@@ -47,6 +52,9 @@ export async function POST(req: Request) {
           .gte('created_at', since)
       ).data ?? [])
     : [];
+
+  // Beyond Supabase's own limits: at most five codes to one number in ten minutes.
+  if (recent.filter((r) => r.ok).length >= MAX_SENDS) return refuse(429, 'too many codes for this number');
 
   const now = new Date();
   const channels = channelsFor(

@@ -3,6 +3,7 @@
 import { useId, useRef, type InputHTMLAttributes, type ReactNode } from 'react';
 import { Icon } from './Icon';
 import { cn } from './cn';
+import { latinDigits, nationalMobile } from './digits';
 
 const inputBox =
   'rounded-xl border bg-card transition focus-within:border-forest focus-within:ring-2 focus-within:ring-gold-light/50';
@@ -93,7 +94,20 @@ export function PhoneField({
           value={shown}
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? `${id}-note` : undefined}
-          onChange={(e) => onChange(e.target.value.replace(/\D/g, '').replace(/^0/, '').slice(0, 9))}
+          onChange={(e) => {
+            const text = e.target.value;
+            let next = nationalMobile(text);
+            // Backspace over one of the spaces leaves the digits as they were: take the digit
+            // before it instead, or the field would never let go of it.
+            if (next === value && text.length < shown.length) {
+              const at = latinDigits(text.slice(0, e.target.selectionStart ?? text.length)).replace(
+                /\D/g,
+                '',
+              ).length;
+              next = at > 0 ? value.slice(0, at - 1) + value.slice(at) : value;
+            }
+            onChange(next);
+          }}
           className="w-0 min-w-0 flex-1 bg-transparent px-4 py-3 text-end text-body-lg tracking-wider text-forest outline-none placeholder:text-outline/60"
         />
         <Icon name="phone_iphone" className="me-3 text-outline" />
@@ -136,7 +150,7 @@ export function OtpField({
           value={value[i] ?? ''}
           autoFocus={i === 0}
           onChange={(e) => {
-            const digits = e.target.value.replace(/\D/g, '');
+            const digits = latinDigits(e.target.value).replace(/\D/g, '');
             if (!digits) return;
             set(value.slice(0, i) + digits + value.slice(i + digits.length), i + digits.length);
           }}

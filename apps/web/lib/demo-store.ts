@@ -14,6 +14,7 @@ import {
   type Action as PermissionAction,
   type Actor,
   type PlanId,
+  type PlanLimits,
   type TreeFile,
   type TreeFilePerson,
   type TreeRole,
@@ -147,8 +148,19 @@ export interface DemoState {
   log: LogEntry[];
   settings: Settings;
   plan: PlanId;
+  /** The plan's limits as the plans table has them; the sample tree uses the defaults. */
+  limits?: PlanLimits;
+  /** The plan expired or was canceled: the tree is read-only for additions and approvals. */
+  paused?: boolean;
   upgradeRequested?: PlanId;
-  me: { first: string; father: string; phone: string; notify: 'app' | 'sms' };
+  me: {
+    first: string;
+    father: string;
+    phone: string;
+    /** WhatsApp notices on or off, and the topics turned off (packages/messaging templates). */
+    notify: 'app' | 'whatsapp';
+    muted: ('review' | 'members' | 'billing')[];
+  };
   /** Invites to other trees the person chose to ignore. */
   ignoredInvites?: string[];
   /** Set once the owner hands the tree to someone else. */
@@ -355,7 +367,7 @@ function seed(): DemoState {
       showBirthYears: true,
     },
     plan: 'extended',
-    me: { first: 'فيصل', father: 'خالد', phone: '551234567', notify: 'app' },
+    me: { first: 'فيصل', father: 'خالد', phone: '551234567', notify: 'whatsapp', muted: [] },
     drafts: [],
     members: [],
   };
@@ -373,6 +385,12 @@ function load(): DemoState {
     const saved = raw ? (JSON.parse(raw) as DemoState) : null;
     // A state saved before the tree had its own field carries the sample tree.
     state = saved ? { ...seed(), ...saved, tree: saved.tree ?? seed().tree } : seed();
+    // Saved when notices could still go by SMS: WhatsApp replaced it.
+    state.me = {
+      ...state.me,
+      notify: state.me.notify === 'app' ? 'app' : 'whatsapp',
+      muted: state.me.muted ?? [],
+    };
   } catch {
     state = seed();
   }
@@ -423,7 +441,14 @@ export const currentTreeId = () => live?.treeId ?? TREE_ID;
 
 /** Puts a real tree in the store, in place of the sample, with nothing of the sample left. */
 export function openLive(
-  info: LiveTree & { branch?: string; plan: PlanId; me: DemoState['me']; viewOpen: boolean },
+  info: LiveTree & {
+    branch?: string;
+    plan: PlanId;
+    limits?: PlanLimits;
+    paused?: boolean;
+    me: DemoState['me'];
+    viewOpen: boolean;
+  },
   file: TreeFile,
   key: string,
 ) {
@@ -439,8 +464,14 @@ export function openLive(
     invites: [],
     notices: [],
     log: (file.log ?? []) as LogEntry[],
-    settings: { ...defaultTreeSettings, ...file.settings, viewers: info.viewOpen ? 'link' : 'members' },
+    settings: {
+      ...defaultTreeSettings,
+      ...file.settings,
+      viewers: info.viewOpen ? 'link' : 'members',
+    },
     plan: info.plan,
+    limits: info.limits,
+    paused: info.paused,
     me: info.me,
     myBranch: info.branch,
     ignoredInvites: [],
@@ -507,7 +538,6 @@ export function when(at: string) {
   return ago.format(Math.round(s / size), unit);
 }
 
-
 /** "اسم واحد", "اسمان", "5 أسماء", "88 اسمًا": the counted noun as Arabic grammar wants it. */
 export const names = (n: number) =>
   n === 1
@@ -562,7 +592,7 @@ export function generations(people: Person[], rootId: string) {
 export const fold = (s: string) =>
   s.replace(/[ً-ْ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').trim();
 
-export const planLimits = (s: DemoState) => defaultPlanLimits[s.plan];
+export const planLimits = (s: DemoState) => s.limits ?? defaultPlanLimits[s.plan];
 
 export const planName: Record<PlanId, string> = {
   family: 'العائلة',
@@ -574,7 +604,11 @@ let seq = 0;
 export const newId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
 
-export const myName = (s: DemoState) => `${s.me.first} بن ${s.me.father}`;
+/** "فيصل بن خالد", or just "فيصل" when the account has no father's name. */
+export const myName = (s: DemoState) =>
+  [s.me.first.trim() || 'فرد من العائلة', s.me.father.trim() && `بن ${s.me.father.trim()}`]
+    .filter(Boolean)
+    .join(' ');
 
 // ---------- Changing the tree ----------
 
@@ -594,9 +628,7 @@ export function approve(submissionId: string, keep: string[], by: string) {
             : p,
         ),
       submissions: s.submissions.map((x) =>
-        x.id === submissionId
-          ? { ...x, status: 'approved', personIds: keep, reviewedBy: by }
-          : x,
+        x.id === submissionId ? { ...x, status: 'approved', personIds: keep, reviewedBy: by } : x,
       ),
       log: [
         {
@@ -749,7 +781,8 @@ export function actorOf(s: DemoState): Actor {
 
 /** The name written in the log and on submissions for whoever is acting. */
 export const actingName = (s: DemoState) =>
-  s.as === 'reviewer' ? (demoReviewer(s)?.name ?? myName(s)) : myName(s);
+  // On a real tree a reviewer is the signed in person; the sample plays its first reviewer.
+  s.as === 'reviewer' && !live ? (demoReviewer(s)?.name ?? myName(s)) : myName(s);
 
 export const allows = (s: DemoState, action: PermissionAction) => can(actorOf(s), action);
 

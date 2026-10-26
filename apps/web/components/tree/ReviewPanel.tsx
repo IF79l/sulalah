@@ -24,6 +24,7 @@ export function ReviewPanel({
   people,
   reviewer,
   outOfScope,
+  paused,
   nextId,
   onDone,
   onClose,
@@ -32,6 +33,8 @@ export function ReviewPanel({
   people: Person[];
   reviewer: string;
   outOfScope?: boolean;
+  /** The plan lapsed: nothing can be approved until the owner subscribes again. */
+  paused?: boolean;
   nextId?: string;
   onDone: (text: string) => void;
   onClose: () => void;
@@ -223,9 +226,15 @@ export function ReviewPanel({
           </div>
         ) : (
           <div className="grid gap-2">
+            {paused ? (
+              <p className="flex items-center gap-2 rounded-xl bg-pending-soft p-3 text-caption text-pending">
+                <Icon name="pause_circle" />
+                انتهت باقة الشجرة، والاعتماد متوقف حتى يجدد المالك.
+              </p>
+            ) : null}
             <Button
               className="rounded-xl"
-              disabled={keep.size === 0}
+              disabled={keep.size === 0 || paused}
               onClick={() => {
                 approve(submission.id, [...keep], reviewer);
                 tellContributor(

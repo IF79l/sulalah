@@ -65,7 +65,8 @@ export function JoinBranch() {
       }
     }
     update((st) => {
-      if (who !== 'father') return { ...st, myBranch: person.id };
+      // Without a first name there is nothing to put on the leaf; they add themselves later.
+      if (who !== 'father' || !st.me.first.trim()) return { ...st, myBranch: person.id };
       // "This is my father, and I am not in the tree": start with yourself as a draft.
       const id = newId('p');
       return {
@@ -75,11 +76,11 @@ export function JoinBranch() {
           ...st.people,
           {
             id,
-            name: st.me.first || 'أنا',
+            name: st.me.first.trim(),
             gender: 'male',
             fatherId: person.id,
             status: 'proposed',
-            addedBy: `${st.me.first} بن ${person.name}`,
+            addedBy: `${st.me.first.trim()} بن ${person.name}`,
             addedAt: stamp(),
           },
         ],

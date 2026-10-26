@@ -151,7 +151,13 @@ export function TreeExplorer({
   useEffect(() => {
     onSelectionChange?.(person ?? null);
   }, [person?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const addable = !!person && !!onAdd && person.gender === 'male' && (canAdd?.(person) ?? true);
+  // Only a man of the line has children on the tree: not a daughter, nor a wife's family.
+  const addable =
+    !!person &&
+    !!onAdd &&
+    person.gender === 'male' &&
+    (person.id === rootId || !!person.fatherId) &&
+    (canAdd?.(person) ?? true);
   const kids = person ? childrenOf(person.id) : [];
   const spouses = person
     ? unions

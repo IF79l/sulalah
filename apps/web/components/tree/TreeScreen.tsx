@@ -134,6 +134,10 @@ export function TreeScreen({
       setForm(null);
       return;
     }
+    if (s.paused) {
+      say('انتهت باقة الشجرة، والإضافات متوقفة حتى يجدد المالك');
+      return;
+    }
     if (!fitsPlan(s)) {
       say(`وصلت الشجرة لحد باقتها: ${num(planLimits(s).maxPersons)} اسم. يرفعها المالك من صفحة الباقة`);
       return;
@@ -196,6 +200,10 @@ export function TreeScreen({
 
   const [sending, setSending] = useState(false);
   const sendDrafts = async () => {
+    if (s.paused) {
+      say('انتهت باقة الشجرة، والإضافات متوقفة حتى يجدد المالك');
+      return;
+    }
     setSending(true);
     try {
       const n = await sendAll();
@@ -261,9 +269,18 @@ export function TreeScreen({
         <Button
           size="sm"
           className="rounded-xl"
-          onClick={() =>
-            setForm({ father: (current as Person) ?? m.get(s.tree.rootId)!, gender: 'male' })
-          }
+          onClick={() => {
+            // Children go under a man of the line; anyone else selected falls back to the root.
+            const picked = current ? m.get(current.id) : undefined;
+            const father =
+              picked &&
+              picked.gender === 'male' &&
+              (picked.id === s.tree.rootId || picked.fatherId) &&
+              (owner || canAddUnder(s, picked.id))
+                ? picked
+                : m.get(s.tree.rootId)!;
+            setForm({ father, gender: 'male' });
+          }}
         >
           <Icon name="person_add" />
           <span className="hidden sm:inline">إضافة فرد</span>
@@ -294,6 +311,7 @@ export function TreeScreen({
       people={s.people}
       reviewer={actor}
       outOfScope={!canReview(s, submission.fatherId)}
+      paused={s.paused}
       nextId={nextSub}
       onDone={say}
       onClose={() => router.replace(t())}
@@ -302,7 +320,17 @@ export function TreeScreen({
 
   const limit = planLimits(s).maxPersons;
   const note =
-    contributing && branch && !m.get(branch) ? (
+    s.paused && !visitor ? (
+      <span>
+        انتهت باقة الشجرة. الشجرة محفوظة وتنعرض كاملة، والإضافات والاعتماد متوقفة حتى يجدد
+        المالك.{' '}
+        {owner ? (
+          <Link href={t('/plan')} className="font-semibold text-forest underline">
+            جدد الباقة
+          </Link>
+        ) : null}
+      </span>
+    ) : contributing && branch && !m.get(branch) ? (
       <span>
         غصنك ما عاد موجودًا في الشجرة.{' '}
         <Link href={t('/join')} className="font-semibold text-forest underline">

@@ -1,6 +1,7 @@
 'use client';
 
 import { Button, Chip, Field, Icon, IconButton, Segmented, Sheet, cn } from '@sulalah/ui';
+import { NAME_MAX, cleanName, latinDigits, nameProblem, yearsProblem } from '@sulalah/domain';
 import { useState } from 'react';
 import { fold, type Person } from '@/lib/demo-store';
 
@@ -66,24 +67,40 @@ export function AddPersonSheet({
     d.name.trim() &&
     siblings.find((s) => s.id !== editing?.id && s.gender === d.gender && fold(s.name) === fold(d.name));
 
+  const [yearError, setYearError] = useState<string>();
+
   const save = () => {
-    if (!d.name.trim()) {
-      setError('اكتب الاسم');
+    const bad = nameProblem(d.name);
+    if (bad) {
+      setError(bad);
+      return;
+    }
+    // Someone alive has no death year, whatever was typed before the switch was flipped.
+    const clean = { ...d, name: cleanName(d.name), deathYear: d.deceased ? d.deathYear : undefined };
+    const years = yearsProblem(clean);
+    if (years) {
+      setYearError(years);
+      setMore(true);
       return;
     }
     if (duplicate && !warned) {
       setWarned(true);
       return;
     }
-    onSave({ ...d, name: d.name.trim() });
+    onSave(clean);
     if (editing) return;
-    setAdded((a) => [...a, `${d.name.trim()}`]);
+    setAdded((a) => [...a, clean.name]);
     setD(blank(d.gender));
     setWarned(false);
     setError(undefined);
+    setYearError(undefined);
   };
 
-  const year = (v: string) => (v ? Number(v.replace(/\D/g, '').slice(0, 4)) || undefined : undefined);
+  const year = (v: string) => {
+    setYearError(undefined);
+    const digits = latinDigits(v).replace(/\D/g, '').slice(0, 4);
+    return digits ? Number(digits) || undefined : undefined;
+  };
 
   return (
     <Sheet label={editing ? `تعديل ${editing.name}` : `إضافة ${rel}`}>
@@ -126,6 +143,7 @@ export function AddPersonSheet({
         <Field
           label="الاسم"
           autoFocus
+          maxLength={NAME_MAX}
           value={d.name}
           placeholder={d.gender === 'female' ? 'مثل: نورة' : 'مثل: سلمان'}
           error={error}
@@ -203,12 +221,18 @@ export function AddPersonSheet({
                 dir="ltr"
                 placeholder="—"
                 disabled={!d.deceased}
-                value={d.deathYear ?? ''}
+                value={d.deceased ? (d.deathYear ?? '') : ''}
                 onChange={(e) => setD({ ...d, deathYear: year(e.target.value) })}
               />
             </div>
+            {yearError ? (
+              <p role="alert" className="text-caption font-medium text-danger">
+                {yearError}
+              </p>
+            ) : null}
             <Field
               label="اللقب أو الكنية"
+              maxLength={NAME_MAX}
               placeholder="مثل: أبو فهد"
               value={d.kunya ?? ''}
               onChange={(e) => setD({ ...d, kunya: e.target.value })}
@@ -217,6 +241,7 @@ export function AddPersonSheet({
               <span className="text-body font-medium text-ink">نبذة قصيرة</span>
               <textarea
                 rows={3}
+                maxLength={2000}
                 value={d.bio ?? ''}
                 onChange={(e) => setD({ ...d, bio: e.target.value })}
                 placeholder="سطر أو سطرين يعرفه فيها أهله"

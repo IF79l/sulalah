@@ -20,6 +20,9 @@ export type NoticeKind =
   | 'made_contributor'
   | 'owner_now';
 
+/** What a person can mute on WhatsApp (packages/messaging/src/whatsapp/templates.ts). */
+export type NoticeTopic = 'review' | 'members' | 'billing';
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -37,7 +40,11 @@ export type ProfileRow = {
   id: string;
   first_name: string;
   father_name: string;
-  notify: 'app' | 'sms';
+  /** WhatsApp notices on or off; the app's own list always has everything. */
+  notify: 'app' | 'whatsapp';
+  notify_muted: NoticeTopic[];
+  whatsapp_opt_in_at: string | null;
+  whatsapp_opt_out_at: string | null;
   is_platform_admin: boolean;
   created_at: string;
   updated_at: string;
@@ -62,6 +69,8 @@ export type MemberRow = {
   user_id: string;
   role: TreeRole;
   branch_person_id: string | null;
+  /** The branch the contributor's invite link was for; set by accept_invite only. */
+  branch_root: string | null;
   scope_person_ids: string[];
   invited_by: string | null;
   created_at: string;
@@ -100,9 +109,13 @@ export type Database = {
       profiles: Table<
         ProfileRow,
         { id: string },
-        Partial<Pick<ProfileRow, 'first_name' | 'father_name' | 'notify' | 'updated_at'>>
+        Partial<
+          Pick<ProfileRow, 'first_name' | 'father_name' | 'notify' | 'notify_muted' | 'updated_at'>
+        >
       >;
       trees: Table<TreeRow, never, never>;
+      /** Limits only; prices are billing's (billing-types.ts). */
+      plans: Table<{ id: PlanCode; max_persons: number; max_reviewers: number }, never, never>;
       tree_members: {
         Row: MemberRow;
         Insert: never;
@@ -155,10 +168,7 @@ export type Database = {
     Views: Record<never, never>;
     Functions: {
       create_tree: { Args: { requested?: PlanCode | null }; Returns: string };
-      save_tree_file: {
-        Args: { tree: string; from_version: number; path: string };
-        Returns: number;
-      };
+      tree_paused: { Args: { tree: string }; Returns: boolean };
       accept_invite: { Args: { token: string }; Returns: string };
       tree_key: { Args: { tree: string }; Returns: string | null };
       set_tree_key: { Args: { tree: string; new_key: string }; Returns: undefined };

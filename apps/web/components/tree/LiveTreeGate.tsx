@@ -7,10 +7,25 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NoAccess, Sprouting, StatePage } from '@/components/States';
 import { appEnv } from '@/lib/backend';
 import { closeLive, liveTree, openLive } from '@/lib/demo-store';
-import { retrySave, startSaving, stopSaving, unsaved, useSaveStatus } from '@/lib/live-tree';
+import {
+  refusalText,
+  retrySave,
+  startSaving,
+  stopSaving,
+  unsaved,
+  useSaveStatus,
+} from '@/lib/live-tree';
 import { supabase } from '@/lib/supabase/client';
 import { loadTreeFile } from '@/lib/tree-cloud';
 import { treeKey } from '@/lib/tree-keys';
+
+const limitsOf = (
+  rows: { id: string; max_persons: number; max_reviewers: number }[] | null,
+  plan: string,
+) => {
+  const row = rows?.find((r) => r.id === plan);
+  return row ? { maxPersons: row.max_persons, maxReviewers: row.max_reviewers } : undefined;
+};
 
 type Phase = 'loading' | 'no-access' | 'empty' | 'no-key' | 'failed' | 'ready';
 
@@ -36,7 +51,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
       router.replace(`/login?next=${encodeURIComponent(`/trees/${treeId}`)}`);
       return;
     }
-    const [member, tree, profile] = await Promise.all([
+    const [member, tree, profile, plans, paused] = await Promise.all([
       db
         .from('tree_members')
         .select('role, scope_person_ids, branch_person_id')
@@ -44,7 +59,13 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
         .eq('user_id', user.id)
         .maybeSingle(),
       db.from('trees').select('plan, view_slug').eq('id', treeId).maybeSingle(),
-      db.from('profiles').select('first_name, father_name, notify').eq('id', user.id).maybeSingle(),
+      db
+        .from('profiles')
+        .select('first_name, father_name, notify, notify_muted')
+        .eq('id', user.id)
+        .maybeSingle(),
+      db.from('plans').select('id, max_persons, max_reviewers'),
+      db.rpc('tree_paused', { tree: treeId }),
     ]);
     if (member.error || tree.error) {
       setWhy((member.error ?? tree.error)?.code);
@@ -66,12 +87,16 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
           scope: member.data.scope_person_ids,
           branch: member.data.branch_person_id ?? undefined,
           plan: tree.data.plan,
+          // The server checks every save against these too; here they only shape the screens.
+          limits: limitsOf(plans.data, tree.data.plan),
+          paused: paused.data === true,
           viewOpen: !!tree.data.view_slug,
           me: {
             first: profile.data?.first_name ?? '',
             father: profile.data?.father_name ?? '',
             phone: (user.phone ?? '').slice(-9),
-            notify: profile.data?.notify ?? 'app',
+            notify: profile.data?.notify ?? 'whatsapp',
+            muted: profile.data?.notify_muted ?? [],
           },
         },
         loaded.file,
@@ -160,6 +185,7 @@ export function LiveTreeGate({ treeId, children }: { treeId: string; children: R
 /** A small note at the bottom while a change is on its way to the server, or stuck. */
 function SaveBadge() {
   const status = useSaveStatus();
+  const why = refusalText();
   const [justSaved, setJustSaved] = useState(false);
   const last = useRef(status);
   useEffect(() => {
@@ -183,6 +209,7 @@ function SaveBadge() {
     saved: 'حُفظ مشفّرًا',
     offline: 'بلا اتصال، نحفظ أول ما يرجع',
     failed: 'تعذّر الحفظ',
+    refused: `ما حُفظ التغيير: ${why}`,
   }[status];
   return (
     <div
@@ -191,7 +218,15 @@ function SaveBadge() {
       className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gold-light/40 bg-card/95 px-4 py-2 text-caption font-semibold text-forest shadow-float backdrop-blur-sm"
     >
       <Icon
-        name={status === 'saving' ? 'progress_activity' : status === 'saved' ? 'lock' : 'cloud_off'}
+        name={
+          status === 'saving'
+            ? 'progress_activity'
+            : status === 'saved'
+              ? 'lock'
+              : status === 'refused'
+                ? 'block'
+                : 'cloud_off'
+        }
         className={cn('text-[1.1rem]', status === 'saving' && 'animate-spin')}
       />
       {text}
