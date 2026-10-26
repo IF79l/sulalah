@@ -3,6 +3,7 @@
 import { openTree, sealTree, type TreeFile } from '@sulalah/domain';
 import { TREE_BUCKET } from '@/lib/backend';
 import { supabase } from '@/lib/supabase/client';
+import { plantKey } from '@/lib/tree-keys';
 import type { PlanCode } from '@/lib/supabase/types';
 
 /** Someone saved the tree after this device loaded it. */
@@ -72,18 +73,19 @@ export async function saveTreeFile(
   throw new Error(body.error?.code ?? `save failed (${res.status})`);
 }
 
-/** Plants a tree: a bare record and its key on the server, then its first sealed file. */
+/**
+ * Plants a tree: a bare record, then its key, made and wrapped by the server, then its first
+ * sealed file.
+ */
 export async function plantTree(
   requested: PlanCode,
   build: (treeId: string) => TreeFile,
-  key: string,
 ): Promise<string> {
   const db = supabase();
   const { data: treeId, error } = await db.rpc('create_tree', { requested });
   if (error || !treeId) throw error ?? new Error('no tree');
   try {
-    const { error: e2 } = await db.rpc('set_tree_key', { tree: treeId, new_key: key });
-    if (e2) throw e2;
+    const key = await plantKey(treeId);
     await saveTreeFile(treeId, 0, build(treeId), key);
   } catch (e) {
     // A tree that never got its first file is of no use: take the empty record back, so a

@@ -8,19 +8,15 @@
 import {
   openSubmission,
   openText,
-  openTree,
   randomToken,
   sealSubmission,
   sealText,
-  sealTree,
   sha256Hex,
   submissionPath,
-  viewKeyFor,
-  visitorsCopy,
   type SubmissionFile,
   type TreeFile,
 } from '@sulalah/domain';
-import { TREE_BUCKET, VIEW_BUCKET, supabaseUrl } from '@/lib/backend';
+import { TREE_BUCKET, VIEW_BUCKET } from '@/lib/backend';
 import { supabase } from '@/lib/supabase/client';
 import type { InviteKind, NoticeKind, TreeRole } from '@/lib/supabase/types';
 
@@ -116,10 +112,7 @@ export async function makeLink(
   const db = supabase();
   const me = await myUserId();
   if (!me) throw new Error('signed out');
-  if (opts.kind === 'view') {
-    const { error } = await db.rpc('set_view_open', { tree: treeId, open: true });
-    if (error) throw error;
-  }
+  if (opts.kind === 'view') await viewAction(treeId, 'open');
   const token = randomToken();
   const expiresAt = new Date(Date.now() + opts.days * 86_400_000).toISOString();
   const { data, error } = await db
@@ -150,8 +143,9 @@ export async function makeLink(
 }
 
 /**
- * Stops a link at once. Stopping a view link also moves the visitors' copy to a new folder,
- * so whoever opened it before cannot keep reading it; the next save publishes it there.
+ * Stops a link at once. Stopping a view link also moves the visitors' copy to a new folder
+ * with a new key, so whoever opened it before cannot keep reading it; the server builds the
+ * copy there at once.
  */
 export async function stopLink(treeId: string, link: Link) {
   const db = supabase();
@@ -160,10 +154,7 @@ export async function stopLink(treeId: string, link: Link) {
     .update({ revoked_at: new Date().toISOString() })
     .eq('id', link.id);
   if (error) throw error;
-  if (link.kind === 'view') {
-    const { error: e2 } = await db.rpc('set_view_open', { tree: treeId, open: true, fresh: true });
-    if (e2) throw e2;
-  }
+  if (link.kind === 'view') await viewAction(treeId, 'renew');
 }
 
 /** What an invite link says before joining. */
@@ -489,66 +480,32 @@ export async function notifyMember(
 
 // ---------- The visitors' copy ----------
 
-/** Opens or closes the tree to view links; answers the copy's folder, or null when closed. */
-export async function setViewOpen(treeId: string, open: boolean): Promise<string | null> {
-  const db = supabase();
-  if (!open) {
-    await removeAll(VIEW_BUCKET, await listAll(VIEW_BUCKET, treeId));
-  }
-  const { data, error } = await db.rpc('set_view_open', { tree: treeId, open });
-  if (error) throw error;
-  return data;
-}
-
-export async function viewFolder(treeId: string): Promise<string | null> {
-  const { data, error } = await supabase()
-    .from('trees')
-    .select('view_slug')
-    .eq('id', treeId)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.view_slug ?? null;
-}
-
 /**
- * Seals the visitors' copy of `file` with the view key and points view links at it, then
- * clears older copies. Does nothing while the tree is closed to view links.
+ * The visitors' copy is built, sealed and opened on the server (server/trees/view.ts); the
+ * browser only says when. open, close and renew are the owner's; publish rebuilds the copy
+ * from the last save.
  */
-export async function publishView(treeId: string, key: string, file: TreeFile, version: number) {
-  const slug = await viewFolder(treeId);
-  if (!slug) return;
-  const db = supabase();
-  const path = `${treeId}/${slug}/v${version}.json`;
-  const viewKey = await viewKeyFor(key, treeId);
-  const sealed = JSON.stringify(await sealTree(visitorsCopy(file), viewKey));
-  const { error } = await db.storage
-    .from(VIEW_BUCKET)
-    .upload(path, sealed, { contentType: 'application/json', upsert: false, cacheControl: '60' });
-  if (error && !/exist|duplicate|409/i.test(error.message)) throw error;
-  const { error: e2 } = await db.rpc('publish_view', { tree: treeId, path, copy_key: viewKey });
-  if (e2) throw e2;
-  const old = (await listAll(VIEW_BUCKET, treeId)).filter((p) => p !== path);
-  if (old.length) await removeAll(VIEW_BUCKET, old);
+async function viewAction(treeId: string, action: 'open' | 'close' | 'renew' | 'publish') {
+  const res = await fetch(`/api/trees/${treeId}/view`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ action }),
+    cache: 'no-store',
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    slug?: string | null;
+    error?: { code: string; message: string };
+  };
+  if (!res.ok)
+    throw Object.assign(new Error(body.error?.message ?? `view ${res.status}`), {
+      code: body.error?.code,
+    });
+  return body.slug ?? null;
 }
 
-export type ViewProblem =
-  'stopped' | 'expired' | 'used-up' | 'closed' | 'not-ready' | 'missing' | 'wrong-key';
+/** Opens or closes the tree to view links; answers the copy's folder, or null when closed. */
+export const setViewOpen = (treeId: string, open: boolean) =>
+  viewAction(treeId, open ? 'open' : 'close');
 
-/** What a visitor with a view link gets: the filtered copy, or why not. */
-export async function openViewLink(
-  token: string,
-): Promise<{ file: TreeFile } | { problem: ViewProblem }> {
-  const { data, error } = await supabase().rpc('open_view', { token });
-  if (error) throw error;
-  const row = data?.[0];
-  if (!row) return { problem: 'missing' };
-  if (row.problem || !row.path || !row.view_key)
-    return { problem: (row.problem ?? 'not-ready') as ViewProblem };
-  const res = await fetch(`${supabaseUrl}/storage/v1/object/public/${VIEW_BUCKET}/${row.path}`);
-  if (!res.ok) return { problem: 'not-ready' };
-  try {
-    return { file: await openTree(await res.json(), row.view_key) };
-  } catch {
-    return { problem: 'wrong-key' };
-  }
-}
+/** Builds the visitors' copy again from the tree as last saved. */
+export const publishView = (treeId: string) => viewAction(treeId, 'publish');

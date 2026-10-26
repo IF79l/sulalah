@@ -40,7 +40,7 @@
 - Repository secret: `SUPABASE_ACCESS_TOKEN` (من supabase.com > Account > Access Tokens).
 - Repository variables: `STAGING_PROJECT_REF` و `PRODUCTION_PROJECT_REF` (معرف كل مشروع)، و `STAGING_PUBLISHABLE_KEY`، و `STAGING_DEMO_PHONE` (رقم الاختبار)، و `STAGING_APP_URL` (رابط موقع staging، لأن زرع العائلة التجريبية يحفظ عن طريق التطبيق).
 - Environments: أنشئ `staging` و `production`، وفي كل منهما secret باسم `SUPABASE_DB_PASSWORD` (كلمة مرور قاعدة ذلك المشروع). في `production` فعّل **Required reviewers** وضع فيصل.
-- في `staging` أيضًا: `STAGING_DEMO_OTP` (رمز رقم الاختبار) واختياريًا `STAGING_DEMO_TREE_KEY`.
+- في `staging` أيضًا: `STAGING_DEMO_OTP` (رمز رقم الاختبار).
 
 لزرع العائلة التجريبية: **Actions > Database > Run workflow** مع خيار "Plant the sample family on staging". تفتحها بعدها بالدخول برقم التجربة.
 

@@ -6,7 +6,6 @@ import {
   countedNames,
   defaultPlanLimits,
   fromCsv,
-  generateTreeKey,
   type CsvIssue,
   type PlanId,
   type TreeFilePerson,
@@ -18,7 +17,6 @@ import { TREE_ID, names, newId, replaceTree, update } from '@/lib/demo-store';
 import { appEnv } from '@/lib/backend';
 import { supabase } from '@/lib/supabase/client';
 import { SaveRefused, plantTree } from '@/lib/tree-cloud';
-import { keepKey } from '@/lib/tree-keys';
 
 const steps = [
   { title: 'اسم الشجرة', icon: 'edit' },
@@ -138,13 +136,10 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
       );
       return;
     }
-    const key = generateTreeKey();
     try {
       const id = await plantTree(
         plan,
         (treeId) => {
-          // Kept before the first save, so a dropped connection never strands the tree.
-          keepKey(treeId, key);
           return {
             format: 'sulalah-tree',
             version: 1,
@@ -155,7 +150,6 @@ export function NewTreeWizard({ live }: { live?: boolean }) {
             updatedAt: new Date().toISOString(),
           };
         },
-        key,
       );
       setPlanted(id);
       setDone(true);

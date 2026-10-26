@@ -6,7 +6,6 @@ import { AppShell, EmptyState, Toast } from '@/components/AppShell';
 import { ShareSheet } from '@/components/tree/ShareSheet';
 import { listLinks, stopLink, type Link as LiveLink } from '@/lib/collab-cloud';
 import { byId, liveTree, logEntry, num, update, useDemo, type Invite } from '@/lib/demo-store';
-import { republishView } from '@/lib/live-tree';
 
 const statusChip: Record<Invite['status'], [string, 'success' | 'neutral' | 'danger']> = {
   active: ['فعّال', 'success'],
@@ -78,7 +77,6 @@ export function Invites() {
           expiresAt: '',
           status: inv.status,
         });
-        if (inv.kind === 'view') await republishView();
       } catch {
         setToast('ما قدرنا نوقف الرابط، حاول مرة ثانية');
         return;

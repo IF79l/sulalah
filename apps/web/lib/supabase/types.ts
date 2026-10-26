@@ -172,8 +172,6 @@ export type Database = {
       create_tree: { Args: { requested?: PlanCode | null }; Returns: string };
       tree_paused: { Args: { tree: string }; Returns: boolean };
       accept_invite: { Args: { token: string }; Returns: string };
-      tree_key: { Args: { tree: string }; Returns: string | null };
-      set_tree_key: { Args: { tree: string; new_key: string }; Returns: undefined };
       invite_preview: {
         Args: { token: string };
         Returns: {
@@ -184,19 +182,10 @@ export type Database = {
           branch: string | null;
         }[];
       };
-      open_view: {
-        Args: { token: string };
-        Returns: {
-          problem: InviteProblem | 'closed' | 'not-ready' | null;
-          path: string | null;
-          view_key: string | null;
-        }[];
-      };
       set_view_open: {
         Args: { tree: string; open: boolean; fresh?: boolean };
         Returns: string | null;
       };
-      publish_view: { Args: { tree: string; path: string; copy_key: string }; Returns: undefined };
       set_member_role: {
         Args: { tree: string; member: string; new_role: TreeRole; scope?: string[] };
         Returns: undefined;

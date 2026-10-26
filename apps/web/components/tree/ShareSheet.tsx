@@ -13,7 +13,6 @@ import {
   update,
   useDemo,
 } from '@/lib/demo-store';
-import { republishView } from '@/lib/live-tree';
 
 type Kind = 'contribute' | 'view' | 'review';
 const days = { day: 1, week: 7, month: 30 } as const;
@@ -93,8 +92,7 @@ export function ShareSheet({
         maxUses,
         days: days[expiry],
       });
-      // A view link opens the tree to visitors; their copy has to exist before the link works.
-      if (kind === 'view') await republishView();
+      // A view link opens the tree to visitors; the server built their copy before answering.
       update((st) => ({
         ...st,
         settings: kind === 'view' ? { ...st.settings, viewers: 'link' } : st.settings,

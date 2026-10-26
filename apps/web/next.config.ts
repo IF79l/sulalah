@@ -8,6 +8,7 @@ const config: NextConfig = {
     '@sulalah/domain',
     '@sulalah/billing',
     '@sulalah/messaging',
+    '@sulalah/keys',
   ],
 };
 

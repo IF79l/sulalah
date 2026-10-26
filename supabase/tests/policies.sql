@@ -222,27 +222,22 @@ select tests.ok((select count(*) from public.tree_members) = 0, 'deleting a tree
 
 -- ---------- Tree keys ----------
 
+-- Keys are wrapped outside the database and handed out only by the server, after it checks
+-- who asks. No role reaches them through SQL any more, members included.
 reset role;
 set role authenticated;
 select tests.as_user('amal');
 insert into tests.vars values ('tree2', public.create_tree()::text);
-select public.set_tree_key(v::uuid, repeat('k', 43)) from tests.vars where k = 'tree2';
-select tests.ok(public.tree_key(v::uuid) = repeat('k', 43), 'the owner gets the tree key back')
-  from tests.vars where k = 'tree2';
-select tests.fails(format($$ select public.set_tree_key(%L, %L) $$, v, repeat('x', 43)),
-  'a tree key is set once', 'already set') from tests.vars where k = 'tree2';
+select tests.ok(to_regprocedure('public.tree_key(uuid)') is null, 'the database no longer hands out tree keys');
+select tests.ok(to_regprocedure('public.set_tree_key(uuid, text)') is null, 'nor takes them from the browser');
 select tests.fails($$ select key from public.tree_keys $$, 'nobody reads the keys table directly');
-
+select tests.fails(format($$ insert into public.tree_keys (tree_id, wrapped_key, kek_id) values (%L, 'w', 'local:k1') $$, v),
+  'not even the owner writes a key') from tests.vars where k = 'tree2';
 reset role;
-insert into public.tree_members (tree_id, user_id, role)
-select v::uuid, '00000000-0000-4000-8000-00000000000c', 'contributor' from tests.vars where k = 'tree2';
+insert into public.tree_keys (tree_id, wrapped_key, kek_id) select v::uuid, 'w', 'local:k1' from tests.vars where k = 'tree2';
+select tests.fails(format($$ update public.tree_keys set key = %L where tree_id = %L $$, repeat('k', 43), v),
+  'a key is kept in one form only', 'tree_keys_one_form') from tests.vars where k = 'tree2';
+select tests.fails(format($$ update public.tree_keys set kek_id = null where tree_id = %L $$, v),
+  'a wrapped key always says what wrapped it', 'tree_keys_one_form') from tests.vars where k = 'tree2';
 set role authenticated;
-select tests.as_user('chadi');
-select tests.ok(public.tree_key(v::uuid) = repeat('k', 43), 'a contributor gets the key after signing in')
-  from tests.vars where k = 'tree2';
-
-select tests.as_user('dana');
-select tests.fails(format($$ select public.tree_key(%L) $$, v), 'a stranger gets no key', 'not a member')
-  from tests.vars where k = 'tree2';
-select tests.fails(format($$ select public.set_tree_key(%L, %L) $$, v, repeat('x', 43)),
-  'a stranger cannot set a key', 'not allowed') from tests.vars where k = 'tree2';
+select tests.as_user('amal');
